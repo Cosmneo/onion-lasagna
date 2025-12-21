@@ -5,10 +5,10 @@ import { InvalidRequestError } from '../../../exceptions/invalid-request.error';
 /**
  * Validates a request using the injected validator.
  */
-export const requestDtoValidationMiddleware = <T>(validator: BoundValidator) => {
+export const requestDtoValidationMiddleware = <T>(validator: BoundValidator<T>) => {
   return async (request: unknown): Promise<T> => {
     try {
-      return validator.validate<T>(request);
+      return validator.validate(request);
     } catch (error) {
       if (error instanceof ObjectValidationError) {
         throw new InvalidRequestError({

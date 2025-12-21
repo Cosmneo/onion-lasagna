@@ -8,25 +8,25 @@ import { ControllerError } from '../../../exceptions/controller.error';
  */
 export const SKIP_REQUEST_VALIDATION = 'skip request validation' as const;
 
-type ValidatorFromInstance = {
-  fromInstance: (instance: unknown) => BoundValidator | typeof SKIP_REQUEST_VALIDATION;
-};
+interface ValidatorFromInstance<T> {
+  fromInstance: (instance: unknown) => BoundValidator<T> | typeof SKIP_REQUEST_VALIDATION;
+}
 
-type ValidatorOrGetter =
-  | BoundValidator
+type ValidatorOrGetter<T> =
+  | BoundValidator<T>
   | typeof SKIP_REQUEST_VALIDATION
-  | ValidatorFromInstance;
+  | ValidatorFromInstance<T>;
 
 export const requestValidatorFromInstance = (
-  getter: (instance: unknown) => BoundValidator | typeof SKIP_REQUEST_VALIDATION,
-): ValidatorFromInstance => ({
+  getter: (instance: unknown) => BoundValidator<unknown> | typeof SKIP_REQUEST_VALIDATION,
+): ValidatorFromInstance<unknown> => ({
   fromInstance: getter,
 });
 
 const resolveValidator = (
-  validatorOrGetter: ValidatorOrGetter,
+  validatorOrGetter: ValidatorOrGetter<unknown>,
   instance: unknown,
-): BoundValidator | typeof SKIP_REQUEST_VALIDATION => {
+): BoundValidator<unknown> | typeof SKIP_REQUEST_VALIDATION => {
   return typeof validatorOrGetter === 'object' &&
     validatorOrGetter !== null &&
     'fromInstance' in validatorOrGetter
@@ -34,19 +34,19 @@ const resolveValidator = (
     : validatorOrGetter;
 };
 
-export const ValidateRequest = <T>(validatorOrGetter: ValidatorOrGetter) => {
+export const ValidateRequest = <T>(validatorOrGetter: ValidatorOrGetter<T>) => {
   return <This, Args extends [T, ...unknown[]], Return>(
     value: (this: This, ...args: Args) => Promise<Return> | Return,
     context: ClassMethodDecoratorContext<
       This,
       (this: This, ...args: Args) => Promise<Return> | Return
-    >
+    >,
   ) => {
-    if (context.kind !== "method") {
+    if (context.kind !== 'method') {
       throw new Error(
         `@ValidateRequest can only be applied to methods, but ${String(
-          context.name
-        )} is not a method`
+          context.name,
+        )} is not a method`,
       );
     }
 
@@ -55,12 +55,10 @@ export const ValidateRequest = <T>(validatorOrGetter: ValidatorOrGetter) => {
         const [request, ...rest] = args;
         const resolvedValidator = resolveValidator(validatorOrGetter, this);
         if (resolvedValidator === SKIP_REQUEST_VALIDATION) {
-          console.info(
-            "ValidateRequest skipped: request validation explicitly disabled."
-          );
+          console.info('ValidateRequest skipped: request validation explicitly disabled.');
           return await value.apply(this, args);
         }
-        const validate = requestDtoValidationMiddleware<T>(resolvedValidator);
+        const validate = requestDtoValidationMiddleware<T>(resolvedValidator as BoundValidator<T>);
         const validated = await validate(request);
         return await value.apply(this, [validated, ...rest] as Args);
       } catch (error) {
@@ -71,7 +69,7 @@ export const ValidateRequest = <T>(validatorOrGetter: ValidatorOrGetter) => {
           message:
             error instanceof Error
               ? error.message
-              : "Controller validateRequest decorator execution failed",
+              : 'Controller validateRequest decorator execution failed',
           cause: error,
         });
       }

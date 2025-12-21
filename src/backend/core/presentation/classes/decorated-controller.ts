@@ -1,29 +1,32 @@
 import type { AccessGuard } from '../interfaces/types/access-guard.type';
 import type { AccessGuardResult } from '../interfaces/types/access-guard-result.type';
-import type { BaseApiPort } from '../../app/interfaces/ports/base-api.port';
+import type { BaseInboundPort } from '../../bounded-context/app/interfaces/ports/base-inbound.port';
+import type { BaseDto } from '../../global/classes/based-dto.class';
 import type { BoundValidator } from '../../global/interfaces/ports/object-validator.port';
 import { BaseController } from './base-controller';
 import {
   AllowRequest,
   accessGuardFromInstance,
 } from '../lib/controller-middlewares/decorators/allow-request.decorator';
+import type {
+  SKIP_REQUEST_VALIDATION} from '../lib/controller-middlewares/decorators/validate-request.decorator';
 import {
-  SKIP_REQUEST_VALIDATION,
   ValidateRequest,
   requestValidatorFromInstance,
 } from '../lib/controller-middlewares/decorators/validate-request.decorator';
+import type {
+  SKIP_RESPONSE_VALIDATION} from '../lib/controller-middlewares/decorators/validate-response.decorator';
 import {
-  SKIP_RESPONSE_VALIDATION,
   ValidateResponse,
   responseValidatorFromInstance,
 } from '../lib/controller-middlewares/decorators/validate-response.decorator';
 
 export interface DecoratedControllerConfig<TRequest, TResponse, TInput, TOutput> {
-  requestMapper: (request: TRequest) => TInput;
-  useCase: BaseApiPort<TInput, TOutput>;
-  responseMapper: (output: TOutput) => TResponse;
-  requestValidator: BoundValidator | typeof SKIP_REQUEST_VALIDATION;
-  responseValidator: BoundValidator | typeof SKIP_RESPONSE_VALIDATION;
+  requestMapper: (request: TRequest) => BaseDto<TInput>;
+  useCase: BaseInboundPort<TInput, TOutput>;
+  responseMapper: (output: BaseDto<TOutput>) => TResponse;
+  requestValidator: BoundValidator<TRequest> | typeof SKIP_REQUEST_VALIDATION;
+  responseValidator: BoundValidator<TResponse> | typeof SKIP_RESPONSE_VALIDATION;
   accessGuard?: AccessGuard<TRequest>;
 }
 
@@ -37,16 +40,16 @@ export class DecoratedController<TRequest, TResponse, TInput, TOutput> extends B
   TInput,
   TOutput
 > {
-  protected readonly requestValidator: BoundValidator | typeof SKIP_REQUEST_VALIDATION;
-  protected readonly responseValidator: BoundValidator | typeof SKIP_RESPONSE_VALIDATION;
+  protected readonly requestValidator: BoundValidator<TRequest> | typeof SKIP_REQUEST_VALIDATION;
+  protected readonly responseValidator: BoundValidator<TResponse> | typeof SKIP_RESPONSE_VALIDATION;
   protected readonly accessGuard: AccessGuard<TRequest>;
 
   constructor(
-    requestMapper: (request: TRequest) => TInput,
-    useCase: BaseApiPort<TInput, TOutput>,
-    responseMapper: (output: TOutput) => TResponse,
-    requestValidator: BoundValidator | typeof SKIP_REQUEST_VALIDATION,
-    responseValidator: BoundValidator | typeof SKIP_RESPONSE_VALIDATION,
+    requestMapper: (request: TRequest) => BaseDto<TInput>,
+    useCase: BaseInboundPort<TInput, TOutput>,
+    responseMapper: (output: BaseDto<TOutput>) => TResponse,
+    requestValidator: BoundValidator<TRequest> | typeof SKIP_REQUEST_VALIDATION,
+    responseValidator: BoundValidator<TResponse> | typeof SKIP_RESPONSE_VALIDATION,
     accessGuard?: AccessGuard<TRequest>,
   ) {
     super(requestMapper, useCase, responseMapper);

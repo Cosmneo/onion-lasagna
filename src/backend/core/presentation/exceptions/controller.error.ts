@@ -1,9 +1,9 @@
-import { CodedError } from "../../global/exceptions/coded-error.error";
+import { CodedError } from '../../global/exceptions/coded-error.error';
 
 export class ControllerError extends CodedError {
   constructor({
     message,
-    code = "CONTROLLER_ERROR",
+    code = 'CONTROLLER_ERROR',
     cause,
   }: {
     message: string;

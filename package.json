@@ -1,13 +1,58 @@
 {
-  "name": "onion-lasagna",
+  "name": "@scaleits-solutions-gmbh/onion-lasagna",
+  "version": "0.1.0",
   "type": "module",
   "devDependencies": {
-    "@types/bun": "latest"
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "eslint-plugin-unused-imports": "^4.3.0",
+    "globals": "^16.5.0",
+    "tsup": "^8.5.1",
+    "typescript-eslint": "^8.50.0"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "uuid": "^13.0.0",
     "zod": "^4.2.1"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "exports": {
+    "./backend/core/bounded-context": {
+      "types": "./dist/backend/core/bounded-context.d.ts",
+      "import": "./dist/backend/core/bounded-context.js",
+      "require": "./dist/backend/core/bounded-context.cjs",
+      "default": "./dist/backend/core/bounded-context.js"
+    },
+    "./backend/core/global": {
+      "types": "./dist/backend/core/global.d.ts",
+      "import": "./dist/backend/core/global.js",
+      "require": "./dist/backend/core/global.cjs",
+      "default": "./dist/backend/core/global.js"
+    },
+    "./backend/core/presentation": {
+      "types": "./dist/backend/core/presentation.d.ts",
+      "import": "./dist/backend/core/presentation.js",
+      "require": "./dist/backend/core/presentation.cjs",
+      "default": "./dist/backend/core/presentation.js"
+    },
+    "./backend/core/validators/zod": {
+      "types": "./dist/backend/core/validators/zod.d.ts",
+      "import": "./dist/backend/core/validators/zod.js",
+      "require": "./dist/backend/core/validators/zod.cjs",
+      "default": "./dist/backend/core/validators/zod.js"
+    }
+  },
+  "packageManager": "bun",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
   }
 }

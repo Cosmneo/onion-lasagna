@@ -1,4 +1,4 @@
-export type AccessGuardResult = {
+export interface AccessGuardResult {
   isAllowed: boolean;
   reason?: string;
-};
+}

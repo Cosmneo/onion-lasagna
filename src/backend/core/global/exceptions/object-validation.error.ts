@@ -5,7 +5,7 @@ export class ObjectValidationError extends CodedError {
   validationErrors: ValidationError[];
   constructor({
     message,
-    code = "OBJECT_VALIDATION_ERROR",
+    code = 'OBJECT_VALIDATION_ERROR',
     cause,
     validationErrors,
   }: {

@@ -3,7 +3,7 @@ import type { AccessGuard } from '../../../interfaces/types/access-guard.type';
 import { CodedError } from '../../../../global/exceptions/coded-error.error';
 import { ControllerError } from '../../../exceptions/controller.error';
 
-type AccessGuardFromInstance<T> = { fromInstance: (instance: unknown) => AccessGuard<T> };
+interface AccessGuardFromInstance<T> { fromInstance: (instance: unknown) => AccessGuard<T> }
 type AccessGuardOrGetter<T> = AccessGuard<T> | AccessGuardFromInstance<T>;
 
 export const accessGuardFromInstance = <T>(
@@ -12,21 +12,17 @@ export const accessGuardFromInstance = <T>(
   fromInstance: getter,
 });
 
-export const AllowRequest = <T = unknown>(
-  accessGuardOrGetter: AccessGuardOrGetter<T>
-) => {
+export const AllowRequest = <T = unknown>(accessGuardOrGetter: AccessGuardOrGetter<T>) => {
   return <This, Args extends [T, ...unknown[]], Return>(
     value: (this: This, ...args: Args) => Promise<Return> | Return,
     context: ClassMethodDecoratorContext<
       This,
       (this: This, ...args: Args) => Promise<Return> | Return
-    >
+    >,
   ) => {
-    if (context.kind !== "method") {
+    if (context.kind !== 'method') {
       throw new Error(
-        `@AllowRequest can only be applied to methods, but ${String(
-          context.name
-        )} is not a method`
+        `@AllowRequest can only be applied to methods, but ${String(context.name)} is not a method`,
       );
     }
 
@@ -34,7 +30,7 @@ export const AllowRequest = <T = unknown>(
       try {
         const request = args[0];
         const accessGuard =
-          "fromInstance" in accessGuardOrGetter
+          'fromInstance' in accessGuardOrGetter
             ? accessGuardOrGetter.fromInstance(this)
             : accessGuardOrGetter;
         const allow = allowRequestMiddleware(accessGuard);
@@ -48,7 +44,7 @@ export const AllowRequest = <T = unknown>(
           message:
             error instanceof Error
               ? error.message
-              : "Controller allowRequest decorator execution failed",
+              : 'Controller allowRequest decorator execution failed',
           cause: error,
         });
       }

@@ -1,5 +1,5 @@
-export type HttpResponse = {
+export interface HttpResponse {
   statusCode: number;
   headers?: Record<string, unknown>;
   body?: unknown;
-};
+}

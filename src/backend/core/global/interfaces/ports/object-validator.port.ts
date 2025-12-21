@@ -1,10 +1,10 @@
-export type ValidateObject = <T>(schema: unknown, value: unknown) => T;
+export type ValidateObject<TSchema> = <T>(schema: TSchema, value: unknown) => T;
 
-export interface BoundValidator {
-  validate: <T>(value: unknown) => T;
+export interface BoundValidator<T> {
+  validate: (value: unknown) => T;
 }
 
-export interface ObjectValidatorPort {
-  validateObject: ValidateObject;
-  withSchema: (schema: unknown) => BoundValidator;
+export interface ObjectValidatorPort<TSchema> {
+  validateObject: ValidateObject<TSchema>;
+  withSchema: <T>(schema: TSchema) => BoundValidator<T>;
 }

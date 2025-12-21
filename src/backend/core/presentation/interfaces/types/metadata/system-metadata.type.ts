@@ -98,10 +98,10 @@ export interface SystemMetadata {
    * Default servers for the API.
    * Used by OpenAPI generation and client configuration.
    */
-  servers?: Array<{
+  servers?: {
     url: string;
     description?: string;
-  }>;
+  }[];
 
   /**
    * Authentication configuration.
@@ -130,7 +130,7 @@ export interface SystemMetadata {
      *
      * Example: `[{ apiKeyAuth: [] }]`
      */
-    defaultSecurity?: Array<Record<string, string[]>>;
+    defaultSecurity?: Record<string, string[]>[];
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -202,9 +202,7 @@ export type SchemeNamesOf<TSystem> = TSystem extends {
  * type Req = SecurityRequirementOf<'apiKeyAuth' | 'bearerAuth'>;
  * // Array<Partial<Record<'apiKeyAuth' | 'bearerAuth', string[]>>>
  */
-export type SecurityRequirementOf<TSchemeNames extends string> = Array<
-  Partial<Record<TSchemeNames, string[]>>
->;
+export type SecurityRequirementOf<TSchemeNames extends string> = Partial<Record<TSchemeNames, string[]>>[];
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helper Function
@@ -217,7 +215,7 @@ type SystemMetadataInput<TSchemeNames extends string> = Omit<SystemMetadata, 'au
   auth?: {
     secureByDefault?: boolean;
     schemes: Record<TSchemeNames, AuthScheme>;
-    defaultSecurity?: Array<Partial<Record<TSchemeNames, string[]>>>;
+    defaultSecurity?: Partial<Record<TSchemeNames, string[]>>[];
   };
 };
 

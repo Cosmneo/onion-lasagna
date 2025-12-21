@@ -3,8 +3,8 @@ import type { BoundValidator } from '../../../../global/interfaces/ports/object-
 /**
  * Validates a response using the injected validator.
  */
-export const responseDtoValidationMiddleware = <T>(validator: BoundValidator) => {
+export const responseDtoValidationMiddleware = <T>(validator: BoundValidator<T>) => {
   return async (response: unknown): Promise<T> => {
-    return validator.validate<T>(response);
+    return validator.validate(response);
   };
 };

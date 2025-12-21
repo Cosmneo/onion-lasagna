@@ -1,22 +1,23 @@
-import type { BaseApiPort } from '../../app/interfaces/ports/base-api.port';
+import type { BaseInboundPort } from '../../bounded-context/app/interfaces/ports/base-inbound.port';
+import type { BaseDto } from '../../global/classes/based-dto.class';
 import { CodedError } from '../../global/exceptions/coded-error.error';
 import { ControllerError } from '../exceptions/controller.error';
 
 // ============ CONFIG INTERFACES ============
 
 export interface BaseControllerConfig<TRequest, TResponse, TInput, TOutput> {
-  requestMapper: (request: TRequest) => TInput;
-  useCase: BaseApiPort<TInput, TOutput>;
-  responseMapper: (output: TOutput) => TResponse;
+  requestMapper: (request: TRequest) => BaseDto<TInput>;
+  useCase: BaseInboundPort<TInput, TOutput>;
+  responseMapper: (output: BaseDto<TOutput>) => TResponse;
 }
 
 // ============ BASE CONTROLLER (no validation) ============
 
 export class BaseController<TRequest, TResponse, TInput, TOutput> {
   constructor(
-    protected readonly requestMapper: (request: TRequest) => TInput,
-    protected readonly useCase: BaseApiPort<TInput, TOutput>,
-    protected readonly responseMapper: (output: TOutput) => TResponse,
+    protected readonly requestMapper: (request: TRequest) => BaseDto<TInput>,
+    protected readonly useCase: BaseInboundPort<TInput, TOutput>,
+    protected readonly responseMapper: (output: BaseDto<TOutput>) => TResponse,
   ) {}
 
   static create<TRequest, TResponse, TInput, TOutput>(

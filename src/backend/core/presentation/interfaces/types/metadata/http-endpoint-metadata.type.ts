@@ -68,14 +68,13 @@ export interface HttpEndpointOpenApi {
    * - Require api key: `[ { apiKeyAuth: [] } ]`
    * - Allow either api key OR bearer: `[ { apiKeyAuth: [] }, { bearerAuth: [] } ]`
    */
-  security?: Array<Record<string, string[]>>;
+  security?: Record<string, string[]>[];
 }
 
 /**
  * OpenAPI-specific fields for endpoint metadata (strongly typed security).
  */
-export interface HttpEndpointOpenApiFor<TSystem>
-  extends Omit<HttpEndpointOpenApi, 'security'> {
+export interface HttpEndpointOpenApiFor<TSystem> extends Omit<HttpEndpointOpenApi, 'security'> {
   /**
    * Explicit OpenAPI `security` requirements for this endpoint.
    * Scheme names are validated against the system metadata at compile time.
@@ -181,8 +180,7 @@ export interface HttpEndpointMetadata {
  *   },
  * };
  */
-export interface HttpEndpointMetadataFor<TSystem>
-  extends Omit<HttpEndpointMetadata, 'openApi'> {
+export interface HttpEndpointMetadataFor<TSystem> extends Omit<HttpEndpointMetadata, 'openApi'> {
   /**
    * OpenAPI-specific overrides for this endpoint (with typed security).
    */
