@@ -169,7 +169,7 @@ export interface HttpEndpointMetadata {
  * against a SystemMetadata constant.
  *
  * @example
- * import type { HttpEndpointMetadataFor } from '@scaleits-solutions-gmbh/org-lib-backend-common-kit';
+ * import type { HttpEndpointMetadataFor } from '@cosmneo/org-lib-backend-common-kit';
  * import { systemMetadata } from '@/contracts/system-metadata';
  *
  * export const getUserHttpMetadata: HttpEndpointMetadataFor<typeof systemMetadata> = {

@@ -60,7 +60,7 @@ jobs:
       - name: Setup .npmrc
         run: |
           echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
-          echo "@scaleits-solutions-gmbh:registry=https://npm.pkg.github.com" >> .npmrc
+          echo "@cosmneo:registry=https://npm.pkg.github.com" >> .npmrc
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
 
