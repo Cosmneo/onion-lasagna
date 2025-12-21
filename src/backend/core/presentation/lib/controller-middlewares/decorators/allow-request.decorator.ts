@@ -3,7 +3,9 @@ import type { AccessGuard } from '../../../interfaces/types/access-guard.type';
 import { CodedError } from '../../../../global/exceptions/coded-error.error';
 import { ControllerError } from '../../../exceptions/controller.error';
 
-interface AccessGuardFromInstance<T> { fromInstance: (instance: unknown) => AccessGuard<T> }
+interface AccessGuardFromInstance<T> {
+  fromInstance: (instance: unknown) => AccessGuard<T>;
+}
 type AccessGuardOrGetter<T> = AccessGuard<T> | AccessGuardFromInstance<T>;
 
 export const accessGuardFromInstance = <T>(

@@ -8,14 +8,12 @@ import {
   AllowRequest,
   accessGuardFromInstance,
 } from '../lib/controller-middlewares/decorators/allow-request.decorator';
-import type {
-  SKIP_REQUEST_VALIDATION} from '../lib/controller-middlewares/decorators/validate-request.decorator';
+import type { SKIP_REQUEST_VALIDATION } from '../lib/controller-middlewares/decorators/validate-request.decorator';
 import {
   ValidateRequest,
   requestValidatorFromInstance,
 } from '../lib/controller-middlewares/decorators/validate-request.decorator';
-import type {
-  SKIP_RESPONSE_VALIDATION} from '../lib/controller-middlewares/decorators/validate-response.decorator';
+import type { SKIP_RESPONSE_VALIDATION } from '../lib/controller-middlewares/decorators/validate-response.decorator';
 import {
   ValidateResponse,
   responseValidatorFromInstance,

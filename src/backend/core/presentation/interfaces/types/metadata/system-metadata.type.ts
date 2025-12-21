@@ -202,7 +202,9 @@ export type SchemeNamesOf<TSystem> = TSystem extends {
  * type Req = SecurityRequirementOf<'apiKeyAuth' | 'bearerAuth'>;
  * // Array<Partial<Record<'apiKeyAuth' | 'bearerAuth', string[]>>>
  */
-export type SecurityRequirementOf<TSchemeNames extends string> = Partial<Record<TSchemeNames, string[]>>[];
+export type SecurityRequirementOf<TSchemeNames extends string> = Partial<
+  Record<TSchemeNames, string[]>
+>[];
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helper Function
