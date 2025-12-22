@@ -1,6 +1,7 @@
 import type { BoundValidator } from '../../../global/interfaces/ports/object-validator.port';
 
 export const SKIP_VALUE_OBJECT_VALIDATION = 'skip value object validation' as const;
+export type SkipValueObjectValidation = typeof SKIP_VALUE_OBJECT_VALIDATION;
 
 export class BaseValueObject<T> {
   private readonly _value: T;

@@ -1,4 +1,4 @@
-import type { BaseDto } from '../../../global/classes/based-dto.class';
+import type { BaseDto } from '../../../global/classes/base-dto.class';
 import type { BaseInboundPort } from '../interfaces/ports/base-inbound.port';
 import { UseCaseError } from '../exceptions/use-case.error';
 import { DomainError } from '../../domain/exceptions/domain-error';

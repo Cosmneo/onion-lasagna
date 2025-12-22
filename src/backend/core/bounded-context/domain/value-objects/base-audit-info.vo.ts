@@ -1,24 +1,22 @@
 import type { BoundValidator } from '../../../global/interfaces/ports/object-validator.port';
-import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../classes/base-value-object.class';
+import type { SkipValueObjectValidation } from '../classes/base-value-object.class';
+import { BaseValueObject } from '../classes/base-value-object.class';
 import type { BaseAuditByVo } from './base-audit-by.vo';
 import type { BaseAuditOnVo } from './base-audit-on.vo';
 import type { BaseUuidV4Vo } from './base-uuid-v4.vo';
 
-export class BaseAuditInfoVo extends BaseValueObject<{ by: BaseAuditByVo; on: BaseAuditOnVo }> {
+export abstract class BaseAuditInfoVo extends BaseValueObject<{
+  by: BaseAuditByVo;
+  on: BaseAuditOnVo;
+}> {
   protected constructor(
     value: { by: BaseAuditByVo; on: BaseAuditOnVo },
-    validator:
-      | BoundValidator<{ by: BaseAuditByVo; on: BaseAuditOnVo }>
-      | typeof SKIP_VALUE_OBJECT_VALIDATION,
+    validator: BoundValidator<{ by: BaseAuditByVo; on: BaseAuditOnVo }> | SkipValueObjectValidation,
   ) {
     super(value, validator);
   }
 
-  update(updatedBy: BaseUuidV4Vo): BaseAuditInfoVo {
-    const by = this.value.by.update(updatedBy);
-    const on = this.value.on.update();
-    return new BaseAuditInfoVo({ by, on }, SKIP_VALUE_OBJECT_VALIDATION);
-  }
+  abstract update(updatedBy: BaseUuidV4Vo): BaseAuditInfoVo;
 
   get createdBy(): BaseUuidV4Vo | undefined {
     return this.value.by.createdBy;

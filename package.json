@@ -10,14 +10,19 @@
     "globals": "^16.5.0",
     "prettier": "^3.7.4",
     "tsup": "^8.5.1",
-    "typescript-eslint": "^8.50.0"
+    "typescript-eslint": "^8.50.1",
+    "arktype": "^2.1.29",
+    "zod": "^4.2.1"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "@sinclair/typebox": "^0.34.41",
+    "arktype": "^2.1.29",
+    "typescript": "^5",
+    "valibot": "^1.2.0",
+    "zod": "^4.2.1"
   },
   "dependencies": {
-    "uuid": "^13.0.0",
-    "zod": "^4.2.1"
+    "uuid": "^13.0.0"
   },
   "scripts": {
     "build": "tsup",
@@ -40,17 +45,17 @@
       "require": "./dist/backend/core/global.cjs",
       "default": "./dist/backend/core/global.js"
     },
-    "./backend/core/presentation": {
-      "types": "./dist/backend/core/presentation.d.ts",
-      "import": "./dist/backend/core/presentation.js",
-      "require": "./dist/backend/core/presentation.cjs",
-      "default": "./dist/backend/core/presentation.js"
-    },
     "./backend/core/validators/zod": {
       "types": "./dist/backend/core/validators/zod.d.ts",
       "import": "./dist/backend/core/validators/zod.js",
       "require": "./dist/backend/core/validators/zod.cjs",
       "default": "./dist/backend/core/validators/zod.js"
+    },
+    "./backend/core/validators/arktype": {
+      "types": "./dist/backend/core/validators/arktype.d.ts",
+      "import": "./dist/backend/core/validators/arktype.js",
+      "require": "./dist/backend/core/validators/arktype.cjs",
+      "default": "./dist/backend/core/validators/arktype.js"
     }
   },
   "packageManager": "bun",

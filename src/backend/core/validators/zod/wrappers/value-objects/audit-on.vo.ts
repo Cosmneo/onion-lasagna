@@ -32,7 +32,7 @@ export class AuditOnVo extends BaseAuditOnVo {
     });
   }
 
-  override update(): AuditOnVo {
+  update(): AuditOnVo {
     const now = new Date();
     if (now < this.createdAt) {
       throw new Error('UpdatedAt cannot be earlier than createdAt');

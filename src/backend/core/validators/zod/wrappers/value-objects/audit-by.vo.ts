@@ -27,7 +27,7 @@ export class AuditByVo extends BaseAuditByVo {
     });
   }
 
-  override update(updatedBy: BaseUuidV4Vo): AuditByVo {
+  update(updatedBy: BaseUuidV4Vo): AuditByVo {
     return new AuditByVo({ createdBy: this.createdBy, updatedBy });
   }
 }

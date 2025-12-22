@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import { BaseDto } from '../../../global/classes/based-dto.class';
+import { BaseDto } from '../../../global/classes/base-dto.class';
 import { createZodValidator } from '../bootstrap';
 
 export class Dto<T> extends BaseDto<T> {

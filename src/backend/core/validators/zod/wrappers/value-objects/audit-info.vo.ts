@@ -56,7 +56,7 @@ export class AuditInfoVo extends BaseAuditInfoVo {
     return new AuditInfoVo({ by, on });
   }
 
-  override update(updatedBy: BaseUuidV4Vo): AuditInfoVo {
+  update(updatedBy: BaseUuidV4Vo): AuditInfoVo {
     const by = this.value.by.update(updatedBy);
     const on = this.value.on.update();
     return new AuditInfoVo({ by, on });

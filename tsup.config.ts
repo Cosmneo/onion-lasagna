@@ -4,8 +4,11 @@ export default defineConfig({
   entry: {
     'backend/core/bounded-context': 'src/backend/core/bounded-context/index.ts',
     'backend/core/global': 'src/backend/core/global/index.ts',
-    'backend/core/presentation': 'src/backend/core/presentation/index.ts',
+    'backend/core/presentation': 'src/backend/core/bounded-context/presentation/index.ts',
     'backend/core/validators/zod': 'src/backend/core/validators/zod/index.ts',
+    'backend/core/validators/arktype': 'src/backend/core/validators/arktype/index.ts',
+    'backend/core/validators/valibot': 'src/backend/core/validators/valibot/index.ts',
+    'backend/core/validators/typebox': 'src/backend/core/validators/typebox/index.ts',
   },
   dts: true,
   format: ['esm', 'cjs'],
@@ -14,5 +17,5 @@ export default defineConfig({
   target: 'es2022',
   minify: false,
   skipNodeModulesBundle: true,
-  external: ['zod', 'uuid'],
+  external: ['zod', 'uuid', 'arktype', 'valibot', '@sinclair/typebox'],
 });
