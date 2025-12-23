@@ -74,10 +74,7 @@ export class Order extends BaseAggregateRoot<OrderId, OrderProps> {
    */
   static create(customerId: string, items: OrderItem[]): Order {
     const id = OrderId.generate();
-    const totalAmount = items.reduce(
-      (sum, item) => sum.add(item.totalPrice),
-      Money.zero(),
-    );
+    const totalAmount = items.reduce((sum, item) => sum.add(item.totalPrice), Money.zero());
 
     const order = new Order(id, {
       customerId,

@@ -31,8 +31,7 @@ import { InfraError } from '../../infra/exceptions/infra.error';
 export abstract class BaseInboundAdapter<
   TInDto extends BaseDto<unknown>,
   TOutDto extends BaseDto<unknown>,
-> implements BaseInboundPort<TInDto, TOutDto>
-{
+> implements BaseInboundPort<TInDto, TOutDto> {
   /**
    * Implements the use case logic. Override this method in subclasses.
    *

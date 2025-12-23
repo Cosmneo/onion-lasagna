@@ -80,6 +80,7 @@ aggregates/
 Value policies define **default values, factories, and value transformations**. They answer: "What should the default state be?"
 
 Examples:
+
 - Default order status when created
 - Initial inventory quantity
 - Default shipping method
@@ -101,6 +102,7 @@ export const defaultOrderStatus = (): OrderStatus => {
 Business policies define **invariants, validations, and business rules**. They answer: "Is this operation allowed?"
 
 Examples:
+
 - Can an order be cancelled?
 - Is the customer eligible for discount?
 - Can items be added to this order?
@@ -246,23 +248,26 @@ export class Order extends BaseAggregateRoot<OrderId, OrderProps> {
     const order = new Order(OrderId.create(), {
       customerId,
       items,
-      status: defaultOrderStatus(),  // Value policy
+      status: defaultOrderStatus(), // Value policy
       totalAmount: Money.zero(),
       placedAt: new Date(),
     });
 
-    order.addDomainEvent(new OrderPlacedEvent({
-      orderId: order.id.value,
-      customerId,
-      totalAmount: order.totalAmount.amount,
-      placedAt: order.placedAt.toISOString(),
-    }));
+    order.addDomainEvent(
+      new OrderPlacedEvent({
+        orderId: order.id.value,
+        customerId,
+        totalAmount: order.totalAmount.amount,
+        placedAt: order.placedAt.toISOString(),
+      }),
+    );
 
     return order;
   }
 
   addItem(item: OrderItem): void {
-    if (!canAddOrderItem(this)) {  // Business policy
+    if (!canAddOrderItem(this)) {
+      // Business policy
       throw new InvariantViolationError({
         message: 'Cannot add items to non-pending order',
         code: 'ORDER_NOT_PENDING',
@@ -272,18 +277,21 @@ export class Order extends BaseAggregateRoot<OrderId, OrderProps> {
   }
 
   cancel(reason: string): void {
-    if (!canCancelOrder(this)) {  // Business policy
+    if (!canCancelOrder(this)) {
+      // Business policy
       throw new InvariantViolationError({
         message: 'Order cannot be cancelled',
         code: 'ORDER_CANNOT_CANCEL',
       });
     }
     this._props.status = OrderStatus.cancelled();
-    this.addDomainEvent(new OrderCancelledEvent({
-      orderId: this.id.value,
-      reason,
-      cancelledAt: new Date().toISOString(),
-    }));
+    this.addDomainEvent(
+      new OrderCancelledEvent({
+        orderId: this.id.value,
+        reason,
+        cancelledAt: new Date().toISOString(),
+      }),
+    );
   }
 }
 ```
@@ -292,11 +300,11 @@ export class Order extends BaseAggregateRoot<OrderId, OrderProps> {
 
 ## Summary
 
-| Folder | Purpose | Examples |
-|--------|---------|----------|
-| `/value-objects/` | Domain-specific VOs | OrderId, OrderStatus, Money |
-| `/aggregates/[name]/policies/value/` | Default values, factories | Default status, timestamps |
-| `/aggregates/[name]/policies/business/` | Invariants, rules | Can cancel? Is eligible? |
-| `/entities/` | Non-root entities | OrderItem, Address |
-| `/events/` | Domain events | OrderPlaced, CustomerRegistered |
-| `/exceptions/` | Domain errors | OrderAlreadyShipped |
+| Folder                                  | Purpose                   | Examples                        |
+| --------------------------------------- | ------------------------- | ------------------------------- |
+| `/value-objects/`                       | Domain-specific VOs       | OrderId, OrderStatus, Money     |
+| `/aggregates/[name]/policies/value/`    | Default values, factories | Default status, timestamps      |
+| `/aggregates/[name]/policies/business/` | Invariants, rules         | Can cancel? Is eligible?        |
+| `/entities/`                            | Non-root entities         | OrderItem, Address              |
+| `/events/`                              | Domain events             | OrderPlaced, CustomerRegistered |
+| `/exceptions/`                          | Domain errors             | OrderAlreadyShipped             |
