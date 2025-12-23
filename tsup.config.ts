@@ -9,6 +9,8 @@ export default defineConfig({
     'backend/core/validators/arktype': 'src/backend/core/validators/arktype/index.ts',
     'backend/core/validators/valibot': 'src/backend/core/validators/valibot/index.ts',
     'backend/core/validators/typebox': 'src/backend/core/validators/typebox/index.ts',
+    'backend/frameworks/aws-api-gateway-http':
+      'src/backend/frameworks/aws-api-gateway-http/index.ts',
   },
   dts: true,
   format: ['esm', 'cjs'],
@@ -17,5 +19,5 @@ export default defineConfig({
   target: 'es2022',
   minify: false,
   skipNodeModulesBundle: true,
-  external: ['zod', 'uuid', 'arktype', 'valibot', '@sinclair/typebox'],
+  external: ['zod', 'uuid', 'arktype', 'valibot', '@sinclair/typebox', 'aws-lambda'],
 });
