@@ -82,7 +82,13 @@ export class OrderItem extends BaseEntity<OrderItemId, OrderItemProps> {
   /**
    * Converts to a plain object for events or persistence.
    */
-  toPlain(): { id: string; productId: string; productName: string; quantity: number; unitPrice: { amount: number; currency: string } } {
+  toPlain(): {
+    id: string;
+    productId: string;
+    productName: string;
+    quantity: number;
+    unitPrice: { amount: number; currency: string };
+  } {
     return {
       id: this.id.value,
       productId: this.props.productId,
