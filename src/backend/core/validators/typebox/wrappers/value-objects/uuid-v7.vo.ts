@@ -9,7 +9,7 @@ export class UuidV7Vo extends BaseUuidV7Vo {
     super(value, createTypeBoxValidator(schema));
   }
 
-  static create(value: string): UuidV7Vo {
+  static override create(value: string): UuidV7Vo {
     return new UuidV7Vo(value);
   }
 }
