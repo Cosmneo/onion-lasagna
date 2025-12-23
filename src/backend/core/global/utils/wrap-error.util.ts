@@ -61,10 +61,7 @@ export type ErrorFactory<E extends Error> = (cause: unknown) => E;
  * );
  * ```
  */
-export function wrapError<T, E extends Error>(
-  fn: () => T,
-  errorFactory: ErrorFactory<E>,
-): T {
+export function wrapError<T, E extends Error>(fn: () => T, errorFactory: ErrorFactory<E>): T {
   try {
     return fn();
   } catch (error) {
