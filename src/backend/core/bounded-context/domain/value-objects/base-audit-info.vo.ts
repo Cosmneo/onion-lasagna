@@ -23,7 +23,7 @@ export abstract class BaseAuditInfoVo extends BaseValueObject<{
   }
 
   get createdAt(): Date {
-    return this.value.on.createdAt;
+    return new Date(this.value.on.createdAt.getTime());
   }
 
   get updatedBy(): BaseUuidV4Vo | undefined {
@@ -31,7 +31,7 @@ export abstract class BaseAuditInfoVo extends BaseValueObject<{
   }
 
   get updatedAt(): Date {
-    return this.value.on.updatedAt;
+    return new Date(this.value.on.updatedAt.getTime());
   }
 
   get isModified(): boolean {

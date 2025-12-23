@@ -25,10 +25,6 @@ export class AuditOnVo extends BaseAuditOnVo {
     const finalCreatedAt = validated.createdAt ?? new Date();
     const finalUpdatedAt = validated.updatedAt ?? finalCreatedAt;
 
-    if (finalUpdatedAt < finalCreatedAt) {
-      throw new Error('UpdatedAt cannot be earlier than createdAt');
-    }
-
     return new AuditOnVo({
       createdAt: new Date(finalCreatedAt),
       updatedAt: new Date(finalUpdatedAt),
@@ -36,10 +32,6 @@ export class AuditOnVo extends BaseAuditOnVo {
   }
 
   update(): AuditOnVo {
-    const now = new Date();
-    if (now < this.createdAt) {
-      throw new Error('UpdatedAt cannot be earlier than createdAt');
-    }
-    return new AuditOnVo({ createdAt: this.createdAt, updatedAt: now });
+    return new AuditOnVo({ createdAt: this.createdAt, updatedAt: new Date() });
   }
 }
