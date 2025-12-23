@@ -8,10 +8,15 @@ import {
   accessGuardFromInstance,
 } from '../lib/controller-middlewares/decorators/allow-request.decorator';
 
-export interface GuardedControllerConfig<TRequest, TResponse, TInput, TOutput> {
-  requestMapper: (request: TRequest) => BaseDto<TInput>;
-  useCase: BaseInboundPort<TInput, TOutput>;
-  responseMapper: (output: BaseDto<TOutput>) => TResponse;
+export interface GuardedControllerConfig<
+  TRequest,
+  TResponse,
+  TInDto extends BaseDto<unknown>,
+  TOutDto extends BaseDto<unknown>,
+> {
+  requestMapper: (request: TRequest) => TInDto;
+  useCase: BaseInboundPort<TInDto, TOutDto>;
+  responseMapper: (output: TOutDto) => TResponse;
   accessGuard?: AccessGuard<TRequest>;
 }
 
@@ -19,27 +24,32 @@ const allowAllAccessGuard: AccessGuard<unknown> = async (): Promise<AccessGuardR
   isAllowed: true,
 });
 
-export class GuardedController<TRequest, TResponse, TInput, TOutput> extends BaseController<
+export class GuardedController<
   TRequest,
   TResponse,
-  TInput,
-  TOutput
-> {
+  TInDto extends BaseDto<unknown>,
+  TOutDto extends BaseDto<unknown>,
+> extends BaseController<TRequest, TResponse, TInDto, TOutDto> {
   protected readonly accessGuard: AccessGuard<TRequest>;
 
   constructor(
-    requestMapper: (request: TRequest) => BaseDto<TInput>,
-    useCase: BaseInboundPort<TInput, TOutput>,
-    responseMapper: (output: BaseDto<TOutput>) => TResponse,
+    requestMapper: (request: TRequest) => TInDto,
+    useCase: BaseInboundPort<TInDto, TOutDto>,
+    responseMapper: (output: TOutDto) => TResponse,
     accessGuard?: AccessGuard<TRequest>,
   ) {
     super(requestMapper, useCase, responseMapper);
     this.accessGuard = accessGuard ?? (allowAllAccessGuard as AccessGuard<TRequest>);
   }
 
-  static override create<TRequest, TResponse, TInput, TOutput>(
-    config: GuardedControllerConfig<TRequest, TResponse, TInput, TOutput>,
-  ): GuardedController<TRequest, TResponse, TInput, TOutput> {
+  static override create<
+    TRequest,
+    TResponse,
+    TInDto extends BaseDto<unknown>,
+    TOutDto extends BaseDto<unknown>,
+  >(
+    config: GuardedControllerConfig<TRequest, TResponse, TInDto, TOutDto>,
+  ): GuardedController<TRequest, TResponse, TInDto, TOutDto> {
     return new GuardedController(
       config.requestMapper,
       config.useCase,
@@ -51,7 +61,7 @@ export class GuardedController<TRequest, TResponse, TInput, TOutput> extends Bas
   @AllowRequest(
     accessGuardFromInstance(
       (instance: unknown) =>
-        (instance as GuardedController<TRequest, TResponse, TInput, TOutput>).accessGuard,
+        (instance as GuardedController<TRequest, TResponse, TInDto, TOutDto>).accessGuard,
     ),
   )
   override async execute(input: TRequest): Promise<TResponse> {

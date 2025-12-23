@@ -36,9 +36,9 @@ export abstract class BaseOutboundAdapter {
         try {
           const result = Reflect.apply(original, this, args);
 
-          // If it's Promise-like, preserve rejection handling without turning sync methods into async ones.
-          if (result && typeof (result as { then?: unknown }).then === 'function') {
-            return Promise.resolve(result as PromiseLike<unknown>).catch((error) => {
+          // If it's a Promise, preserve rejection handling without turning sync methods into async ones.
+          if (result instanceof Promise) {
+            return result.catch((error: unknown) => {
               throw this.createInfraError(error, methodName);
             });
           }

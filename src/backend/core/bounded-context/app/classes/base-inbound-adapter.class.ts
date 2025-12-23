@@ -5,16 +5,15 @@ import { DomainError } from '../../domain/exceptions/domain-error';
 import { InfraError } from '../../infra/exceptions/infra.error';
 
 export abstract class BaseInboundAdapter<
-  TInput,
-  TOutput,
-  TInDto extends BaseDto<TInput> = BaseDto<TInput>,
-  TOutDto extends BaseDto<TOutput> = BaseDto<TOutput>,
-> implements BaseInboundPort<TInput, TOutput> {
+  TInDto extends BaseDto<unknown>,
+  TOutDto extends BaseDto<unknown>,
+> implements BaseInboundPort<TInDto, TOutDto>
+{
   protected abstract handle(input: TInDto): Promise<TOutDto>;
 
-  public async execute(input: BaseDto<TInput>): Promise<BaseDto<TOutput>> {
+  public async execute(input: TInDto): Promise<TOutDto> {
     try {
-      return await this.handle(input as TInDto);
+      return await this.handle(input);
     } catch (error) {
       if (
         error instanceof UseCaseError ||

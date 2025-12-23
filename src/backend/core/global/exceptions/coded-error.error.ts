@@ -10,8 +10,12 @@ export class CodedError extends Error {
     this.name = this.constructor.name;
     this.code = code;
     if (cause !== undefined) {
-      // TS target is ES2020; `Error.cause` might not be in lib types.
-      (this as unknown as { cause?: unknown }).cause = cause;
+      Object.defineProperty(this, 'cause', {
+        value: cause,
+        writable: false,
+        enumerable: false,
+        configurable: true,
+      });
     }
   }
 }

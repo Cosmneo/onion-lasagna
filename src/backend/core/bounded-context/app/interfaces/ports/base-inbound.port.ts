@@ -1,5 +1,8 @@
 import type { BaseDto } from '../../../../global/classes/base-dto.class';
 
-export interface BaseInboundPort<TInput, TOutput> {
-  execute(input: BaseDto<TInput>): Promise<BaseDto<TOutput>>;
+export interface BaseInboundPort<
+  TInDto extends BaseDto<unknown>,
+  TOutDto extends BaseDto<unknown>,
+> {
+  execute(input: TInDto): Promise<TOutDto>;
 }

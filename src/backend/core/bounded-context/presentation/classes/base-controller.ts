@@ -7,24 +7,39 @@ import { InvalidRequestError } from '../exceptions/invalid-request.error';
 
 // ============ CONFIG INTERFACES ============
 
-export interface BaseControllerConfig<TRequest, TResponse, TInput, TOutput> {
-  requestMapper: (request: TRequest) => BaseDto<TInput>;
-  useCase: BaseInboundPort<TInput, TOutput>;
-  responseMapper: (output: BaseDto<TOutput>) => TResponse;
+export interface BaseControllerConfig<
+  TRequest,
+  TResponse,
+  TInDto extends BaseDto<unknown>,
+  TOutDto extends BaseDto<unknown>,
+> {
+  requestMapper: (request: TRequest) => TInDto;
+  useCase: BaseInboundPort<TInDto, TOutDto>;
+  responseMapper: (output: TOutDto) => TResponse;
 }
 
 // ============ BASE CONTROLLER (no validation) ============
 
-export class BaseController<TRequest, TResponse, TInput, TOutput> {
+export class BaseController<
+  TRequest,
+  TResponse,
+  TInDto extends BaseDto<unknown>,
+  TOutDto extends BaseDto<unknown>,
+> {
   constructor(
-    protected readonly requestMapper: (request: TRequest) => BaseDto<TInput>,
-    protected readonly useCase: BaseInboundPort<TInput, TOutput>,
-    protected readonly responseMapper: (output: BaseDto<TOutput>) => TResponse,
+    protected readonly requestMapper: (request: TRequest) => TInDto,
+    protected readonly useCase: BaseInboundPort<TInDto, TOutDto>,
+    protected readonly responseMapper: (output: TOutDto) => TResponse,
   ) {}
 
-  static create<TRequest, TResponse, TInput, TOutput>(
-    config: BaseControllerConfig<TRequest, TResponse, TInput, TOutput>,
-  ): BaseController<TRequest, TResponse, TInput, TOutput> {
+  static create<
+    TRequest,
+    TResponse,
+    TInDto extends BaseDto<unknown>,
+    TOutDto extends BaseDto<unknown>,
+  >(
+    config: BaseControllerConfig<TRequest, TResponse, TInDto, TOutDto>,
+  ): BaseController<TRequest, TResponse, TInDto, TOutDto> {
     return new BaseController(config.requestMapper, config.useCase, config.responseMapper);
   }
 
@@ -45,7 +60,7 @@ export class BaseController<TRequest, TResponse, TInput, TOutput> {
     }
   }
 
-  private mapRequest(input: TRequest): BaseDto<TInput> {
+  private mapRequest(input: TRequest): TInDto {
     try {
       return this.requestMapper(input);
     } catch (error) {
