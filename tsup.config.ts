@@ -11,6 +11,7 @@ export default defineConfig({
     'backend/core/validators/typebox': 'src/backend/core/validators/typebox/index.ts',
     'backend/frameworks/aws-api-gateway-http':
       'src/backend/frameworks/aws-api-gateway-http/index.ts',
+    'backend/frameworks/cloudflare-workers': 'src/backend/frameworks/cloudflare-workers/index.ts',
   },
   dts: true,
   format: ['esm', 'cjs'],
