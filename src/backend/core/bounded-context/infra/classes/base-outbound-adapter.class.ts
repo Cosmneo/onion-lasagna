@@ -1,35 +1,74 @@
 import { InfraError } from '../exceptions/infra.error';
 
+/** @internal Function signature for wrapped methods. */
 type UnknownFn = (...args: unknown[]) => unknown;
 
-const OUTBOUND_WRAPPED_METHODS = Symbol('outboundWrappedMethods');
+/** @internal Registry to track which methods have been wrapped per instance. */
+const wrappedMethodsRegistry = new WeakMap<BaseOutboundAdapter, Set<string>>();
 
 /**
- * Base class for outbound adapters (secondary ports).
+ * Abstract base class for outbound adapters (secondary/driven ports).
  *
- * It dynamically wraps every instance method (defined in subclasses) with a try/catch,
- * rethrowing as an `InfraError` while preserving the original error as `cause`.
+ * Provides automatic error handling for all subclass methods by:
+ * - Wrapping synchronous methods with try/catch
+ * - Attaching `.catch()` handlers to Promise-returning methods
+ * - Converting all errors to {@link InfraError} with the original as `cause`
+ *
+ * This ensures infrastructure errors are properly typed and don't leak
+ * implementation details to the application layer.
+ *
+ * @example
+ * ```typescript
+ * class UserRepository extends BaseOutboundAdapter {
+ *   constructor(private db: Database) {
+ *     super();
+ *   }
+ *
+ *   async findById(id: string): Promise<User | null> {
+ *     return this.db.users.findUnique({ where: { id } });
+ *   }
+ *
+ *   protected override createInfraError(error: unknown, methodName: string): InfraError {
+ *     return new DbError({
+ *       message: `Database error in ${methodName}`,
+ *       cause: error,
+ *     });
+ *   }
+ * }
+ * ```
  */
 export abstract class BaseOutboundAdapter {
+  /**
+   * Initializes the adapter and wraps all subclass methods with error handling.
+   * Must be called via `super()` in subclass constructors.
+   */
   protected constructor() {
     this.wrapAllSubclassMethods();
   }
 
   /**
-   * Hook for subclasses to customize the error type (e.g. `DbError`, `ExternalServiceError`).
+   * Factory method for creating infrastructure errors.
+   *
+   * Override this in subclasses to return specific error types
+   * (e.g., `DbError`, `NetworkError`, `ExternalServiceError`).
+   *
+   * @param error - The original error that was caught
+   * @param methodName - Name of the method where the error occurred (for debugging)
+   * @returns An InfraError instance wrapping the original error
    */
-  protected createInfraError(error: unknown, _methodName: string): InfraError {
+  protected createInfraError(error: unknown, methodName: string): InfraError {
     return new InfraError({
-      message: 'Unexpected outbound adapter error',
+      message: `Outbound adapter error in ${methodName}`,
       cause: error,
     });
   }
 
+  /**
+   * Walks the prototype chain and wraps all methods with error handling.
+   * @internal
+   */
   private wrapAllSubclassMethods(): void {
-    const alreadyWrapped = new Set<string>(
-      ((this as unknown as { [OUTBOUND_WRAPPED_METHODS]?: string[] })[OUTBOUND_WRAPPED_METHODS] ??
-        []) as string[],
-    );
+    const alreadyWrapped = wrappedMethodsRegistry.get(this) ?? new Set<string>();
 
     const wrapMethod = (methodName: string, original: UnknownFn) => {
       const wrapped: UnknownFn = (...args: unknown[]) => {
@@ -64,7 +103,11 @@ export abstract class BaseOutboundAdapter {
         if (key === 'constructor' || alreadyWrapped.has(key)) continue;
 
         const descriptor = Object.getOwnPropertyDescriptor(proto, key);
-        if (!descriptor || typeof descriptor.value !== 'function') continue;
+        if (!descriptor) continue;
+
+        // Skip getters/setters - only wrap regular methods
+        if (descriptor.get || descriptor.set) continue;
+        if (typeof descriptor.value !== 'function') continue;
 
         wrapMethod(key, descriptor.value as UnknownFn);
         alreadyWrapped.add(key);
@@ -73,8 +116,6 @@ export abstract class BaseOutboundAdapter {
       proto = Object.getPrototypeOf(proto);
     }
 
-    (this as unknown as { [OUTBOUND_WRAPPED_METHODS]: string[] })[OUTBOUND_WRAPPED_METHODS] = [
-      ...alreadyWrapped,
-    ];
+    wrappedMethodsRegistry.set(this, alreadyWrapped);
   }
 }
