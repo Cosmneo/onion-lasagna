@@ -9,7 +9,7 @@ export class UuidV4Vo extends BaseUuidV4Vo {
     super(value, createArkTypeValidator(schema));
   }
 
-  static create(value: string): UuidV4Vo {
+  static override create(value: string): UuidV4Vo {
     return new UuidV4Vo(value);
   }
 }

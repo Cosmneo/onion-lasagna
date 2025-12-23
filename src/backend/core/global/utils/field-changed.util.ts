@@ -13,5 +13,6 @@ export function fieldChanged<T>({
   partialUpdate?: boolean;
 }): boolean {
   if (partialUpdate && newValue === undefined) return false;
-  return value !== (newValue as T);
+  // For full updates, undefined means "set to undefined" which is a change if value !== undefined
+  return value !== newValue;
 }
