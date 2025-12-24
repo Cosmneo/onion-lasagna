@@ -87,6 +87,24 @@
       "import": "./dist/backend/frameworks/cloudflare-workers.js",
       "require": "./dist/backend/frameworks/cloudflare-workers.cjs",
       "default": "./dist/backend/frameworks/cloudflare-workers.js"
+    },
+    "./backend/frameworks/serverless-onion/core": {
+      "types": "./dist/backend/frameworks/serverless-onion/core.d.ts",
+      "import": "./dist/backend/frameworks/serverless-onion/core.js",
+      "require": "./dist/backend/frameworks/serverless-onion/core.cjs",
+      "default": "./dist/backend/frameworks/serverless-onion/core.js"
+    },
+    "./backend/frameworks/serverless-onion/aws": {
+      "types": "./dist/backend/frameworks/serverless-onion/aws.d.ts",
+      "import": "./dist/backend/frameworks/serverless-onion/aws.js",
+      "require": "./dist/backend/frameworks/serverless-onion/aws.cjs",
+      "default": "./dist/backend/frameworks/serverless-onion/aws.js"
+    },
+    "./backend/frameworks/serverless-onion/cloudflare": {
+      "types": "./dist/backend/frameworks/serverless-onion/cloudflare.d.ts",
+      "import": "./dist/backend/frameworks/serverless-onion/cloudflare.js",
+      "require": "./dist/backend/frameworks/serverless-onion/cloudflare.cjs",
+      "default": "./dist/backend/frameworks/serverless-onion/cloudflare.js"
     }
   },
   "packageManager": "bun",
