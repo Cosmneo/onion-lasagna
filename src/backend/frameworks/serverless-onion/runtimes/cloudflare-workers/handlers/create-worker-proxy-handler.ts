@@ -1,12 +1,15 @@
-import type { HttpResponse } from '../../../../../core/bounded-context/presentation/interfaces/types/http-response';
+import type { Controller } from '../../../../../core/bounded-context/presentation/interfaces/types/controller.type';
 import type {
-  ExecutableController,
+  BaseRequestMetadata,
+  HttpResponse,
+} from '../../../../../core/bounded-context/presentation/interfaces/types/http';
+import type {
   ResolvedRoute,
   RouteInput,
 } from '../../../../../core/bounded-context/presentation/routing';
 import { createRoutingMap } from '../../../../../core/bounded-context/presentation/routing';
-import type { AccumulatedContext, Middleware } from '../../../core';
 import { NotFoundException, runMiddlewareChain } from '../../../core';
+import type { AccumulatedContext, Middleware } from '../middleware';
 import { mapRequestBody, mapRequestHeaders, mapRequestQueryParams } from '../adapters/request';
 import { mapResponse } from '../adapters/response';
 import type { WorkerContext, WorkerEnv, WorkerHandler } from '../types';
@@ -14,18 +17,10 @@ import { withExceptionHandler } from '../wrappers/with-exception-handler';
 
 /**
  * Request metadata extracted from the Cloudflare Workers Request.
+ *
+ * Extends {@link BaseRequestMetadata} with Cloudflare-specific fields.
  */
-export interface RequestMetadata {
-  /**
-   * The request path (e.g., '/users/123').
-   */
-  path: string;
-
-  /**
-   * The HTTP method (e.g., 'GET', 'POST').
-   */
-  method: string;
-
+export interface RequestMetadata extends BaseRequestMetadata {
   /**
    * The full request URL.
    */
@@ -36,7 +31,7 @@ export interface RequestMetadata {
  * Configuration for the Worker proxy handler.
  */
 export interface CreateWorkerProxyHandlerConfig<
-  TController extends ExecutableController = ExecutableController,
+  TController extends Controller = Controller,
   TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
   TEnv extends WorkerEnv = WorkerEnv,
 > {
@@ -128,7 +123,7 @@ export interface CreateWorkerProxyHandlerConfig<
  * ```
  */
 export function createWorkerProxyHandler<
-  TController extends ExecutableController = ExecutableController,
+  TController extends Controller = Controller,
   TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
   TEnv extends WorkerEnv = WorkerEnv,
 >(config: CreateWorkerProxyHandlerConfig<TController, TMiddlewares, TEnv>): WorkerHandler<TEnv> {
@@ -204,7 +199,7 @@ export function createWorkerProxyHandler<
 /**
  * Maps a Cloudflare Workers Request to HttpRequest format for proxy routes.
  */
-async function mapWorkerProxyRequest<TController extends ExecutableController>(
+async function mapWorkerProxyRequest<TController extends Controller>(
   request: Request,
   resolved: ResolvedRoute<TController>,
 ) {

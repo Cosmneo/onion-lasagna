@@ -1,15 +1,15 @@
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import type { AccumulatedContext as CoreAccumulatedContext } from '../../../../core';
+import type { WorkerEnv } from '../../types';
 import type { Middleware } from './middleware.type';
 
 /**
- * Computes the accumulated context type from a tuple of AWS middlewares.
+ * Computes the accumulated context type from a tuple of Cloudflare middlewares.
  *
  * Each middleware's output is intersected with the previous accumulated context,
  * producing a final type that contains all properties from all middlewares.
  *
- * @typeParam TMiddlewares - Readonly tuple of AWS middleware functions
- * @typeParam TEnv - Environment/dependencies object (defaults to undefined)
+ * @typeParam TMiddlewares - Readonly tuple of Cloudflare middleware functions
+ * @typeParam TEnv - Environment bindings type (defaults to WorkerEnv)
  *
  * @example
  * ```typescript
@@ -27,5 +27,5 @@ import type { Middleware } from './middleware.type';
  */
 export type AccumulatedContext<
   TMiddlewares extends readonly Middleware<object, object, TEnv>[],
-  TEnv = undefined,
-> = CoreAccumulatedContext<TMiddlewares, TEnv, APIGatewayProxyEventV2>;
+  TEnv extends WorkerEnv = WorkerEnv,
+> = CoreAccumulatedContext<TMiddlewares, TEnv, Request>;

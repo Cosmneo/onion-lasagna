@@ -5,6 +5,7 @@ import { ObjectValidationError } from '../../../global/exceptions/object-validat
 import { wrapErrorUnlessAsync } from '../../../global/utils/wrap-error.util';
 import { ControllerError } from '../exceptions/controller.error';
 import { InvalidRequestError } from '../exceptions/invalid-request.error';
+import type { Controller } from '../interfaces/types/controller.type';
 
 /**
  * Configuration for creating a BaseController instance.
@@ -59,7 +60,7 @@ export class BaseController<
   TResponse,
   TInDto extends BaseDto<unknown>,
   TOutDto extends BaseDto<unknown>,
-> {
+> implements Controller<TRequest, TResponse> {
   /**
    * Creates a new BaseController instance.
    *

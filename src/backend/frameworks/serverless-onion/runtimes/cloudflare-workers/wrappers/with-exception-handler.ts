@@ -1,6 +1,5 @@
-import { HttpException, InternalServerErrorException, mapErrorToException } from '../../../core';
+import { createExceptionHandler } from '../../../core';
 import { mapResponse } from '../adapters/response';
-import type { WorkerEnv, WorkerHandler } from '../types/worker-handler.type';
 
 /**
  * Wraps a Worker handler with centralized exception handling.
@@ -11,8 +10,6 @@ import type { WorkerEnv, WorkerHandler } from '../types/worker-handler.type';
  * - Returns structured JSON error responses
  * - Masks internal server errors to avoid leaking implementation details
  * - Logs internal server errors for debugging
- *
- * @typeParam TEnv - Cloudflare Worker environment bindings
  *
  * @param handler - The Worker handler to wrap
  * @returns A wrapped handler with exception handling
@@ -43,33 +40,10 @@ import type { WorkerEnv, WorkerHandler } from '../types/worker-handler.type';
  * // - InternalServerErrorException → 500 Internal Server Error (masked)
  * ```
  */
-export function withExceptionHandler<TEnv extends WorkerEnv>(
-  handler: WorkerHandler<TEnv>,
-): WorkerHandler<TEnv> {
-  return async (request, env, ctx) => {
-    try {
-      return await handler(request, env, ctx);
-    } catch (error: unknown) {
-      // Already an HttpException - return its response
-      if (error instanceof HttpException) {
-        // Log internal server errors for debugging
-        if (error instanceof InternalServerErrorException) {
-          console.error('[InternalServerError]', error);
-        }
-
-        return mapResponse({
-          statusCode: error.statusCode,
-          body: error.toResponse(),
-        });
-      }
-
-      // Map framework errors to HTTP exceptions
-      const httpException = mapErrorToException(error);
-
-      return mapResponse({
-        statusCode: httpException.statusCode,
-        body: httpException.toResponse(),
-      });
-    }
-  };
-}
+export const withExceptionHandler = createExceptionHandler<Response>({
+  mapExceptionToResponse: (exception) =>
+    mapResponse({
+      statusCode: exception.statusCode,
+      body: exception.toResponse(),
+    }),
+});

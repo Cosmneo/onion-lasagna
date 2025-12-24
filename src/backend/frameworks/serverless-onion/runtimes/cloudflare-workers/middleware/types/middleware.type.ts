@@ -1,12 +1,12 @@
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import type {
   Middleware as CoreMiddleware,
   MiddlewareInput as CoreMiddlewareInput,
   MiddlewareOutput as CoreMiddlewareOutput,
 } from '../../../../core';
+import type { WorkerEnv } from '../../types';
 
 /**
- * AWS Lambda middleware that processes an API Gateway event and produces context.
+ * Cloudflare Workers middleware that processes a Request and produces context.
  *
  * Middlewares are executed sequentially before the handler. Each middleware
  * receives the accumulated context from all previous middlewares and can
@@ -16,25 +16,21 @@ import type {
  * Exceptions are caught by the global exception handler and converted to
  * HTTP responses.
  *
- * **Note:** Unlike Cloudflare Workers, AWS Lambda doesn't have built-in environment
- * bindings. The `env` parameter defaults to `undefined` unless you explicitly provide
- * an `env` object in the handler config.
- *
  * @typeParam TOutput - The context type this middleware produces
  * @typeParam TRequiredContext - Context required from previous middlewares (defaults to empty object)
- * @typeParam TEnv - Environment/dependencies object (defaults to undefined)
+ * @typeParam TEnv - Environment bindings type (defaults to WorkerEnv)
  *
  * @example
  * ```typescript
  * // Auth middleware - no dependencies
- * const authMiddleware: Middleware<AuthContext> = async (event, env, ctx) => {
- *   const token = event.headers?.authorization;
+ * const authMiddleware: Middleware<AuthContext, object, Env> = async (request, env, ctx) => {
+ *   const token = request.headers.get('authorization');
  *   if (!token) throw new UnauthorizedException({ message: 'Missing token', code: 'NO_TOKEN' });
  *   return { userId: '123', roles: ['user'] };
  * };
  *
  * // Tenant middleware - depends on AuthContext
- * const tenantMiddleware: Middleware<TenantContext, AuthContext> = async (event, env, ctx) => {
+ * const tenantMiddleware: Middleware<TenantContext, AuthContext, Env> = async (request, env, ctx) => {
  *   const tenant = await getTenant(ctx.userId); // ctx.userId is typed!
  *   return { tenantId: tenant.id };
  * };
@@ -42,30 +38,26 @@ import type {
  *
  * @example
  * ```typescript
- * // Middleware with injected dependencies
- * interface Deps { db: Database; cache: Cache; }
+ * // Middleware using environment bindings
+ * interface Env extends WorkerEnv {
+ *   MY_KV: KVNamespace;
+ *   AUTH_SECRET: string;
+ * }
  *
- * const dataMiddleware: Middleware<DataContext, object, Deps> = async (event, env, ctx) => {
- *   const data = await env.db.query('...');
+ * const dataMiddleware: Middleware<DataContext, object, Env> = async (request, env, ctx) => {
+ *   const data = await env.MY_KV.get('key');
  *   return { data };
  * };
- *
- * // Provide deps in handler config
- * createLambdaHandler({
- *   env: { db: myDb, cache: myCache },
- *   middlewares: [dataMiddleware] as const,
- *   ...
- * });
  * ```
  */
 export type Middleware<
   TOutput extends object,
   TRequiredContext extends object = object,
-  TEnv = undefined,
-> = CoreMiddleware<TOutput, TRequiredContext, TEnv, APIGatewayProxyEventV2>;
+  TEnv extends WorkerEnv = WorkerEnv,
+> = CoreMiddleware<TOutput, TRequiredContext, TEnv, Request>;
 
 /**
- * Extracts the output context type from an AWS middleware.
+ * Extracts the output context type from a Cloudflare middleware.
  *
  * @example
  * ```typescript
@@ -76,11 +68,11 @@ export type Middleware<
 export type MiddlewareOutput<T> = CoreMiddlewareOutput<T>;
 
 /**
- * Extracts the required input context type from an AWS middleware.
+ * Extracts the required input context type from a Cloudflare middleware.
  *
  * @example
  * ```typescript
- * const tenantMiddleware = defineMiddleware<TenantContext, AuthContext>()(async (event, env, ctx) => {
+ * const tenantMiddleware = defineMiddleware<TenantContext, AuthContext>()(async (request, env, ctx) => {
  *   return { tenantId: ctx.userId }; // Uses AuthContext
  * });
  * type Input = MiddlewareInput<typeof tenantMiddleware>; // AuthContext

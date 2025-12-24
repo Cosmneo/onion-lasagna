@@ -3,7 +3,8 @@ import type {
   APIGatewayProxyHandlerV2,
   APIGatewayProxyResultV2,
 } from 'aws-lambda';
-import type { HttpResponse } from '../../../../../core/bounded-context/presentation/interfaces/types/http-response';
+import type { Controller } from '../../../../../core/bounded-context/presentation/interfaces/types/controller.type';
+import type { HttpResponse } from '../../../../../core/bounded-context/presentation/interfaces/types/http';
 import { runMiddlewareChain } from '../../../core';
 import { mapRequest } from '../adapters/request';
 import { mapResponse } from '../adapters/response';
@@ -12,25 +13,47 @@ import type { AccumulatedContext, Middleware } from '../middleware';
 import { withExceptionHandler } from '../wrappers/with-exception-handler';
 
 /**
- * Controller interface for Lambda handlers.
- */
-export interface LambdaController<TInput, TOutput> {
-  execute(input: TInput): Promise<TOutput>;
-}
-
-/**
  * Configuration for creating a Lambda handler.
  */
 export interface CreateLambdaHandlerConfig<
   TInput,
   TOutput,
   TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
-  TEnv = unknown,
+  TEnv = undefined,
 > {
   /**
    * The controller that handles the request.
+   * Must implement {@link Controller}.
    */
-  controller: LambdaController<TInput, TOutput>;
+  controller: Controller<TInput, TOutput>;
+
+  /**
+   * Environment/dependencies to inject into middlewares.
+   *
+   * Unlike Cloudflare Workers, AWS Lambda doesn't have built-in environment
+   * bindings. Use this option to inject dependencies (database clients, caches,
+   * configuration, etc.) that your middlewares need.
+   *
+   * @default undefined
+   *
+   * @example
+   * ```typescript
+   * interface Deps { db: Database; config: Config; }
+   *
+   * createLambdaHandler({
+   *   controller: myController,
+   *   env: { db: myDatabase, config: myConfig },
+   *   middlewares: [
+   *     defineMiddleware<DataContext, object, Deps>()(async (event, env) => {
+   *       const data = await env.db.query('...');
+   *       return { data };
+   *     }),
+   *   ] as const,
+   *   mapInput: (event, env, ctx) => ({ ...mapRequest(event), data: ctx.data }),
+   * });
+   * ```
+   */
+  env?: TEnv;
 
   /**
    * Middlewares to run before the controller.
@@ -125,17 +148,38 @@ export interface CreateLambdaHandlerConfig<
  *   }),
  * });
  * ```
+ *
+ * @example
+ * ```typescript
+ * // With injected dependencies
+ * interface Deps { db: Database; }
+ *
+ * const handler = createLambdaHandler({
+ *   controller: myController,
+ *   env: { db: myDatabase },
+ *   middlewares: [
+ *     defineMiddleware<DataContext, object, Deps>()(async (event, env) => {
+ *       return { users: await env.db.listUsers() };
+ *     }),
+ *   ] as const,
+ *   mapInput: (event, env, ctx) => ({
+ *     ...mapRequest(event),
+ *     users: ctx.users,
+ *   }),
+ * });
+ * ```
  */
 export function createLambdaHandler<
   TInput,
   TOutput,
   TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
-  TEnv = unknown,
+  TEnv = undefined,
 >(
   config: CreateLambdaHandlerConfig<TInput, TOutput, TMiddlewares, TEnv>,
 ): APIGatewayProxyHandlerV2 {
   const {
     controller,
+    env,
     middlewares = [] as unknown as TMiddlewares,
     mapInput = (event: APIGatewayProxyEventV2) => mapRequest(event) as TInput,
     mapOutput = (output: TOutput) => output as unknown as HttpResponse,
@@ -153,17 +197,13 @@ export function createLambdaHandler<
     // Run middleware chain
     let middlewareContext: AccumulatedContext<TMiddlewares, TEnv>;
     if (middlewares.length > 0) {
-      middlewareContext = await runMiddlewareChain(
-        event,
-        undefined as TEnv, // AWS doesn't have explicit env bindings like Cloudflare
-        middlewares,
-      );
+      middlewareContext = await runMiddlewareChain(event, env as TEnv, middlewares);
     } else {
       middlewareContext = {} as AccumulatedContext<TMiddlewares, TEnv>;
     }
 
     // Map input (now receives middleware context)
-    const input = await mapInput(event, undefined as TEnv, middlewareContext);
+    const input = await mapInput(event, env as TEnv, middlewareContext);
 
     // Execute controller
     const output = await controller.execute(input);
