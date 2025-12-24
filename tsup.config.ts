@@ -9,10 +9,6 @@ export default defineConfig({
     'backend/core/validators/arktype': 'src/backend/core/validators/arktype/index.ts',
     'backend/core/validators/valibot': 'src/backend/core/validators/valibot/index.ts',
     'backend/core/validators/typebox': 'src/backend/core/validators/typebox/index.ts',
-    'backend/frameworks/aws-api-gateway-http':
-      'src/backend/frameworks/aws-api-gateway-http/index.ts',
-    'backend/frameworks/cloudflare-workers': 'src/backend/frameworks/cloudflare-workers/index.ts',
-    // serverless-onion framework
     'backend/frameworks/serverless-onion/core':
       'src/backend/frameworks/serverless-onion/core/index.ts',
     'backend/frameworks/serverless-onion/aws':

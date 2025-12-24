@@ -76,18 +76,6 @@
       "require": "./dist/backend/core/validators/typebox.cjs",
       "default": "./dist/backend/core/validators/typebox.js"
     },
-    "./backend/frameworks/aws-api-gateway-http": {
-      "types": "./dist/backend/frameworks/aws-api-gateway-http.d.ts",
-      "import": "./dist/backend/frameworks/aws-api-gateway-http.js",
-      "require": "./dist/backend/frameworks/aws-api-gateway-http.cjs",
-      "default": "./dist/backend/frameworks/aws-api-gateway-http.js"
-    },
-    "./backend/frameworks/cloudflare-workers": {
-      "types": "./dist/backend/frameworks/cloudflare-workers.d.ts",
-      "import": "./dist/backend/frameworks/cloudflare-workers.js",
-      "require": "./dist/backend/frameworks/cloudflare-workers.cjs",
-      "default": "./dist/backend/frameworks/cloudflare-workers.js"
-    },
     "./backend/frameworks/serverless-onion/core": {
       "types": "./dist/backend/frameworks/serverless-onion/core.d.ts",
       "import": "./dist/backend/frameworks/serverless-onion/core.js",
