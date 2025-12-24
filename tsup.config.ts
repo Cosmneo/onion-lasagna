@@ -12,6 +12,13 @@ export default defineConfig({
     'backend/frameworks/aws-api-gateway-http':
       'src/backend/frameworks/aws-api-gateway-http/index.ts',
     'backend/frameworks/cloudflare-workers': 'src/backend/frameworks/cloudflare-workers/index.ts',
+    // serverless-onion framework
+    'backend/frameworks/serverless-onion/core':
+      'src/backend/frameworks/serverless-onion/core/index.ts',
+    'backend/frameworks/serverless-onion/aws':
+      'src/backend/frameworks/serverless-onion/runtimes/aws-api-gateway-http/index.ts',
+    'backend/frameworks/serverless-onion/cloudflare':
+      'src/backend/frameworks/serverless-onion/runtimes/cloudflare-workers/index.ts',
   },
   dts: true,
   format: ['esm', 'cjs'],
