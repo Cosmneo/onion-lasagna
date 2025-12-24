@@ -1,17 +1,11 @@
-import type { HttpResponse } from '../../../../../core/bounded-context/presentation/interfaces/types/http-response';
-import type { AccumulatedContext, Middleware } from '../../../core';
+import type { Controller } from '../../../../../core/bounded-context/presentation/interfaces/types/controller.type';
+import type { HttpResponse } from '../../../../../core/bounded-context/presentation/interfaces/types/http';
 import { runMiddlewareChain } from '../../../core';
+import type { AccumulatedContext, Middleware } from '../middleware';
 import { mapRequest } from '../adapters/request';
 import { mapResponse } from '../adapters/response';
 import type { WorkerContext, WorkerEnv, WorkerHandler } from '../types';
 import { withExceptionHandler } from '../wrappers/with-exception-handler';
-
-/**
- * Controller interface for single-route handlers.
- */
-export interface WorkerController<TInput, TOutput> {
-  execute(input: TInput): Promise<TOutput>;
-}
 
 /**
  * Configuration for creating a Cloudflare Worker handler.
@@ -24,8 +18,9 @@ export interface CreateWorkerHandlerConfig<
 > {
   /**
    * The controller to execute.
+   * Must implement {@link Controller}.
    */
-  controller: WorkerController<TInput, TOutput>;
+  controller: Controller<TInput, TOutput>;
 
   /**
    * Middlewares to run before the controller.
@@ -36,7 +31,7 @@ export interface CreateWorkerHandlerConfig<
    * @example
    * ```typescript
    * middlewares: [authMiddleware, tenantMiddleware] as const,
-   * mapInput: async (request, env, ctx, middlewareContext) => ({
+   * mapInput: async (request, env, middlewareContext) => ({
    *   ...await mapRequest(request),
    *   userId: middlewareContext.userId,
    *   tenantId: middlewareContext.tenantId,
@@ -58,20 +53,19 @@ export interface CreateWorkerHandlerConfig<
   /**
    * Maps the Request to controller input.
    *
-   * When middlewares are used, receives the accumulated context as the 4th parameter.
+   * When middlewares are used, receives the accumulated context as the 3rd parameter.
    *
    * @default Uses mapRequest to create HttpRequest
    */
   mapInput?: (
     request: Request,
     env: TEnv,
-    ctx: WorkerContext,
     middlewareContext: AccumulatedContext<TMiddlewares, TEnv>,
-  ) => Promise<TInput>;
+  ) => TInput | Promise<TInput>;
 
   /**
    * Maps controller output to HttpResponse.
-   * @default Returns output as-is if it's an HttpResponse, otherwise wraps in 200 response
+   * If not provided, assumes the controller returns an HttpResponse.
    */
   mapOutput?: (output: TOutput) => HttpResponse;
 }
@@ -121,7 +115,7 @@ export interface CreateWorkerHandlerConfig<
  * const handler = createWorkerHandler({
  *   controller: myController,
  *   middlewares: [authMiddleware] as const,
- *   mapInput: async (request, env, ctx, middlewareContext) => ({
+ *   mapInput: async (request, env, middlewareContext) => ({
  *     ...await mapRequest(request),
  *     userId: middlewareContext.userId, // Type-safe!
  *   }),
@@ -141,28 +135,13 @@ export function createWorkerHandler<
     middlewares = [] as unknown as TMiddlewares,
     handleExceptions = true,
     mapInput = async (request: Request) => (await mapRequest(request)) as TInput,
-    mapOutput = (output: TOutput) => {
-      // If output is already an HttpResponse, use it
-      if (
-        output &&
-        typeof output === 'object' &&
-        'statusCode' in output &&
-        typeof (output as HttpResponse).statusCode === 'number'
-      ) {
-        return output as HttpResponse;
-      }
-      // Otherwise wrap in a 200 response
-      return {
-        statusCode: 200,
-        body: output,
-      };
-    },
+    mapOutput = (output: TOutput) => output as unknown as HttpResponse,
   } = config;
 
   const coreHandler: WorkerHandler<TEnv> = async (
     request: Request,
     env: TEnv,
-    ctx: WorkerContext,
+    _ctx: WorkerContext,
   ): Promise<Response> => {
     // Run middleware chain if middlewares are provided
     let middlewareContext: AccumulatedContext<TMiddlewares, TEnv>;
@@ -174,7 +153,7 @@ export function createWorkerHandler<
     }
 
     // Map input (now receives middleware context)
-    const input = await mapInput(request, env, ctx, middlewareContext);
+    const input = await mapInput(request, env, middlewareContext);
 
     // Execute controller
     const output = await controller.execute(input);

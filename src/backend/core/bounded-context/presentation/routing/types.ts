@@ -1,9 +1,4 @@
-/**
- * Generic controller interface - any controller with an execute method.
- */
-export interface ExecutableController {
-  execute(input: unknown): Promise<unknown>;
-}
+import type { Controller } from '../interfaces/types/controller.type';
 
 /**
  * HTTP endpoint metadata (method + path).
@@ -22,17 +17,21 @@ export interface RouteMetadata {
 
 /**
  * Input for creating a route (before pattern compilation).
+ *
+ * @typeParam TController - The controller type. Must implement {@link Controller}.
  */
-export interface RouteInput<TController extends ExecutableController = ExecutableController> {
+export interface RouteInput<TController extends Controller = Controller> {
   metadata: RouteMetadata;
   controller: TController;
 }
 
 /**
  * Compiled route definition with regex pattern for matching.
+ *
+ * @typeParam TController - The controller type. Must implement {@link Controller}.
  */
 export interface RouteDefinition<
-  TController extends ExecutableController = ExecutableController,
+  TController extends Controller = Controller,
 > extends RouteInput<TController> {
   /**
    * Compiled regex pattern for path matching.
@@ -48,8 +47,10 @@ export interface RouteDefinition<
 
 /**
  * Result of route resolution containing matched route and extracted path parameters.
+ *
+ * @typeParam TController - The controller type. Must implement {@link Controller}.
  */
-export interface ResolvedRoute<TController extends ExecutableController = ExecutableController> {
+export interface ResolvedRoute<TController extends Controller = Controller> {
   route: RouteDefinition<TController>;
   pathParams: Record<string, string>;
 }

@@ -3,9 +3,12 @@ import type {
   APIGatewayProxyHandlerV2,
   APIGatewayProxyResultV2,
 } from 'aws-lambda';
-import type { HttpResponse } from '../../../../../core/bounded-context/presentation/interfaces/types/http-response';
+import type { Controller } from '../../../../../core/bounded-context/presentation/interfaces/types/controller.type';
 import type {
-  ExecutableController,
+  BaseRequestMetadata,
+  HttpResponse,
+} from '../../../../../core/bounded-context/presentation/interfaces/types/http';
+import type {
   ResolvedRoute,
   RouteInput,
 } from '../../../../../core/bounded-context/presentation/routing';
@@ -19,12 +22,23 @@ import { withExceptionHandler } from '../wrappers/with-exception-handler';
 
 /**
  * Request metadata extracted from the API Gateway event.
+ *
+ * Extends {@link BaseRequestMetadata} with AWS-specific fields.
  */
-export interface RequestMetadata {
-  path: string;
-  method: string;
+export interface RequestMetadata extends BaseRequestMetadata {
+  /**
+   * The AWS request ID for tracing.
+   */
   requestId: string;
+
+  /**
+   * The source IP address of the client.
+   */
   sourceIp: string;
+
+  /**
+   * The User-Agent header from the client.
+   */
   userAgent: string;
 }
 
@@ -32,9 +46,9 @@ export interface RequestMetadata {
  * Configuration for the greedy-proxy service handler.
  */
 export interface CreateGreedyProxyHandlerConfig<
-  TController extends ExecutableController = ExecutableController,
+  TController extends Controller = Controller,
   TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
-  TEnv = unknown,
+  TEnv = undefined,
   TAuthorizerContext extends object = object,
 > {
   /**
@@ -46,6 +60,33 @@ export interface CreateGreedyProxyHandlerConfig<
    * Route definitions for the service.
    */
   routes: RouteInput<TController>[];
+
+  /**
+   * Environment/dependencies to inject into middlewares.
+   *
+   * Unlike Cloudflare Workers, AWS Lambda doesn't have built-in environment
+   * bindings. Use this option to inject dependencies (database clients, caches,
+   * configuration, etc.) that your middlewares need.
+   *
+   * @default undefined
+   *
+   * @example
+   * ```typescript
+   * interface Deps { db: Database; config: Config; }
+   *
+   * createGreedyProxyHandler({
+   *   env: { db: myDatabase, config: myConfig },
+   *   middlewares: [
+   *     defineMiddleware<DataContext, object, Deps>()(async (event, env) => {
+   *       const data = await env.db.query('...');
+   *       return { data };
+   *     }),
+   *   ] as const,
+   *   ...
+   * });
+   * ```
+   */
+  env?: TEnv;
 
   /**
    * Middlewares to run before each request.
@@ -182,11 +223,28 @@ export interface CreateGreedyProxyHandlerConfig<
  *   extractAuthorizerContext: (event) => event.requestContext.authorizer?.lambda ?? {},
  * });
  * ```
+ *
+ * @example
+ * ```typescript
+ * // With injected dependencies
+ * interface Deps { db: Database; }
+ *
+ * export const handler = createGreedyProxyHandler({
+ *   serviceName: 'UserService',
+ *   routes: [...],
+ *   env: { db: myDatabase },
+ *   middlewares: [
+ *     defineMiddleware<DataContext, object, Deps>()(async (event, env) => {
+ *       return { users: await env.db.listUsers() };
+ *     }),
+ *   ] as const,
+ * });
+ * ```
  */
 export function createGreedyProxyHandler<
-  TController extends ExecutableController = ExecutableController,
+  TController extends Controller = Controller,
   TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
-  TEnv = unknown,
+  TEnv = undefined,
   TAuthorizerContext extends object = object,
 >(
   config: CreateGreedyProxyHandlerConfig<TController, TMiddlewares, TEnv, TAuthorizerContext>,
@@ -194,6 +252,7 @@ export function createGreedyProxyHandler<
   const {
     serviceName,
     routes,
+    env,
     middlewares = [] as unknown as TMiddlewares,
     extractAuthorizerContext,
     handleWarmup = true,
@@ -243,12 +302,7 @@ export function createGreedyProxyHandler<
 
     if (middlewares.length > 0) {
       // Middlewares receive authorizer context and can depend on it
-      context = await runMiddlewareChain(
-        event,
-        undefined as TEnv, // AWS doesn't have explicit env bindings like Cloudflare
-        middlewares,
-        authorizerContext,
-      );
+      context = await runMiddlewareChain(event, env as TEnv, middlewares, authorizerContext);
     } else {
       // No middlewares, just use authorizer context
       context = authorizerContext as TAuthorizerContext & AccumulatedContext<TMiddlewares, TEnv>;
@@ -285,7 +339,7 @@ export function createGreedyProxyHandler<
  * raw `proxy` path parameter. This function extracts path params from the
  * resolved route pattern and merges them into the request.
  */
-function mapGreedyProxyRequest<TController extends ExecutableController>(
+function mapGreedyProxyRequest<TController extends Controller>(
   event: APIGatewayProxyEventV2,
   resolved: ResolvedRoute<TController>,
 ) {

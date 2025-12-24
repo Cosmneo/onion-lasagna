@@ -1,4 +1,4 @@
-import type { HttpRequest } from '../../../../../../core/bounded-context/presentation/interfaces/types/http-request';
+import type { HttpRequest } from '../../../../../../core/bounded-context/presentation/interfaces/types/http';
 import { mapRequestBody } from './map-request-body';
 import { mapRequestHeaders } from './map-request-headers';
 import { mapRequestQueryParams } from './map-request-query-params';
