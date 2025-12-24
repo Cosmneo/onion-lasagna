@@ -1,10 +1,5 @@
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyHandlerV2,
-  APIGatewayProxyResultV2,
-  Context,
-} from 'aws-lambda';
-import { HttpException, InternalServerErrorException, mapErrorToException } from '../../../core';
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
+import { createExceptionHandler } from '../../../core';
 import { mapResponse } from '../adapters/response';
 
 /**
@@ -29,34 +24,10 @@ import { mapResponse } from '../adapters/response';
  * export const handler = withExceptionHandler(rawHandler);
  * ```
  */
-export function withExceptionHandler(handler: APIGatewayProxyHandlerV2): APIGatewayProxyHandlerV2 {
-  return async (
-    event: APIGatewayProxyEventV2,
-    context: Context,
-  ): Promise<APIGatewayProxyResultV2> => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
-      const result = await handler(event, context, () => {});
-      return result ?? { statusCode: 204, body: '' };
-    } catch (error: unknown) {
-      // Already an HttpException - return it (with masking for 500s)
-      if (error instanceof HttpException) {
-        if (error instanceof InternalServerErrorException) {
-          console.error('[InternalServerError]', error);
-        }
-        return mapResponse({
-          statusCode: error.statusCode,
-          body: error.toResponse(),
-        });
-      }
-
-      // Map framework errors to HTTP exceptions
-      const httpException = mapErrorToException(error);
-
-      return mapResponse({
-        statusCode: httpException.statusCode,
-        body: httpException.toResponse(),
-      });
-    }
-  };
-}
+export const withExceptionHandler = createExceptionHandler<APIGatewayProxyResultV2>({
+  mapExceptionToResponse: (exception) =>
+    mapResponse({
+      statusCode: exception.statusCode,
+      body: exception.toResponse(),
+    }),
+});

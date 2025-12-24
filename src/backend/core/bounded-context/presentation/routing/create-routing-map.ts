@@ -1,4 +1,5 @@
-import type { ExecutableController, ResolvedRoute, RouteDefinition, RouteInput } from './types';
+import type { Controller } from '../interfaces/types/controller.type';
+import type { ResolvedRoute, RouteDefinition, RouteInput } from './types';
 
 /** Matches path placeholders like {id} or {userId} */
 const PLACEHOLDER_PATTERN = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
@@ -127,7 +128,7 @@ export function createRoutePattern(servicePath: string): RegExp {
  * const route = { pattern: /^\/users\/(?<id>[^/]+)$/, paramNames: ['id'], ... };
  * extractPathParams(route, '/users/123') → { id: '123' }
  */
-export function extractPathParams<TController extends ExecutableController>(
+export function extractPathParams<TController extends Controller>(
   route: RouteDefinition<TController>,
   path: string,
 ): Record<string, string> {
@@ -168,7 +169,7 @@ export function extractPathParams<TController extends ExecutableController>(
  *   { metadata: { servicePath: '/users/{id}', method: 'GET' }, controller: findUserController },
  * ]);
  */
-export function createRoutes<TController extends ExecutableController>(
+export function createRoutes<TController extends Controller>(
   inputs: RouteInput<TController>[],
 ): RouteDefinition<TController>[] {
   const compiledRoutes = inputs.map((input) => ({
@@ -192,7 +193,7 @@ export function createRoutes<TController extends ExecutableController>(
  *   console.log(result.pathParams); // { id: '123' }
  * }
  */
-export function createRouteMatchResolver<TController extends ExecutableController>(
+export function createRouteMatchResolver<TController extends Controller>(
   routes: RouteDefinition<TController>[],
 ): (path: string, method: string) => ResolvedRoute<TController> | undefined {
   // Pre-index routes by HTTP method for O(1) method lookup
@@ -235,7 +236,7 @@ export function createRouteMatchResolver<TController extends ExecutableControlle
  * const resolveController = createRouteResolver(routes);
  * const controller = resolveController('/users/123', 'GET');
  */
-export function createRouteResolver<TController extends ExecutableController>(
+export function createRouteResolver<TController extends Controller>(
   routes: RouteDefinition<TController>[],
 ): (path: string, method: string) => TController | undefined {
   const resolveRoute = createRouteMatchResolver(routes);
@@ -268,7 +269,7 @@ export function createRouteResolver<TController extends ExecutableController>(
  * }
  * ```
  */
-export function createRoutingMap<TController extends ExecutableController>(
+export function createRoutingMap<TController extends Controller>(
   inputs: RouteInput<TController>[],
 ): {
   routes: RouteDefinition<TController>[];

@@ -1,5 +1,5 @@
 import type { EnhancedRequest } from './enhanced-request.type';
-import type { HttpRequest } from './http-request';
+import type { HttpRequest } from './http';
 
 /**
  * Enhanced HTTP request with metadata and context.

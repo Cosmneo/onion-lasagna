@@ -1,4 +1,4 @@
-import type { HttpResponse } from '../../../../../../core/bounded-context/presentation/interfaces/types/http-response';
+import type { HttpResponse } from '../../../../../../core/bounded-context/presentation/interfaces/types/http';
 import { mapResponseBody } from './map-response-body';
 import { mapResponseHeaders } from './map-response-headers';
 

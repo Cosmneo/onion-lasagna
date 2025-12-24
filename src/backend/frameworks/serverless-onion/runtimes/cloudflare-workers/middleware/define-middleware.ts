@@ -1,40 +1,41 @@
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
+import type { WorkerEnv } from '../types';
 import type { Middleware } from './types/middleware.type';
 
 /**
- * Creates a type-safe AWS Lambda middleware definition.
+ * Creates a type-safe Cloudflare Workers middleware definition.
  *
  * Uses a curried pattern to separate output type declaration from the implementation.
  * This is necessary because TypeScript cannot infer generic parameters and
  * function parameters simultaneously.
  *
- * **Note:** Unlike Cloudflare Workers, AWS Lambda doesn't have built-in environment
- * bindings. The `env` parameter defaults to `undefined` unless you explicitly provide
- * an `env` object in the handler config.
- *
  * @typeParam TOutput - The context type this middleware produces
  * @typeParam TRequiredContext - Context required from previous middlewares (defaults to empty object)
- * @typeParam TEnv - Environment/dependencies object (defaults to undefined)
+ * @typeParam TEnv - Environment bindings type (defaults to WorkerEnv)
  *
  * @returns A function that accepts the middleware handler and returns a typed Middleware
  *
  * @example
  * ```typescript
+ * interface Env extends WorkerEnv {
+ *   AUTH_SECRET: string;
+ *   MY_KV: KVNamespace;
+ * }
+ *
  * // Middleware with no dependencies (first in chain)
- * const authMiddleware = defineMiddleware<AuthContext>()(
- *   async (event, env, ctx) => {
- *     const token = event.headers?.authorization;
+ * const authMiddleware = defineMiddleware<AuthContext, object, Env>()(
+ *   async (request, env, ctx) => {
+ *     const token = request.headers.get('authorization');
  *     if (!token) {
  *       throw new UnauthorizedException({ message: 'Missing token', code: 'NO_TOKEN' });
  *     }
- *     const user = await validateToken(token);
+ *     const user = await validateToken(token, env.AUTH_SECRET);
  *     return { userId: user.id, roles: user.roles };
  *   }
  * );
  *
  * // Middleware with dependency on AuthContext
- * const tenantMiddleware = defineMiddleware<TenantContext, AuthContext>()(
- *   async (event, env, ctx) => {
+ * const tenantMiddleware = defineMiddleware<TenantContext, AuthContext, Env>()(
+ *   async (request, env, ctx) => {
  *     // ctx.userId is available and typed!
  *     const tenant = await getTenant(ctx.userId);
  *     return { tenantId: tenant.id, tenantName: tenant.name };
@@ -42,8 +43,8 @@ import type { Middleware } from './types/middleware.type';
  * );
  *
  * // Middleware that validates but adds no context
- * const adminMiddleware = defineMiddleware<object, AuthContext>()(
- *   async (event, env, ctx) => {
+ * const adminMiddleware = defineMiddleware<object, AuthContext, Env>()(
+ *   async (request, env, ctx) => {
  *     if (!ctx.roles.includes('admin')) {
  *       throw new ForbiddenException({ message: 'Admin access required', code: 'NOT_ADMIN' });
  *     }
@@ -54,30 +55,22 @@ import type { Middleware } from './types/middleware.type';
  *
  * @example
  * ```typescript
- * // Middleware with injected dependencies
- * interface Deps { db: Database; cache: Cache; }
- *
- * const dataMiddleware = defineMiddleware<DataContext, object, Deps>()(
- *   async (event, env, ctx) => {
- *     const data = await env.db.query('...');
- *     return { data };
- *   }
- * );
- *
- * // Provide deps in handler config
- * createLambdaHandler({
- *   env: { db: myDb, cache: myCache },
- *   middlewares: [dataMiddleware] as const,
- *   ...
- * });
+ * // Using with handler
+ * export default {
+ *   fetch: createWorkerProxyHandler({
+ *     serviceName: 'UserService',
+ *     routes: [...],
+ *     middlewares: [authMiddleware, tenantMiddleware] as const,
+ *   }),
+ * };
  * ```
  */
 export function defineMiddleware<
   TOutput extends object,
   TRequiredContext extends object = object,
-  TEnv = undefined,
+  TEnv extends WorkerEnv = WorkerEnv,
 >(): (
-  handler: (event: APIGatewayProxyEventV2, env: TEnv, ctx: TRequiredContext) => Promise<TOutput>,
+  handler: (request: Request, env: TEnv, ctx: TRequiredContext) => Promise<TOutput>,
 ) => Middleware<TOutput, TRequiredContext, TEnv> {
   return (handler) => {
     return handler as Middleware<TOutput, TRequiredContext, TEnv>;
