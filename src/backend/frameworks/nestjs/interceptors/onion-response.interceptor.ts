@@ -4,7 +4,7 @@ import {
   type ExecutionContext,
   type CallHandler,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
+import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import type { Response } from 'express';
 

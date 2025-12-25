@@ -59,8 +59,8 @@ export async function runMiddlewareChain<
   let accumulatedContext: object = initialContext ?? {};
 
   for (let i = 0; i < middlewares.length; i++) {
-    // Non-null assertion is safe here: i is always within bounds due to loop condition
-    const middleware = middlewares[i]!;
+    const middleware = middlewares[i];
+    if (!middleware) continue;
 
     // Each middleware receives the accumulated context from previous middlewares
     const middlewareContext = await middleware(request, env, accumulatedContext);
