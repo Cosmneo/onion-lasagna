@@ -1,5 +1,5 @@
 import type { AccumulatedContext } from './types/middleware-chain.type';
-import type { Middleware } from './types/middleware.type';
+import type { AnyMiddleware } from './types/middleware.type';
 import { assertMiddlewareContext } from './middleware-context.util';
 
 /**
@@ -46,7 +46,7 @@ import { assertMiddlewareContext } from './middleware-context.util';
  * ```
  */
 export async function runMiddlewareChain<
-  TMiddlewares extends readonly Middleware<object, object, TEnv, TRequest>[],
+  TMiddlewares extends readonly AnyMiddleware<TEnv, TRequest>[],
   TEnv = unknown,
   TRequest = Request,
   TInitialContext extends object = object,

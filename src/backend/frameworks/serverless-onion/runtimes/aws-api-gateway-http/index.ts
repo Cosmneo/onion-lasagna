@@ -14,8 +14,9 @@ export {
   type MiddlewareOutput,
   type MiddlewareInput,
   type AccumulatedContext,
-  // Factory
+  // Factories
   defineMiddleware,
+  createMiddlewareChain,
 } from './middleware';
 
 // AWS-specific adapters

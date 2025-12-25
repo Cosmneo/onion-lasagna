@@ -10,7 +10,7 @@ import { createBaseProxyHandler, type PlatformProxyAdapter } from '../../../core
 import { mapRequestBody, mapRequestHeaders, mapRequestQueryParams } from '../adapters/request';
 import { mapResponse } from '../adapters/response';
 import { getWarmupResponse, isWarmupCall } from '../features/warmup';
-import type { Middleware } from '../middleware';
+import type { AnyMiddleware } from '../middleware';
 
 /**
  * AWS Lambda platform adapter for proxy handlers.
@@ -64,7 +64,7 @@ export interface RequestMetadata extends BaseRequestMetadata {
  */
 export interface CreateGreedyProxyHandlerConfig<
   TController extends Controller = Controller,
-  TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
+  TMiddlewares extends readonly AnyMiddleware<TEnv>[] = readonly [],
   TEnv = undefined,
   TAuthorizerContext extends object = object,
 > {
@@ -260,7 +260,7 @@ export interface CreateGreedyProxyHandlerConfig<
  */
 export function createGreedyProxyHandler<
   TController extends Controller = Controller,
-  TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
+  TMiddlewares extends readonly AnyMiddleware<TEnv>[] = readonly [],
   TEnv = undefined,
   TAuthorizerContext extends object = object,
 >(
