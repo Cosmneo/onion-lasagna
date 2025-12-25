@@ -10,4 +10,9 @@ export { buildHttpRequest } from './build-http-request';
 export type { HttpRequestComponents } from './build-http-request';
 
 // Types
-export type { PlatformAdapter, PlatformProxyAdapter, RouteInfo } from './types';
+export type {
+  PlatformAdapter,
+  PlatformProxyAdapter,
+  ResponseMappingOptions,
+  RouteInfo,
+} from './types';

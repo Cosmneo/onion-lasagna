@@ -8,8 +8,10 @@ import { createRoutingMap } from '../../../../core/onion-layers/presentation/rou
 import { createExceptionHandler, NotFoundException } from '../index';
 import { runMiddlewareChain } from '../middleware';
 import type { AccumulatedContext, AnyMiddleware } from '../middleware/types';
+import type { ServerlessOnionConfig } from '../types';
 import { buildHttpRequest } from './build-http-request';
-import type { PlatformProxyAdapter } from './types';
+import type { PlatformProxyAdapter, ResponseMappingOptions } from './types';
+import { resolveCorsConfig } from './types';
 
 /**
  * Base proxy handler configuration shared across platforms.
@@ -51,6 +53,28 @@ export interface BaseProxyHandlerConfig<
    * @default true
    */
   handleExceptions?: boolean;
+
+  /**
+   * Framework configuration including CORS and other settings.
+   *
+   * @example Configure CORS
+   * ```typescript
+   * config: {
+   *   cors: {
+   *     origin: 'https://myapp.com',
+   *     credentials: true,
+   *   },
+   * }
+   * ```
+   *
+   * @example Disable CORS headers
+   * ```typescript
+   * config: {
+   *   cors: false,
+   * }
+   * ```
+   */
+  config?: ServerlessOnionConfig;
 
   /**
    * Extracts request metadata from the platform request.
@@ -196,18 +220,13 @@ export type BaseProxyHandlerFactory<TPlatformRequest, TPlatformResponse, TEnv> =
 export function createBaseProxyHandler<TPlatformRequest, TPlatformResponse, TEnv = unknown>(
   adapter: PlatformProxyAdapter<TPlatformRequest, TPlatformResponse>,
 ): BaseProxyHandlerFactory<TPlatformRequest, TPlatformResponse, TEnv> {
-  // Create exception handler wrapper using the platform adapter
-  const withExceptionHandler = createExceptionHandler<TPlatformResponse>({
-    mapExceptionToResponse: adapter.mapExceptionToResponse,
-  });
-
   return function createProxyHandler<
     TController extends Controller,
     TMiddlewares extends readonly AnyMiddleware<TEnv, TPlatformRequest>[],
     TMetadata extends BaseRequestMetadata,
     TInitialContext extends object = object,
   >(
-    config: BaseProxyHandlerConfig<
+    handlerConfig: BaseProxyHandlerConfig<
       TController,
       TMiddlewares,
       TEnv,
@@ -222,11 +241,15 @@ export function createBaseProxyHandler<TPlatformRequest, TPlatformResponse, TEnv
       routes,
       middlewares = [] as unknown as TMiddlewares,
       handleExceptions = true,
+      config,
       extractMetadata,
       mapRequest,
       extractInitialContext,
       beforeHandle,
-    } = config;
+    } = handlerConfig;
+
+    // Resolve CORS config from framework config
+    const corsConfig = resolveCorsConfig(config);
 
     // Create routing map once
     const { resolveRoute } = createRoutingMap(routes);
@@ -242,6 +265,15 @@ export function createBaseProxyHandler<TPlatformRequest, TPlatformResponse, TEnv
           return earlyResponse;
         }
       }
+
+      // Extract request origin for dynamic CORS matching
+      const requestOrigin = adapter.extractOrigin?.(request);
+
+      // Build response mapping options
+      const responseOptions: ResponseMappingOptions = {
+        cors: corsConfig,
+        requestOrigin,
+      };
 
       // 2. Extract route info from platform request
       const { path, method } = adapter.extractRouteInfo(request);
@@ -294,12 +326,17 @@ export function createBaseProxyHandler<TPlatformRequest, TPlatformResponse, TEnv
         controllerInput,
       )) as HttpResponse;
 
-      // 11. Convert to platform response
-      return adapter.mapResponse(controllerResponse);
+      // 11. Convert to platform response with CORS headers
+      return adapter.mapResponse(controllerResponse, responseOptions);
     };
 
     // Wrap with exception handler if enabled
     if (handleExceptions) {
+      // Create exception handler with CORS config
+      const withExceptionHandler = createExceptionHandler<TPlatformResponse>({
+        mapExceptionToResponse: adapter.mapExceptionToResponse,
+        responseOptions: { cors: corsConfig },
+      });
       return withExceptionHandler(coreHandler);
     }
 
