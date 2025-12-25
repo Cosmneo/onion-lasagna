@@ -1,5 +1,5 @@
 import { type } from 'arktype';
-import { BaseUuidV7Vo } from '../../../../bounded-context/domain/value-objects/base-uuid-v7.vo';
+import { BaseUuidV7Vo } from '../../../../onion-layers/domain/value-objects/base-uuid-v7.vo';
 import { createArkTypeValidator } from '../../bootstrap';
 
 const schema = type('string.uuid.v7');

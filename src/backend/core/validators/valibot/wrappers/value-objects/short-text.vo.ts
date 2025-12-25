@@ -1,5 +1,5 @@
 import { pipe, string, minLength, maxLength } from 'valibot';
-import { BaseShortTextVo } from '../../../../bounded-context/domain/value-objects/base-short-text.vo';
+import { BaseShortTextVo } from '../../../../onion-layers/domain/value-objects/base-short-text.vo';
 import { createValibotValidator } from '../../bootstrap';
 
 const schema = (maxLen: number) => pipe(string(), minLength(1), maxLength(maxLen));

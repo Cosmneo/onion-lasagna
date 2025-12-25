@@ -1,5 +1,5 @@
 import { type } from 'arktype';
-import { BaseEmailVo } from '../../../../bounded-context/domain/value-objects/base-email.vo';
+import { BaseEmailVo } from '../../../../onion-layers/domain/value-objects/base-email.vo';
 import { createArkTypeValidator } from '../../bootstrap';
 
 const schema = type('string.email');

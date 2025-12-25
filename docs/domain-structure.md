@@ -7,7 +7,7 @@ This document describes the recommended folder structure for the domain layer in
 ## Overview
 
 ```
-src/backend/core/bounded-context/domain/
+src/backend/core/onion-layers/domain/
 ├── classes/              # Base classes (BaseEntity, BaseAggregateRoot, etc.)
 ├── exceptions/           # Domain-level errors
 ├── value-objects/        # Shared base value objects

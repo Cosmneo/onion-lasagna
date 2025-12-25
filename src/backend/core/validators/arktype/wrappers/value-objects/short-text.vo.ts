@@ -1,5 +1,5 @@
 import { type } from 'arktype';
-import { BaseShortTextVo } from '../../../../bounded-context/domain/value-objects/base-short-text.vo';
+import { BaseShortTextVo } from '../../../../onion-layers/domain/value-objects/base-short-text.vo';
 import { createArkTypeValidator } from '../../bootstrap';
 
 const schema = (maxLength: number) => type(`1 <= string <= ${maxLength}`);

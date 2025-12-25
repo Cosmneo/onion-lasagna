@@ -20,8 +20,8 @@ The core idea is to define **Ports** (Interfaces) using raw data types and a gen
 ```typescript
 import { z } from 'zod';
 import { BaseDto } from './wrappers/dto';
-import { BaseInboundAdapter } from '../../bounded-context/app/classes/base-inbound-adapter.class';
-import { BaseInboundPort } from '../../bounded-context/app/interfaces/ports/base-inbound.port';
+import { BaseInboundAdapter } from '../../onion-layers/app/classes/base-inbound-adapter.class';
+import { BaseInboundPort } from '../../onion-layers/app/interfaces/ports/base-inbound.port';
 
 // 1. Define Schemas
 const inputSchema = z.object({ name: z.string(), age: z.number() });

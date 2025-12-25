@@ -1,7 +1,5 @@
 import type { HttpResponse } from '../../../../../../core/onion-layers/presentation/interfaces/types/http';
-import { isNoBodyStatus } from '../../../../core';
-import { mapResponseBody } from './map-response-body';
-import { mapResponseHeaders } from './map-response-headers';
+import { isNoBodyStatus, mapResponseBody, mapResponseHeaders } from '../../../../core';
 
 /**
  * Options for mapping responses.

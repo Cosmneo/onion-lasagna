@@ -267,7 +267,7 @@ export interface WorkerController<TInput, TOutput> {
 **Already Exists in Core:**
 
 ```typescript
-// core/bounded-context/presentation/routing/types.ts
+// core/onion-layers/presentation/routing/types.ts
 export interface ExecutableController {
   execute(input: unknown): Promise<unknown>;
 }

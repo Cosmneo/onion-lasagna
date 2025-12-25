@@ -1,12 +1,36 @@
 import type { Controller } from '../../../../../core/onion-layers/presentation/interfaces/types/controller.type';
 import type { HttpResponse } from '../../../../../core/onion-layers/presentation/interfaces/types/http';
-import { assertHttpResponse } from '../../../../../core/onion-layers/presentation/utils';
-import { runMiddlewareChain } from '../../../core';
+import { createBaseHandler, type PlatformAdapter } from '../../../core/handlers';
 import type { AccumulatedContext, Middleware } from '../middleware';
-import { mapRequest } from '../adapters/request';
+import {
+  mapRequest,
+  mapRequestBody,
+  mapRequestHeaders,
+  mapRequestQueryParams,
+} from '../adapters/request';
 import { mapResponse } from '../adapters/response';
 import type { WorkerContext, WorkerEnv, WorkerHandler } from '../types';
-import { withExceptionHandler } from '../wrappers/with-exception-handler';
+
+/**
+ * Cloudflare Workers platform adapter.
+ * Provides request extraction and response mapping for Web API Request/Response.
+ */
+const cloudflareAdapter: PlatformAdapter<Request, Response> = {
+  extractBody: (request) => mapRequestBody(request),
+  extractHeaders: (request) => mapRequestHeaders(request) ?? {},
+  extractQueryParams: (request) => mapRequestQueryParams(request) ?? {},
+  mapResponse: (response) =>
+    mapResponse({
+      statusCode: response.statusCode,
+      body: response.body,
+      headers: response.headers,
+    }),
+  mapExceptionToResponse: (exception) =>
+    mapResponse({
+      statusCode: exception.statusCode,
+      body: exception.toResponse(),
+    }),
+};
 
 /**
  * Configuration for creating a Cloudflare Worker handler.
@@ -139,38 +163,19 @@ export function createWorkerHandler<
     mapOutput = (output: TOutput) => output as unknown as HttpResponse,
   } = config;
 
-  const coreHandler: WorkerHandler<TEnv> = async (
-    request: Request,
-    env: TEnv,
-    _ctx: WorkerContext,
-  ): Promise<Response> => {
-    // Run middleware chain if middlewares are provided
-    let middlewareContext: AccumulatedContext<TMiddlewares, TEnv>;
+  // Create base handler using the core factory
+  const baseHandlerFactory = createBaseHandler<Request, Response, TEnv>(cloudflareAdapter);
 
-    if (middlewares.length > 0) {
-      middlewareContext = await runMiddlewareChain(request, env, middlewares);
-    } else {
-      middlewareContext = {} as AccumulatedContext<TMiddlewares, TEnv>;
-    }
+  const baseHandler = baseHandlerFactory({
+    controller,
+    middlewares,
+    mapInput,
+    mapOutput,
+    handleExceptions,
+  });
 
-    // Map input (now receives middleware context)
-    const input = await mapInput(request, env, middlewareContext);
-
-    // Execute controller
-    const output = await controller.execute(input);
-
-    // Map output to HTTP response and validate
-    const httpResponse = mapOutput(output);
-    assertHttpResponse(httpResponse, 'mapOutput result');
-
-    // Convert to Cloudflare Response
-    return mapResponse(httpResponse);
+  // Wrap to match WorkerHandler signature (adds unused ctx parameter)
+  return (request: Request, env: TEnv, _ctx: WorkerContext): Promise<Response> => {
+    return baseHandler(request, env);
   };
-
-  // Wrap with exception handler if enabled
-  if (handleExceptions) {
-    return withExceptionHandler(coreHandler);
-  }
-
-  return coreHandler;
 }

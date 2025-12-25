@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { BaseAuditByVo } from '../../../../bounded-context/domain/value-objects/base-audit-by.vo';
-import { SKIP_VALUE_OBJECT_VALIDATION } from '../../../../bounded-context/domain/classes/base-value-object.class';
+import { BaseAuditByVo } from '../../../../onion-layers/domain/value-objects/base-audit-by.vo';
+import { SKIP_VALUE_OBJECT_VALIDATION } from '../../../../onion-layers/domain/classes/base-value-object.class';
 import { createZodValidator } from '../../bootstrap';
-import type { BaseUuidV4Vo } from '../../../../bounded-context/domain/value-objects/base-uuid-v4.vo';
+import type { BaseUuidV4Vo } from '../../../../onion-layers/domain/value-objects/base-uuid-v4.vo';
 import { UuidV4Vo } from './uuid-v4.vo';
 
 const schema = z.object({

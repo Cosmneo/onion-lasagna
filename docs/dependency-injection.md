@@ -12,7 +12,7 @@ import {
   BaseController,
   GuardedController,
 } from '@cosmneo/onion-lasagna/backend/core/presentation';
-import { BaseInboundAdapter } from '@cosmneo/onion-lasagna/backend/core/bounded-context';
+import { BaseInboundAdapter } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
 import { Dto } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
 
 // --- Schemas ---
@@ -142,7 +142,7 @@ bun add tsyringe reflect-metadata
 import 'reflect-metadata';
 import { container, injectable, inject } from 'tsyringe';
 import { BaseController } from '@cosmneo/onion-lasagna/backend/core/presentation';
-import { BaseInboundAdapter } from '@cosmneo/onion-lasagna/backend/core/bounded-context';
+import { BaseInboundAdapter } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
 import { Dto } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
 
 // --- Repository ---
@@ -207,7 +207,7 @@ bun add inversify reflect-metadata
 import 'reflect-metadata';
 import { Container, injectable, inject } from 'inversify';
 import { BaseController } from '@cosmneo/onion-lasagna/backend/core/presentation';
-import { BaseInboundAdapter } from '@cosmneo/onion-lasagna/backend/core/bounded-context';
+import { BaseInboundAdapter } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
 import { Dto } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
 
 // --- Tokens ---

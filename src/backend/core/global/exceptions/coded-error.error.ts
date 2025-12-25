@@ -1,3 +1,5 @@
+import type { ErrorCode } from './error-codes.const';
+
 /**
  * Base error class for all application errors with a machine-readable code.
  *
@@ -31,17 +33,25 @@
  */
 export abstract class CodedError extends Error {
   /** Machine-readable error code for programmatic handling. */
-  public readonly code: string;
+  public readonly code: ErrorCode | string;
 
   /**
    * Creates a new CodedError instance.
    *
    * @param options - Error configuration
    * @param options.message - Human-readable error message
-   * @param options.code - Machine-readable error code (e.g., 'USER_NOT_FOUND')
+   * @param options.code - Machine-readable error code from ErrorCodes registry or custom string
    * @param options.cause - Optional underlying error that caused this error
    */
-  constructor({ message, code, cause }: { message: string; code: string; cause?: unknown }) {
+  constructor({
+    message,
+    code,
+    cause,
+  }: {
+    message: string;
+    code: ErrorCode | string;
+    cause?: unknown;
+  }) {
     super(message);
     this.name = this.constructor.name;
     this.code = code;

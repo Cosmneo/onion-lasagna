@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEmailVo } from '../../../../bounded-context/domain/value-objects/base-email.vo';
+import { BaseEmailVo } from '../../../../onion-layers/domain/value-objects/base-email.vo';
 import { createZodValidator } from '../../bootstrap';
 
 const schema = z.string().email();

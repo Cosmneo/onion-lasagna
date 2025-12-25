@@ -5,13 +5,37 @@ import type {
 } from 'aws-lambda';
 import type { Controller } from '../../../../../core/onion-layers/presentation/interfaces/types/controller.type';
 import type { HttpResponse } from '../../../../../core/onion-layers/presentation/interfaces/types/http';
-import { assertHttpResponse } from '../../../../../core/onion-layers/presentation/utils';
-import { runMiddlewareChain } from '../../../core';
-import { mapRequest } from '../adapters/request';
+import { createBaseHandler, type PlatformAdapter } from '../../../core/handlers';
+import {
+  mapRequest,
+  mapRequestBody,
+  mapRequestHeaders,
+  mapRequestQueryParams,
+} from '../adapters/request';
 import { mapResponse } from '../adapters/response';
 import { getWarmupResponse, isWarmupCall } from '../features/warmup';
 import type { AccumulatedContext, Middleware } from '../middleware';
-import { withExceptionHandler } from '../wrappers/with-exception-handler';
+
+/**
+ * AWS Lambda platform adapter.
+ * Provides request extraction and response mapping for API Gateway v2.
+ */
+const awsAdapter: PlatformAdapter<APIGatewayProxyEventV2, APIGatewayProxyResultV2> = {
+  extractBody: (event) => mapRequestBody(event),
+  extractHeaders: (event) => mapRequestHeaders(event) ?? {},
+  extractQueryParams: (event) => mapRequestQueryParams(event) ?? {},
+  mapResponse: (response) =>
+    mapResponse({
+      statusCode: response.statusCode,
+      body: response.body,
+      headers: response.headers,
+    }),
+  mapExceptionToResponse: (exception) =>
+    mapResponse({
+      statusCode: exception.statusCode,
+      body: exception.toResponse(),
+    }),
+};
 
 /**
  * Configuration for creating a Lambda handler.
@@ -188,38 +212,29 @@ export function createLambdaHandler<
     handleExceptions = true,
   } = config;
 
-  const coreHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
-    // Handle warmup BEFORE middleware (avoid unnecessary auth calls)
+  // Create base handler using the core factory
+  const baseHandlerFactory = createBaseHandler<
+    APIGatewayProxyEventV2,
+    APIGatewayProxyResultV2,
+    TEnv
+  >(awsAdapter);
+
+  const baseHandler = baseHandlerFactory({
+    controller,
+    middlewares,
+    mapInput,
+    mapOutput,
+    handleExceptions,
+  });
+
+  // Wrap with warmup handling
+  return async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+    // Handle warmup BEFORE any other logic (avoid unnecessary auth calls)
     if (handleWarmup && isWarmupCall(event)) {
       console.info('Lambda is warm!');
       return getWarmupResponse();
     }
 
-    // Run middleware chain
-    let middlewareContext: AccumulatedContext<TMiddlewares, TEnv>;
-    if (middlewares.length > 0) {
-      middlewareContext = await runMiddlewareChain(event, env as TEnv, middlewares);
-    } else {
-      middlewareContext = {} as AccumulatedContext<TMiddlewares, TEnv>;
-    }
-
-    // Map input (now receives middleware context)
-    const input = await mapInput(event, env as TEnv, middlewareContext);
-
-    // Execute controller
-    const output = await controller.execute(input);
-
-    // Map output to response and validate
-    const httpResponse = mapOutput(output);
-    assertHttpResponse(httpResponse, 'mapOutput result');
-
-    return mapResponse(httpResponse);
+    return baseHandler(event, env as TEnv);
   };
-
-  // Wrap with exception handler if enabled
-  if (handleExceptions) {
-    return withExceptionHandler(coreHandler);
-  }
-
-  return coreHandler;
 }

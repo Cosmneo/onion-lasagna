@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseUuidV4Vo } from '../../../../bounded-context/domain/value-objects/base-uuid-v4.vo';
+import { BaseUuidV4Vo } from '../../../../onion-layers/domain/value-objects/base-uuid-v4.vo';
 import { createZodValidator } from '../../bootstrap';
 
 const schema = z.uuidv4();

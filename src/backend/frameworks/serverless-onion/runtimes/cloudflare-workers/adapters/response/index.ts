@@ -1,3 +1,8 @@
 export * from './map-response';
-export * from './map-response-body';
-export * from './map-response-headers';
+
+// Re-export core utilities for backward compatibility
+export {
+  mapResponseBody,
+  mapResponseHeaders,
+  type MapResponseHeadersOptions,
+} from '../../../../core';

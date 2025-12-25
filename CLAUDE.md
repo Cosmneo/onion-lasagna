@@ -31,7 +31,7 @@ This is an **Onion/Hexagonal Architecture** library providing base classes for D
 ### Layer Structure (`src/backend/core/`)
 
 ```
-bounded-context/
+onion-layers/
 ├── domain/       # Business rules: BaseValueObject, value objects (Email, UUID, Text, Pagination)
 ├── app/          # Use cases: BaseInboundAdapter implements BaseInboundPort
 ├── infra/        # Repositories: BaseOutboundAdapter (auto-wraps methods with error handling)
@@ -78,7 +78,7 @@ CodedError (base with code + cause)
 ### Package Exports
 
 ```typescript
-import { ... } from '@cosmneo/onion-lasagna/backend/core/bounded-context'
+import { ... } from '@cosmneo/onion-lasagna/backend/core/onion-layers'
 import { ... } from '@cosmneo/onion-lasagna/backend/core/global'
 import { ... } from '@cosmneo/onion-lasagna/backend/core/validators/zod'
 import { ... } from '@cosmneo/onion-lasagna/backend/core/validators/arktype'

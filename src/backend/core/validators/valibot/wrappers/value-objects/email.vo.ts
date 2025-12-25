@@ -1,5 +1,5 @@
 import { pipe, string, email } from 'valibot';
-import { BaseEmailVo } from '../../../../bounded-context/domain/value-objects/base-email.vo';
+import { BaseEmailVo } from '../../../../onion-layers/domain/value-objects/base-email.vo';
 import { createValibotValidator } from '../../bootstrap';
 
 const schema = pipe(string(), email());

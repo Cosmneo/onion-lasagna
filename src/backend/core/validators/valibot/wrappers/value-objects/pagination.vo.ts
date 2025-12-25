@@ -9,8 +9,8 @@ import {
   maxValue,
   transform,
 } from 'valibot';
-import { BasePaginationVo } from '../../../../bounded-context/domain/value-objects/base-pagination.vo';
-import { SKIP_VALUE_OBJECT_VALIDATION } from '../../../../bounded-context/domain/classes/base-value-object.class';
+import { BasePaginationVo } from '../../../../onion-layers/domain/value-objects/base-pagination.vo';
+import { SKIP_VALUE_OBJECT_VALIDATION } from '../../../../onion-layers/domain/classes/base-value-object.class';
 import { createValibotValidator } from '../../bootstrap';
 
 const coerceInt = pipe(

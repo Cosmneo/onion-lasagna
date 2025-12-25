@@ -1,19 +1,39 @@
 import type { Controller } from '../../../../../core/onion-layers/presentation/interfaces/types/controller.type';
-import type {
-  BaseRequestMetadata,
-  HttpResponse,
-} from '../../../../../core/onion-layers/presentation/interfaces/types/http';
-import type {
-  ResolvedRoute,
-  RouteInput,
-} from '../../../../../core/onion-layers/presentation/routing';
-import { createRoutingMap } from '../../../../../core/onion-layers/presentation/routing';
-import { NotFoundException, runMiddlewareChain } from '../../../core';
-import type { AccumulatedContext, Middleware } from '../middleware';
+import type { BaseRequestMetadata } from '../../../../../core/onion-layers/presentation/interfaces/types/http';
+import type { RouteInput } from '../../../../../core/onion-layers/presentation/routing';
+import { createBaseProxyHandler, type PlatformProxyAdapter } from '../../../core/handlers';
+import type { Middleware } from '../middleware';
 import { mapRequestBody, mapRequestHeaders, mapRequestQueryParams } from '../adapters/request';
 import { mapResponse } from '../adapters/response';
 import type { WorkerContext, WorkerEnv, WorkerHandler } from '../types';
-import { withExceptionHandler } from '../wrappers/with-exception-handler';
+
+/**
+ * Cloudflare Workers platform adapter for proxy handlers.
+ * Maps Request to route info and HttpResponse/HttpException to Response.
+ */
+const cloudflareProxyAdapter: PlatformProxyAdapter<Request, Response> = {
+  extractRouteInfo: (request) => {
+    const url = new URL(request.url);
+    return {
+      path: url.pathname,
+      method: request.method,
+    };
+  },
+  extractBody: (request) => mapRequestBody(request),
+  extractHeaders: (request) => mapRequestHeaders(request) ?? {},
+  extractQueryParams: (request) => mapRequestQueryParams(request) ?? {},
+  mapResponse: (response) =>
+    mapResponse({
+      statusCode: response.statusCode,
+      body: response.body,
+      headers: response.headers,
+    }),
+  mapExceptionToResponse: (exception) =>
+    mapResponse({
+      statusCode: exception.statusCode,
+      body: exception.toResponse(),
+    }),
+};
 
 /**
  * Request metadata extracted from the Cloudflare Workers Request.
@@ -134,79 +154,34 @@ export function createWorkerProxyHandler<
     handleExceptions = true,
   } = config;
 
-  // Create routing map
-  const { resolveRoute } = createRoutingMap(routes);
+  // Create base proxy handler using the core factory
+  const baseProxyHandlerFactory = createBaseProxyHandler<Request, Response, TEnv>(
+    cloudflareProxyAdapter,
+  );
 
-  const coreHandler: WorkerHandler<TEnv> = async (
-    request: Request,
-    env: TEnv,
-    _ctx: WorkerContext,
-  ): Promise<Response> => {
-    const url = new URL(request.url);
+  const baseHandler = baseProxyHandlerFactory<TController, TMiddlewares, RequestMetadata>({
+    serviceName,
+    routes,
+    middlewares,
+    handleExceptions,
+    extractMetadata: (request) => {
+      const url = new URL(request.url);
+      return {
+        path: url.pathname,
+        method: request.method,
+        url: request.url,
+      };
+    },
+    mapRequest: async (request, pathParams) => ({
+      body: await mapRequestBody(request),
+      queryParams: mapRequestQueryParams(request) ?? {},
+      pathParams,
+      headers: mapRequestHeaders(request) ?? {},
+    }),
+  });
 
-    // Extract request metadata
-    const requestMetadata: RequestMetadata = {
-      path: url.pathname,
-      method: request.method,
-      url: request.url,
-    };
-
-    // Resolve route
-    const resolved = resolveRoute(requestMetadata.path, requestMetadata.method);
-    if (!resolved) {
-      throw new NotFoundException({
-        message: `No route found for ${requestMetadata.method} ${requestMetadata.path}`,
-        code: 'ROUTE_NOT_FOUND',
-      });
-    }
-
-    // Log resolved route
-    console.info(
-      `[${serviceName}] Resolved route: ${requestMetadata.method} ${requestMetadata.path} -> ${resolved.route.metadata.method} ${resolved.route.metadata.servicePath}`,
-      { pathParams: resolved.pathParams },
-    );
-
-    // Build context from middleware chain
-    const context: AccumulatedContext<TMiddlewares, TEnv> =
-      middlewares.length > 0
-        ? await runMiddlewareChain(request, env, middlewares)
-        : ({} as AccumulatedContext<TMiddlewares, TEnv>);
-
-    // Build controller input
-    const controllerInput = {
-      metadata: requestMetadata,
-      context,
-      request: await mapWorkerProxyRequest(request, resolved),
-    };
-
-    // Execute controller
-    const controllerResponse = (await resolved.route.controller.execute(
-      controllerInput,
-    )) as HttpResponse;
-
-    // Map response
-    return mapResponse(controllerResponse);
-  };
-
-  // Wrap with exception handler if enabled
-  if (handleExceptions) {
-    return withExceptionHandler(coreHandler);
-  }
-
-  return coreHandler;
-}
-
-/**
- * Maps a Cloudflare Workers Request to HttpRequest format for proxy routes.
- */
-async function mapWorkerProxyRequest<TController extends Controller>(
-  request: Request,
-  resolved: ResolvedRoute<TController>,
-) {
-  return {
-    body: await mapRequestBody(request),
-    queryParams: mapRequestQueryParams(request),
-    pathParams: resolved.pathParams,
-    headers: mapRequestHeaders(request),
+  // Wrap to match WorkerHandler signature (adds unused ctx parameter)
+  return (request: Request, env: TEnv, _ctx: WorkerContext): Promise<Response> => {
+    return baseHandler(request, env);
   };
 }
