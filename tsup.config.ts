@@ -15,6 +15,7 @@ export default defineConfig({
       'src/backend/frameworks/serverless-onion/runtimes/aws-api-gateway-http/index.ts',
     'backend/frameworks/serverless-onion/cloudflare':
       'src/backend/frameworks/serverless-onion/runtimes/cloudflare-workers/index.ts',
+    'backend/frameworks/hono': 'src/backend/frameworks/hono/index.ts',
   },
   dts: true,
   format: ['esm', 'cjs'],
@@ -23,5 +24,5 @@ export default defineConfig({
   target: 'es2022',
   minify: false,
   skipNodeModulesBundle: true,
-  external: ['zod', 'uuid', 'arktype', 'valibot', '@sinclair/typebox', 'aws-lambda'],
+  external: ['zod', 'uuid', 'arktype', 'valibot', '@sinclair/typebox', 'aws-lambda', 'hono'],
 });
