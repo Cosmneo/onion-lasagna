@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
-import type { HttpRequest } from '../../../../../../core/bounded-context/presentation/interfaces/types/http';
+import type { HttpRequest } from '../../../../../../core/onion-layers/presentation/interfaces/types/http';
 import { mapRequestBody } from './map-request-body';
 import { mapRequestHeaders } from './map-request-headers';
 import { mapRequestPathParams } from './map-request-path-params';

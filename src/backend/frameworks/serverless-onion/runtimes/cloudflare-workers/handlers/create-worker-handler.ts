@@ -1,5 +1,6 @@
-import type { Controller } from '../../../../../core/bounded-context/presentation/interfaces/types/controller.type';
-import type { HttpResponse } from '../../../../../core/bounded-context/presentation/interfaces/types/http';
+import type { Controller } from '../../../../../core/onion-layers/presentation/interfaces/types/controller.type';
+import type { HttpResponse } from '../../../../../core/onion-layers/presentation/interfaces/types/http';
+import { assertHttpResponse } from '../../../../../core/onion-layers/presentation/utils';
 import { runMiddlewareChain } from '../../../core';
 import type { AccumulatedContext, Middleware } from '../middleware';
 import { mapRequest } from '../adapters/request';
@@ -158,8 +159,9 @@ export function createWorkerHandler<
     // Execute controller
     const output = await controller.execute(input);
 
-    // Map output to HTTP response
+    // Map output to HTTP response and validate
     const httpResponse = mapOutput(output);
+    assertHttpResponse(httpResponse, 'mapOutput result');
 
     // Convert to Cloudflare Response
     return mapResponse(httpResponse);

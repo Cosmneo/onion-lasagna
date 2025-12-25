@@ -17,12 +17,33 @@ export interface ExceptionHandlerConfig<TResponse> {
 }
 
 /**
+ * Logs an internal server error with its original error type for debugging.
+ *
+ * Extracts the original error from the exception's cause chain to preserve
+ * the error type context (e.g., DomainError, InfraError) in log output.
+ *
+ * @param exception - The InternalServerErrorException to log
+ */
+function logInternalError(exception: InternalServerErrorException): void {
+  const cause = exception.cause;
+
+  if (cause) {
+    // Log with original error type for better debugging context
+    const errorType = cause.constructor?.name ?? 'UnknownError';
+    console.error(`[${errorType}]`, cause);
+  } else {
+    // No cause available, log the exception itself
+    console.error('[InternalServerError]', exception);
+  }
+}
+
+/**
  * Creates a wrapper function that adds exception handling to any async handler.
  *
  * This factory creates a higher-order function that:
  * - Catches all thrown exceptions
  * - Maps framework errors to HTTP exceptions using `mapErrorToException`
- * - Logs internal server errors for debugging
+ * - Logs internal server errors for debugging (with original error type preserved)
  * - Converts exceptions to the platform-specific response format
  *
  * @typeParam TResponse - The response type returned by the handler
@@ -77,13 +98,19 @@ export function createExceptionHandler<TResponse>(
         if (error instanceof HttpException) {
           // Log internal server errors for debugging
           if (error instanceof InternalServerErrorException) {
-            console.error('[InternalServerError]', error);
+            logInternalError(error);
           }
           return mapExceptionToResponse(error);
         }
 
         // Map framework errors to HTTP exceptions
         const httpException = mapErrorToException(error);
+
+        // Log if it resulted in an internal server error
+        if (httpException instanceof InternalServerErrorException) {
+          logInternalError(httpException);
+        }
+
         return mapExceptionToResponse(httpException);
       }
     };
