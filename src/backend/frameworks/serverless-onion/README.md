@@ -311,15 +311,19 @@ graph LR
 #### Type-Safe Context Accumulation
 
 ```typescript
-// Define context types
+// Define context types (using namespaced keys - see convention below)
 interface AuthContext {
-  userId: string;
-  roles: string[];
+  auth: {
+    userId: string;
+    roles: string[];
+  };
 }
 
 interface TenantContext {
-  tenantId: string;
-  tenantName: string;
+  tenant: {
+    id: string;
+    name: string;
+  };
 }
 
 // Middleware 1: No dependencies
@@ -330,26 +334,93 @@ const authMiddleware = defineMiddleware<AuthContext, object, Env>()(
       throw new UnauthorizedException({ message: 'Missing token', code: 'NO_TOKEN' });
     }
     const user = await validateToken(token);
-    return { userId: user.id, roles: user.roles };
+    return { auth: { userId: user.id, roles: user.roles } };
   }
 );
 
 // Middleware 2: Depends on AuthContext
 const tenantMiddleware = defineMiddleware<TenantContext, AuthContext, Env>()(
   async (request, env, ctx) => {
-    // ctx.userId is typed and available!
-    const tenant = await getTenantForUser(ctx.userId, env.DB);
-    return { tenantId: tenant.id, tenantName: tenant.name };
+    // ctx.auth.userId is typed and available!
+    const tenant = await getTenantForUser(ctx.auth.userId, env.DB);
+    return { tenant: { id: tenant.id, name: tenant.name } };
   }
 );
 
-// Usage: context is { userId, roles, tenantId, tenantName }
+// Usage: context is { auth: {...}, tenant: {...} }
 const handler = createWorkerProxyHandler({
   serviceName: 'MyService',
   routes: [...],
   middlewares: [authMiddleware, tenantMiddleware] as const,
 });
 ```
+
+#### Context Namespacing Convention
+
+To prevent key collisions when multiple middlewares add context, use **namespaced keys**:
+
+```typescript
+// GOOD: Namespaced keys prevent collisions
+interface AuthContext {
+  auth: {
+    userId: string;
+    roles: string[];
+  };
+}
+
+interface TenantContext {
+  tenant: {
+    id: string;
+    name: string;
+  };
+}
+
+const authMiddleware = defineMiddleware<AuthContext, object, Env>()(
+  async (request, env) => {
+    const user = await validateToken(request.headers.get('authorization'));
+    return {
+      auth: {
+        userId: user.id,
+        roles: user.roles,
+      },
+    };
+  }
+);
+
+const tenantMiddleware = defineMiddleware<TenantContext, AuthContext, Env>()(
+  async (request, env, ctx) => {
+    const tenant = await getTenant(ctx.auth.userId);
+    return {
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+      },
+    };
+  }
+);
+
+// Controller access: ctx.auth.userId, ctx.tenant.id
+```
+
+**Anti-pattern: Flat keys risk collisions**
+
+```typescript
+// BAD: Flat keys can collide between middlewares
+interface AuthContext {
+  userId: string;  // What if another middleware also uses 'userId'?
+  name: string;    // 'name' is very common
+}
+
+interface ProfileContext {
+  name: string;    // Collision! Overwrites auth.name
+  email: string;
+}
+```
+
+**Benefits of namespacing:**
+- Clear ownership: `ctx.auth.*` vs `ctx.tenant.*`
+- Self-documenting: obvious which middleware provided data
+- Safe merging: no accidental overwrites
 
 #### Recursive Type Accumulation
 
@@ -622,26 +693,34 @@ export const handler = createLambdaHandler({
 ```typescript
 import { createGreedyProxyHandler, defineMiddleware } from '../serverless-onion/aws';
 
-// Auth middleware
-const authMiddleware = defineMiddleware<{ userId: string }, object, undefined>()(async (event) => {
+// Auth middleware (namespaced context)
+interface AuthContext {
+  auth: { userId: string };
+}
+
+const authMiddleware = defineMiddleware<AuthContext, object, undefined>()(async (event) => {
   const token = event.headers?.authorization;
   if (!token) {
     throw new UnauthorizedException({ message: 'Missing token', code: 'NO_TOKEN' });
   }
-  return { userId: await validateToken(token) };
+  return { auth: { userId: await validateToken(token) } };
 });
 
-// Rate limit middleware (depends on auth)
-const rateLimitMiddleware = defineMiddleware<{ remaining: number }, { userId: string }>()(async (
+// Rate limit middleware (depends on auth, namespaced context)
+interface RateLimitContext {
+  rateLimit: { remaining: number };
+}
+
+const rateLimitMiddleware = defineMiddleware<RateLimitContext, AuthContext>()(async (
   event,
   env,
   ctx,
 ) => {
-  const remaining = await checkRateLimit(ctx.userId);
+  const remaining = await checkRateLimit(ctx.auth.userId);
   if (remaining <= 0) {
     throw new ForbiddenException({ message: 'Rate limited', code: 'RATE_LIMITED' });
   }
-  return { remaining };
+  return { rateLimit: { remaining } };
 });
 
 // Handler with middleware chain
@@ -653,6 +732,7 @@ export const handler = createGreedyProxyHandler({
   ],
   middlewares: [authMiddleware, rateLimitMiddleware] as const,
 });
+// Controller receives: ctx.auth.userId, ctx.rateLimit.remaining
 ```
 
 ### Custom Input Mapping
@@ -664,7 +744,7 @@ export const handler = createLambdaHandler({
     body: JSON.parse(event.body ?? '{}'),
     headers: event.headers ?? {},
     queryParams: event.queryStringParameters ?? {},
-    userId: ctx.userId, // From middleware
+    userId: ctx.auth.userId, // From auth middleware (namespaced)
     requestId: event.requestContext.requestId,
   }),
 });
