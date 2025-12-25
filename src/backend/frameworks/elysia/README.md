@@ -186,11 +186,11 @@ interface RegisterRoutesOptions {
 }
 ```
 
-| Parameter        | Type                | Description                                 |
-| ---------------- | ------------------- | ------------------------------------------- |
-| `app`            | `Elysia`            | The Elysia app instance (passed by reference) |
-| `routes`         | `RouteInputOrArray` | A single route or an array of routes        |
-| `options?.prefix`| `string`            | Prefix to apply to all routes               |
+| Parameter         | Type                | Description                                   |
+| ----------------- | ------------------- | --------------------------------------------- |
+| `app`             | `Elysia`            | The Elysia app instance (passed by reference) |
+| `routes`          | `RouteInputOrArray` | A single route or an array of routes          |
+| `options?.prefix` | `string`            | Prefix to apply to all routes                 |
 
 #### Path Conversion
 
@@ -601,14 +601,14 @@ interface HttpResponse {
 
 ### Elysia Integration vs Hono Integration
 
-| Feature            | Elysia Integration | Hono Integration   |
-| ------------------ | :----------------: | :----------------: |
-| **Runtime**        | Bun-optimized      | Multi-runtime      |
-| **Route Prefix**   | Built-in option    | Manual             |
-| **Middlewares**    | Via Elysia plugins | Via options param  |
-| **Error Handling** | `app.onError()`    | `app.onError()`    |
-| **Type Safety**    | Full               | Full               |
-| **Performance**    | Excellent (Bun)    | Excellent          |
+| Feature            | Elysia Integration | Hono Integration  |
+| ------------------ | :----------------: | :---------------: |
+| **Runtime**        |   Bun-optimized    |   Multi-runtime   |
+| **Route Prefix**   |  Built-in option   |      Manual       |
+| **Middlewares**    | Via Elysia plugins | Via options param |
+| **Error Handling** |  `app.onError()`   |  `app.onError()`  |
+| **Type Safety**    |        Full        |       Full        |
+| **Performance**    |  Excellent (Bun)   |     Excellent     |
 
 > **Recommendation:** Use Elysia if you're building with Bun for the best performance. Use Hono if you need multi-runtime support (Node.js, Deno, Cloudflare Workers, etc.).
 
