@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseShortTextVo } from '../../../../bounded-context/domain/value-objects/base-short-text.vo';
+import { BaseShortTextVo } from '../../../../onion-layers/domain/value-objects/base-short-text.vo';
 import { createZodValidator } from '../../bootstrap';
 
 const schema = (maxLength: number) => z.string().min(1).max(maxLength);

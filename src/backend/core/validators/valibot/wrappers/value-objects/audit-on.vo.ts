@@ -1,6 +1,6 @@
 import { object, date, optional } from 'valibot';
-import { BaseAuditOnVo } from '../../../../bounded-context/domain/value-objects/base-audit-on.vo';
-import { SKIP_VALUE_OBJECT_VALIDATION } from '../../../../bounded-context/domain/classes/base-value-object.class';
+import { BaseAuditOnVo } from '../../../../onion-layers/domain/value-objects/base-audit-on.vo';
+import { SKIP_VALUE_OBJECT_VALIDATION } from '../../../../onion-layers/domain/classes/base-value-object.class';
 import { createValibotValidator } from '../../bootstrap';
 
 const schema = object({

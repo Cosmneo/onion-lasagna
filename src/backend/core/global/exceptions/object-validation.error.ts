@@ -1,4 +1,5 @@
 import { CodedError } from './coded-error.error';
+import { ErrorCodes, type GlobalErrorCode } from './error-codes.const';
 import type { ValidationError } from '../interfaces/types/validation-error.type';
 
 /**
@@ -49,12 +50,12 @@ export class ObjectValidationError extends CodedError {
    */
   constructor({
     message,
-    code = 'OBJECT_VALIDATION_ERROR',
+    code = ErrorCodes.Global.OBJECT_VALIDATION_ERROR,
     cause,
     validationErrors,
   }: {
     message: string;
-    code?: string;
+    code?: GlobalErrorCode | string;
     cause?: unknown;
     validationErrors: ValidationError[];
   }) {

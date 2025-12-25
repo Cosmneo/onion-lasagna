@@ -18,3 +18,9 @@ export * from './constants';
 
 // Utils
 export * from './utils';
+
+// Adapters (shared utilities)
+export * from './adapters';
+
+// Handlers (base factories)
+export * from './handlers';

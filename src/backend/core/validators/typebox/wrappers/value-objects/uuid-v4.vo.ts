@@ -1,5 +1,5 @@
 import { Type } from '@sinclair/typebox';
-import { BaseUuidV4Vo } from '../../../../bounded-context/domain/value-objects/base-uuid-v4.vo';
+import { BaseUuidV4Vo } from '../../../../onion-layers/domain/value-objects/base-uuid-v4.vo';
 import { createTypeBoxValidator } from '../../bootstrap';
 
 const schema = Type.String({ format: 'uuid' });

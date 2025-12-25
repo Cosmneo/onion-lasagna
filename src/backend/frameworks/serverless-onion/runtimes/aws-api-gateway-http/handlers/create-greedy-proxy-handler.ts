@@ -4,21 +4,38 @@ import type {
   APIGatewayProxyResultV2,
 } from 'aws-lambda';
 import type { Controller } from '../../../../../core/onion-layers/presentation/interfaces/types/controller.type';
-import type {
-  BaseRequestMetadata,
-  HttpResponse,
-} from '../../../../../core/onion-layers/presentation/interfaces/types/http';
-import type {
-  ResolvedRoute,
-  RouteInput,
-} from '../../../../../core/onion-layers/presentation/routing';
-import { createRoutingMap } from '../../../../../core/onion-layers/presentation/routing';
-import { NotFoundException, runMiddlewareChain } from '../../../core';
+import type { BaseRequestMetadata } from '../../../../../core/onion-layers/presentation/interfaces/types/http';
+import type { RouteInput } from '../../../../../core/onion-layers/presentation/routing';
+import { createBaseProxyHandler, type PlatformProxyAdapter } from '../../../core/handlers';
 import { mapRequestBody, mapRequestHeaders, mapRequestQueryParams } from '../adapters/request';
 import { mapResponse } from '../adapters/response';
 import { getWarmupResponse, isWarmupCall } from '../features/warmup';
-import type { AccumulatedContext, Middleware } from '../middleware';
-import { withExceptionHandler } from '../wrappers/with-exception-handler';
+import type { Middleware } from '../middleware';
+
+/**
+ * AWS Lambda platform adapter for proxy handlers.
+ * Maps event to route info and HttpResponse/HttpException to APIGatewayProxyResultV2.
+ */
+const awsProxyAdapter: PlatformProxyAdapter<APIGatewayProxyEventV2, APIGatewayProxyResultV2> = {
+  extractRouteInfo: (event) => ({
+    path: event.rawPath,
+    method: event.requestContext.http.method,
+  }),
+  extractBody: (event) => mapRequestBody(event),
+  extractHeaders: (event) => mapRequestHeaders(event) ?? {},
+  extractQueryParams: (event) => mapRequestQueryParams(event) ?? {},
+  mapResponse: (response) =>
+    mapResponse({
+      statusCode: response.statusCode,
+      body: response.body,
+      headers: response.headers,
+    }),
+  mapExceptionToResponse: (exception) =>
+    mapResponse({
+      statusCode: exception.statusCode,
+      body: exception.toResponse(),
+    }),
+};
 
 /**
  * Request metadata extracted from the API Gateway event.
@@ -259,94 +276,50 @@ export function createGreedyProxyHandler<
     handleExceptions = true,
   } = config;
 
-  // Create routing map
-  const { resolveRoute } = createRoutingMap(routes);
+  // Create base proxy handler using the core factory
+  const baseProxyHandlerFactory = createBaseProxyHandler<
+    APIGatewayProxyEventV2,
+    APIGatewayProxyResultV2,
+    TEnv
+  >(awsProxyAdapter);
 
-  const coreHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
-    // Handle warmup BEFORE middleware (avoid unnecessary auth calls)
-    if (handleWarmup && isWarmupCall(event)) {
-      console.info(`[${serviceName}] Lambda is warm!`);
-      return getWarmupResponse();
-    }
-
-    // Extract request metadata
-    const requestMetadata: RequestMetadata = {
+  const baseHandler = baseProxyHandlerFactory<
+    TController,
+    TMiddlewares,
+    RequestMetadata,
+    TAuthorizerContext
+  >({
+    serviceName,
+    routes,
+    middlewares,
+    handleExceptions,
+    extractMetadata: (event) => ({
       path: event.rawPath,
       method: event.requestContext.http.method,
       requestId: event.requestContext.requestId,
       sourceIp: event.requestContext.http.sourceIp,
       userAgent: event.requestContext.http.userAgent,
-    };
+    }),
+    mapRequest: async (event, pathParams) => ({
+      body: mapRequestBody(event),
+      queryParams: mapRequestQueryParams(event) ?? {},
+      pathParams,
+      headers: mapRequestHeaders(event) ?? {},
+    }),
+    extractInitialContext: extractAuthorizerContext,
+    beforeHandle: handleWarmup
+      ? (event) => {
+          if (isWarmupCall(event)) {
+            console.info(`[${serviceName}] Lambda is warm!`);
+            return getWarmupResponse();
+          }
+          return undefined;
+        }
+      : undefined,
+  });
 
-    // Resolve route
-    const resolved = resolveRoute(requestMetadata.path, requestMetadata.method);
-    if (!resolved) {
-      throw new NotFoundException({
-        message: `No route found for ${requestMetadata.method} ${requestMetadata.path}`,
-        code: 'ROUTE_NOT_FOUND',
-      });
-    }
-
-    // Log resolved route
-    console.info(
-      `[${serviceName}] Resolved route: ${requestMetadata.method} ${requestMetadata.path} -> ${resolved.route.metadata.method} ${resolved.route.metadata.servicePath}`,
-      { pathParams: resolved.pathParams },
-    );
-
-    // Build context: authorizer first (so middlewares can depend on it), then middleware chain
-    // 1. Extract authorizer context first (if provided)
-    const authorizerContext = extractAuthorizerContext?.(event) ?? ({} as TAuthorizerContext);
-
-    // 2. Run middleware chain with authorizer context as initial context
-    let context: TAuthorizerContext & AccumulatedContext<TMiddlewares, TEnv>;
-
-    if (middlewares.length > 0) {
-      // Middlewares receive authorizer context and can depend on it
-      context = await runMiddlewareChain(event, env as TEnv, middlewares, authorizerContext);
-    } else {
-      // No middlewares, just use authorizer context
-      context = authorizerContext as TAuthorizerContext & AccumulatedContext<TMiddlewares, TEnv>;
-    }
-
-    // Build controller input
-    const controllerInput = {
-      metadata: requestMetadata,
-      context,
-      request: mapGreedyProxyRequest(event, resolved),
-    };
-
-    // Execute controller
-    const controllerResponse = (await resolved.route.controller.execute(
-      controllerInput,
-    )) as HttpResponse;
-
-    // Map response to API Gateway format
-    return mapResponse(controllerResponse);
-  };
-
-  // Wrap with exception handler if enabled
-  if (handleExceptions) {
-    return withExceptionHandler(coreHandler);
-  }
-
-  return coreHandler;
-}
-
-/**
- * Maps AWS API Gateway v2 event to HttpRequest format for greedy proxy routes.
- *
- * When using a greedy proxy path (`/{proxy+}`), API Gateway only provides the
- * raw `proxy` path parameter. This function extracts path params from the
- * resolved route pattern and merges them into the request.
- */
-function mapGreedyProxyRequest<TController extends Controller>(
-  event: APIGatewayProxyEventV2,
-  resolved: ResolvedRoute<TController>,
-) {
-  return {
-    body: mapRequestBody(event),
-    queryParams: mapRequestQueryParams(event),
-    pathParams: resolved.pathParams,
-    headers: mapRequestHeaders(event),
+  // Return handler that passes env from config
+  return (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+    return baseHandler(event, env as TEnv);
   };
 }

@@ -1,10 +1,10 @@
 import { Type } from '@sinclair/typebox';
-import { BaseAuditInfoVo } from '../../../../bounded-context/domain/value-objects/base-audit-info.vo';
-import { SKIP_VALUE_OBJECT_VALIDATION } from '../../../../bounded-context/domain/classes/base-value-object.class';
+import { BaseAuditInfoVo } from '../../../../onion-layers/domain/value-objects/base-audit-info.vo';
+import { SKIP_VALUE_OBJECT_VALIDATION } from '../../../../onion-layers/domain/classes/base-value-object.class';
 import { createTypeBoxValidator } from '../../bootstrap';
-import type { BaseAuditByVo } from '../../../../bounded-context/domain/value-objects/base-audit-by.vo';
-import type { BaseAuditOnVo } from '../../../../bounded-context/domain/value-objects/base-audit-on.vo';
-import type { BaseUuidV4Vo } from '../../../../bounded-context/domain/value-objects/base-uuid-v4.vo';
+import type { BaseAuditByVo } from '../../../../onion-layers/domain/value-objects/base-audit-by.vo';
+import type { BaseAuditOnVo } from '../../../../onion-layers/domain/value-objects/base-audit-on.vo';
+import type { BaseUuidV4Vo } from '../../../../onion-layers/domain/value-objects/base-uuid-v4.vo';
 import { AuditByVo } from './audit-by.vo';
 import { AuditOnVo } from './audit-on.vo';
 
