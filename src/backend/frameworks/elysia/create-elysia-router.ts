@@ -15,9 +15,15 @@ type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete' | 'options';
 export type HttpController = Controller<HttpRequest, HttpResponse>;
 
 /**
- * Elysia middleware/guard type.
+ * Elysia beforeHandle middleware type.
+ * Returns undefined to continue, or a Response to short-circuit.
  */
-export type ElysiaMiddleware = Parameters<Elysia['derive']>[0];
+export type ElysiaMiddleware = (context: {
+  body: unknown;
+  headers: Record<string, string | undefined>;
+  query: Record<string, string | undefined>;
+  params: Record<string, string>;
+}) => Response | undefined | void | Promise<Response | undefined | void>;
 
 /**
  * Converts `{param}` to Elysia's `:param` format.
@@ -115,6 +121,25 @@ export interface RegisterRoutesOptions {
    * ```
    */
   prefix?: string;
+
+  /**
+   * Middlewares (beforeHandle hooks) to apply to all routes in this registration.
+   * These run before the controller handler.
+   *
+   * @example
+   * ```typescript
+   * registerElysiaRoutes(app, userRoutes, {
+   *   middlewares: [
+   *     ({ headers }) => {
+   *       if (!headers.authorization) {
+   *         return new Response('Unauthorized', { status: 401 });
+   *       }
+   *     },
+   *   ],
+   * });
+   * ```
+   */
+  middlewares?: ElysiaMiddleware[];
 }
 
 /**
@@ -155,6 +180,19 @@ export interface RegisterRoutesOptions {
  * });
  * ```
  *
+ * @example With middlewares
+ * ```typescript
+ * registerElysiaRoutes(app, protectedRoutes, {
+ *   middlewares: [
+ *     ({ headers }) => {
+ *       if (!headers.authorization) {
+ *         return new Response('Unauthorized', { status: 401 });
+ *       }
+ *     },
+ *   ],
+ * });
+ * ```
+ *
  * @example Registering from multiple domains
  * ```typescript
  * const app = new Elysia();
@@ -176,12 +214,19 @@ export function registerElysiaRoutes(
 ): void {
   const routeArray = Array.isArray(routes) ? routes : [routes];
   const prefix = options?.prefix ?? '';
+  const middlewares = options?.middlewares ?? [];
 
   for (const { metadata, controller } of routeArray) {
     const path = prefix + toElysiaPath(metadata.servicePath);
     const method = metadata.method.toLowerCase() as HttpMethod;
 
     const handler: Handler = async (context) => {
+      // Run middlewares first (beforeHandle pattern)
+      for (const middleware of middlewares) {
+        const result = await middleware(context);
+        if (result !== undefined) return result;
+      }
+
       const request = extractRequest(context as Parameters<typeof extractRequest>[0]);
       const response = await controller.execute(request);
       return createResponse(response);
