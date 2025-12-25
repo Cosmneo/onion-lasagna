@@ -50,6 +50,7 @@ Serverless-Onion is a lightweight, platform-agnostic framework for building serv
 | **Type-Safe Middlewares**     | Middleware context accumulates with full TypeScript inference   |
 | **Automatic Error Mapping**   | Domain/infrastructure errors map to HTTP responses              |
 | **Path Parameter Extraction** | Routes like `/users/{id}` automatically extract `{ id: "123" }` |
+| **Configurable CORS**         | Custom CORS headers with multi-origin support                   |
 | **Warmup Handling**           | Built-in support for Lambda warmup plugins                      |
 | **Zero Runtime Dependencies** | No external dependencies beyond platform SDKs                   |
 
@@ -127,9 +128,17 @@ serverless-onion/
 │   ├── middleware/                 # Middleware system
 │   │   ├── types/
 │   │   │   ├── middleware.type.ts
-│   │   │   └── middleware-chain.type.ts
+│   │   │   ├── middleware-chain.type.ts
+│   │   │   └── middleware-chain-builder.type.ts  # Builder types
+│   │   ├── create-middleware-chain.ts  # Type-safe builder
 │   │   ├── define-middleware.ts
 │   │   └── run-middleware-chain.ts
+│   ├── types/                      # Framework types
+│   │   ├── config.type.ts          # CorsConfig, ServerlessOnionConfig
+│   │   └── http-exception-response.type.ts
+│   ├── utils/                      # Utility functions
+│   │   ├── cors.util.ts            # CORS header builder
+│   │   └── http-status.util.ts     # HTTP status helpers
 │   └── wrappers/
 │       └── with-exception-handler.ts
 │
@@ -211,10 +220,20 @@ interface PlatformAdapter<TPlatformRequest, TPlatformResponse> {
   extractBody: (request: TPlatformRequest) => unknown | Promise<unknown>;
   extractHeaders: (request: TPlatformRequest) => Record<string, string>;
   extractQueryParams: (request: TPlatformRequest) => Record<string, string | string[]>;
+  extractOrigin?: (request: TPlatformRequest) => string | undefined; // For dynamic CORS
 
-  // Response mapping
-  mapResponse: (response: HttpResponse) => TPlatformResponse;
-  mapExceptionToResponse: (exception: HttpException) => TPlatformResponse;
+  // Response mapping (with CORS options)
+  mapResponse: (response: HttpResponse, options?: ResponseMappingOptions) => TPlatformResponse;
+  mapExceptionToResponse: (
+    exception: HttpException,
+    options?: ResponseMappingOptions,
+  ) => TPlatformResponse;
+}
+
+// Options passed to response mapping
+interface ResponseMappingOptions {
+  cors?: CorsConfig | false; // CORS configuration
+  requestOrigin?: string; // Origin header from request
 }
 
 // Extended for multi-route handlers
@@ -375,29 +394,29 @@ interface TenantContext {
   };
 }
 
-const authMiddleware = defineMiddleware<AuthContext, object, Env>()(
-  async (request, env) => {
-    const user = await validateToken(request.headers.get('authorization'));
-    return {
-      auth: {
-        userId: user.id,
-        roles: user.roles,
-      },
-    };
-  }
-);
+const authMiddleware = defineMiddleware<AuthContext, object, Env>()(async (request, env) => {
+  const user = await validateToken(request.headers.get('authorization'));
+  return {
+    auth: {
+      userId: user.id,
+      roles: user.roles,
+    },
+  };
+});
 
-const tenantMiddleware = defineMiddleware<TenantContext, AuthContext, Env>()(
-  async (request, env, ctx) => {
-    const tenant = await getTenant(ctx.auth.userId);
-    return {
-      tenant: {
-        id: tenant.id,
-        name: tenant.name,
-      },
-    };
-  }
-);
+const tenantMiddleware = defineMiddleware<TenantContext, AuthContext, Env>()(async (
+  request,
+  env,
+  ctx,
+) => {
+  const tenant = await getTenant(ctx.auth.userId);
+  return {
+    tenant: {
+      id: tenant.id,
+      name: tenant.name,
+    },
+  };
+});
 
 // Controller access: ctx.auth.userId, ctx.tenant.id
 ```
@@ -407,17 +426,18 @@ const tenantMiddleware = defineMiddleware<TenantContext, AuthContext, Env>()(
 ```typescript
 // BAD: Flat keys can collide between middlewares
 interface AuthContext {
-  userId: string;  // What if another middleware also uses 'userId'?
-  name: string;    // 'name' is very common
+  userId: string; // What if another middleware also uses 'userId'?
+  name: string; // 'name' is very common
 }
 
 interface ProfileContext {
-  name: string;    // Collision! Overwrites auth.name
+  name: string; // Collision! Overwrites auth.name
   email: string;
 }
 ```
 
 **Benefits of namespacing:**
+
 - Clear ownership: `ctx.auth.*` vs `ctx.tenant.*`
 - Self-documenting: obvious which middleware provided data
 - Safe merging: no accidental overwrites
@@ -441,6 +461,34 @@ type AccumulatedContext<
 // → object & AuthContext & TenantContext
 // → { userId: string; roles: string[]; tenantId: string; tenantName: string }
 ```
+
+#### Middleware Chain Builder
+
+For compile-time order enforcement without manual `as const`, use the builder pattern:
+
+```typescript
+import { createMiddlewareChain } from '../serverless-onion/aws';
+
+// Build chain with type-safe ordering
+const chain = createMiddlewareChain<Env>()
+  .use(authMiddleware)      // Context: {} → { auth: {...} }
+  .use(tenantMiddleware)    // Context: { auth } → { auth, tenant }
+  .build();
+
+// Wrong order causes compile error:
+createMiddlewareChain<Env>()
+  .use(tenantMiddleware)    // ERROR: AuthContext is not assignable to object
+  .use(authMiddleware);     // Too late!
+
+// Use in handler - no `as const` needed
+export const handler = createGreedyProxyHandler({
+  serviceName: 'MyService',
+  routes: [...],
+  middlewares: chain,
+});
+```
+
+The builder enforces that each middleware's required context is satisfied by the accumulated context from previous middlewares.
 
 ---
 
@@ -534,6 +582,66 @@ interface HttpExceptionResponse {
 
 ---
 
+### CORS Configuration
+
+The framework provides configurable CORS headers for all HTTP responses. CORS can be customized per-handler or disabled entirely.
+
+#### Configuration Options
+
+```typescript
+interface CorsConfig {
+  origin?: '*' | string | string[]; // Default: '*'
+  methods?: string[]; // Default: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+  allowHeaders?: string[]; // Default: ['Content-Type', 'Authorization']
+  exposeHeaders?: string[]; // Optional
+  credentials?: boolean; // Default: false
+  maxAge?: number; // Default: 86400 (24 hours)
+}
+
+interface ServerlessOnionConfig {
+  cors?: CorsConfig | false; // false to disable CORS
+}
+```
+
+#### Usage Examples
+
+```typescript
+// Custom CORS with credentials
+export const handler = createLambdaHandler({
+  controller: myController,
+  config: {
+    cors: {
+      origin: 'https://myapp.com',
+      credentials: true,
+    },
+  },
+});
+
+// Multiple allowed origins (dynamic matching)
+export const handler = createLambdaHandler({
+  controller: myController,
+  config: {
+    cors: {
+      origin: ['https://app.example.com', 'https://admin.example.com'],
+    },
+  },
+});
+
+// Disable CORS headers (for internal APIs)
+export const handler = createLambdaHandler({
+  controller: myController,
+  config: { cors: false },
+});
+
+// Default: permissive CORS (Access-Control-Allow-Origin: *)
+export const handler = createLambdaHandler({
+  controller: myController,
+  // No config = default permissive CORS
+});
+```
+
+---
+
 ### Routing System
 
 The routing system supports:
@@ -619,6 +727,9 @@ export const handler = createGreedyProxyHandler({
     { metadata: { servicePath: '/users/{id}', method: 'GET' }, controller: getUserController },
   ],
   middlewares: [authMiddleware] as const,
+  config: {
+    cors: { origin: 'https://myapp.com', credentials: true },
+  },
 });
 ```
 
@@ -652,6 +763,9 @@ export default {
     serviceName: 'UserService',
     routes: [...],
     middlewares: [authMiddleware] as const,
+    config: {
+      cors: { origin: 'https://myapp.com', credentials: true },
+    },
   }),
 };
 ```
@@ -960,6 +1074,7 @@ import {
   // Middleware
   defineMiddleware,
   runMiddlewareChain,
+  createMiddlewareChain,
 
   // Error mapping
   mapErrorToException,
@@ -968,8 +1083,12 @@ import {
   // Types
   type PlatformAdapter,
   type PlatformProxyAdapter,
+  type ResponseMappingOptions,
   type Middleware,
   type AccumulatedContext,
+  type MiddlewareChainBuilder,
+  type CorsConfig,
+  type ServerlessOnionConfig,
 } from '@cosmneo/onion-lasagna/backend/frameworks/serverless-onion/core';
 ```
 
@@ -980,6 +1099,7 @@ import {
   createLambdaHandler,
   createGreedyProxyHandler,
   defineMiddleware,
+  createMiddlewareChain,
   mapRequest,
   mapRequestBody,
   mapRequestHeaders,
@@ -998,6 +1118,7 @@ import {
   createWorkerHandler,
   createWorkerProxyHandler,
   defineMiddleware,
+  createMiddlewareChain,
   mapRequest,
   mapRequestBody,
   mapRequestHeaders,
