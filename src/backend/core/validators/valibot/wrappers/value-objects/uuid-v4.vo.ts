@@ -1,5 +1,5 @@
 import { pipe, string, uuid } from 'valibot';
-import { BaseUuidV4Vo } from '../../../../bounded-context/domain/value-objects/base-uuid-v4.vo';
+import { BaseUuidV4Vo } from '../../../../onion-layers/domain/value-objects/base-uuid-v4.vo';
 import { createValibotValidator } from '../../bootstrap';
 
 const schema = pipe(string(), uuid());

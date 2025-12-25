@@ -1,5 +1,5 @@
 import { Type } from '@sinclair/typebox';
-import { BaseMediumTextVo } from '../../../../bounded-context/domain/value-objects/base-medium-text.vo';
+import { BaseMediumTextVo } from '../../../../onion-layers/domain/value-objects/base-medium-text.vo';
 import { createTypeBoxValidator } from '../../bootstrap';
 
 const schema = (maxLen: number) => Type.String({ minLength: 1, maxLength: maxLen });

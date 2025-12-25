@@ -1,5 +1,5 @@
 import { Type } from '@sinclair/typebox';
-import { BaseEmailVo } from '../../../../bounded-context/domain/value-objects/base-email.vo';
+import { BaseEmailVo } from '../../../../onion-layers/domain/value-objects/base-email.vo';
 import { createTypeBoxValidator } from '../../bootstrap';
 
 const schema = Type.String({ format: 'email' });

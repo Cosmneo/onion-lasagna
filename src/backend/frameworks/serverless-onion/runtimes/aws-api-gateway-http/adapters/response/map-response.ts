@@ -1,8 +1,6 @@
 import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import type { HttpResponse } from '../../../../../../core/onion-layers/presentation/interfaces/types/http';
-import { isNoBodyStatus } from '../../../../core';
-import { mapResponseBody } from './map-response-body';
-import { mapResponseHeaders } from './map-response-headers';
+import { isNoBodyStatus, mapResponseBody, mapResponseHeaders } from '../../../../core';
 
 /**
  * Maps an HttpResponse to AWS API Gateway v2 result format.
