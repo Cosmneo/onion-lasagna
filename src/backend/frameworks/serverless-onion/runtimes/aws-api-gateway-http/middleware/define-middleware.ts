@@ -8,6 +8,9 @@ import type { Middleware } from './types/middleware.type';
  * This is necessary because TypeScript cannot infer generic parameters and
  * function parameters simultaneously.
  *
+ * **IMPORTANT: Use namespaced keys to prevent context collisions.**
+ * Each middleware should wrap its context in a unique namespace key.
+ *
  * **Note:** Unlike Cloudflare Workers, AWS Lambda doesn't have built-in environment
  * bindings. The `env` parameter defaults to `undefined` unless you explicitly provide
  * an `env` object in the handler config.
@@ -20,6 +23,15 @@ import type { Middleware } from './types/middleware.type';
  *
  * @example
  * ```typescript
+ * // Define namespaced context types
+ * interface AuthContext {
+ *   auth: { userId: string; roles: string[] };
+ * }
+ *
+ * interface TenantContext {
+ *   tenant: { id: string; name: string };
+ * }
+ *
  * // Middleware with no dependencies (first in chain)
  * const authMiddleware = defineMiddleware<AuthContext>()(
  *   async (event, env, ctx) => {
@@ -28,23 +40,23 @@ import type { Middleware } from './types/middleware.type';
  *       throw new UnauthorizedException({ message: 'Missing token', code: 'NO_TOKEN' });
  *     }
  *     const user = await validateToken(token);
- *     return { userId: user.id, roles: user.roles };
+ *     return { auth: { userId: user.id, roles: user.roles } };
  *   }
  * );
  *
  * // Middleware with dependency on AuthContext
  * const tenantMiddleware = defineMiddleware<TenantContext, AuthContext>()(
  *   async (event, env, ctx) => {
- *     // ctx.userId is available and typed!
- *     const tenant = await getTenant(ctx.userId);
- *     return { tenantId: tenant.id, tenantName: tenant.name };
+ *     // ctx.auth.userId is available and typed!
+ *     const tenant = await getTenant(ctx.auth.userId);
+ *     return { tenant: { id: tenant.id, name: tenant.name } };
  *   }
  * );
  *
  * // Middleware that validates but adds no context
  * const adminMiddleware = defineMiddleware<object, AuthContext>()(
  *   async (event, env, ctx) => {
- *     if (!ctx.roles.includes('admin')) {
+ *     if (!ctx.auth.roles.includes('admin')) {
  *       throw new ForbiddenException({ message: 'Admin access required', code: 'NOT_ADMIN' });
  *     }
  *     return {}; // No additional context
@@ -54,13 +66,16 @@ import type { Middleware } from './types/middleware.type';
  *
  * @example
  * ```typescript
- * // Middleware with injected dependencies
+ * // Middleware with injected dependencies (namespaced)
  * interface Deps { db: Database; cache: Cache; }
+ * interface DataContext {
+ *   appData: { users: User[] };
+ * }
  *
  * const dataMiddleware = defineMiddleware<DataContext, object, Deps>()(
  *   async (event, env, ctx) => {
- *     const data = await env.db.query('...');
- *     return { data };
+ *     const users = await env.db.query('...');
+ *     return { appData: { users } };
  *   }
  * );
  *

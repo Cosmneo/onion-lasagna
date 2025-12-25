@@ -7,6 +7,9 @@ import type { Middleware } from './types/middleware.type';
  * This is necessary because TypeScript cannot infer generic parameters and
  * function parameters simultaneously.
  *
+ * **IMPORTANT: Use namespaced keys to prevent context collisions.**
+ * Each middleware should wrap its context in a unique namespace key.
+ *
  * @typeParam TOutput - The context type this middleware produces
  * @typeParam TRequiredContext - Context required from previous middlewares (defaults to empty object)
  * @typeParam TEnv - Environment bindings (platform-specific, defaults to unknown)
@@ -16,6 +19,15 @@ import type { Middleware } from './types/middleware.type';
  *
  * @example
  * ```typescript
+ * // Define namespaced context types
+ * interface AuthContext {
+ *   auth: { userId: string; roles: string[] };
+ * }
+ *
+ * interface TenantContext {
+ *   tenant: { id: string; name: string };
+ * }
+ *
  * // Middleware with no dependencies (first in chain)
  * const authMiddleware = defineMiddleware<AuthContext, object, Env>()(
  *   async (request, env) => {
@@ -24,23 +36,23 @@ import type { Middleware } from './types/middleware.type';
  *       throw new UnauthorizedException({ message: 'Missing token', code: 'NO_TOKEN' });
  *     }
  *     const user = await validateToken(token, env.AUTH_SECRET);
- *     return { userId: user.id, roles: user.roles };
+ *     return { auth: { userId: user.id, roles: user.roles } };
  *   }
  * );
  *
  * // Middleware with dependency on AuthContext
  * const tenantMiddleware = defineMiddleware<TenantContext, AuthContext, Env>()(
  *   async (request, env, ctx) => {
- *     // ctx.userId is available and typed!
- *     const tenant = await getTenant(ctx.userId, env.DB);
- *     return { tenantId: tenant.id, tenantName: tenant.name };
+ *     // ctx.auth.userId is available and typed!
+ *     const tenant = await getTenant(ctx.auth.userId, env.DB);
+ *     return { tenant: { id: tenant.id, name: tenant.name } };
  *   }
  * );
  *
  * // Middleware that validates but adds no context
  * const adminMiddleware = defineMiddleware<object, AuthContext>()(
  *   async (request, env, ctx) => {
- *     if (!ctx.roles.includes('admin')) {
+ *     if (!ctx.auth.roles.includes('admin')) {
  *       throw new ForbiddenException({ message: 'Admin access required', code: 'NOT_ADMIN' });
  *     }
  *     return {}; // No additional context
