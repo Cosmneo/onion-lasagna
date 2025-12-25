@@ -1,3 +1,5 @@
+import { StatusCodes } from 'http-status-codes';
+
 import type { ErrorItem } from '../types';
 import { HttpException } from './http.exception';
 
@@ -20,7 +22,7 @@ import { HttpException } from './http.exception';
  * ```
  */
 export class InternalServerErrorException extends HttpException {
-  readonly statusCode = 500;
+  readonly statusCode = StatusCodes.INTERNAL_SERVER_ERROR;
 
   constructor({
     message = 'Internal Server Error',

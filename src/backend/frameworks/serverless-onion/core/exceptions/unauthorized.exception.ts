@@ -1,3 +1,5 @@
+import { StatusCodes } from 'http-status-codes';
+
 import type { ErrorItem } from '../types';
 import { HttpException } from './http.exception';
 
@@ -15,7 +17,7 @@ import { HttpException } from './http.exception';
  * ```
  */
 export class UnauthorizedException extends HttpException {
-  readonly statusCode = 401;
+  readonly statusCode = StatusCodes.UNAUTHORIZED;
 
   constructor({
     message = 'Unauthorized',
