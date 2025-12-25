@@ -1,6 +1,7 @@
 export {
   registerFastifyRoutes,
   type HttpController,
+  type FastifyMiddleware,
   type RouteInputOrArray,
   type RegisterRoutesOptions,
 } from './create-fastify-router';

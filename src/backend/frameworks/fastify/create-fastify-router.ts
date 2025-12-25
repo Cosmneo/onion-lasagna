@@ -16,6 +16,14 @@ import type { RouteInput } from '../../core/onion-layers/presentation/routing';
 export type HttpController = Controller<HttpRequest, HttpResponse>;
 
 /**
+ * Fastify preHandler middleware type.
+ */
+export type FastifyMiddleware = (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => Promise<void> | void;
+
+/**
  * Converts `{param}` to Fastify's `:param` format.
  */
 function toFastifyPath(servicePath: string): string {
@@ -93,6 +101,25 @@ export interface RegisterRoutesOptions {
    * ```
    */
   prefix?: string;
+
+  /**
+   * Middlewares (preHandler hooks) to apply to all routes in this registration.
+   * These run before the controller handler.
+   *
+   * @example
+   * ```typescript
+   * registerFastifyRoutes(app, protectedRoutes, {
+   *   middlewares: [
+   *     async (request, reply) => {
+   *       if (!request.headers.authorization) {
+   *         reply.status(401).send({ message: 'Unauthorized' });
+   *       }
+   *     },
+   *   ],
+   * });
+   * ```
+   */
+  middlewares?: FastifyMiddleware[];
 }
 
 /**
@@ -133,6 +160,19 @@ export interface RegisterRoutesOptions {
  * });
  * ```
  *
+ * @example With middlewares
+ * ```typescript
+ * registerFastifyRoutes(app, protectedRoutes, {
+ *   middlewares: [
+ *     async (request, reply) => {
+ *       if (!request.headers.authorization) {
+ *         reply.status(401).send({ message: 'Unauthorized' });
+ *       }
+ *     },
+ *   ],
+ * });
+ * ```
+ *
  * @example Registering from multiple domains
  * ```typescript
  * const app = Fastify();
@@ -154,6 +194,7 @@ export function registerFastifyRoutes(
 ): void {
   const routeArray = Array.isArray(routes) ? routes : [routes];
   const prefix = options?.prefix ?? '';
+  const middlewares = options?.middlewares ?? [];
 
   for (const { metadata, controller } of routeArray) {
     const path = prefix + toFastifyPath(metadata.servicePath);
@@ -168,6 +209,7 @@ export function registerFastifyRoutes(
     app.route({
       method,
       url: path,
+      preHandler: middlewares,
       handler,
     });
   }
