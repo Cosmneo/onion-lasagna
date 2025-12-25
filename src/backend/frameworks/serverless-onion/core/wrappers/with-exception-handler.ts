@@ -1,4 +1,5 @@
 import { HttpException, InternalServerErrorException } from '../exceptions';
+import type { ResponseMappingOptions } from '../handlers/types';
 import { mapErrorToException } from '../mappers';
 
 /**
@@ -11,9 +12,16 @@ export interface ExceptionHandlerConfig<TResponse> {
    * Converts an HttpException to the platform-specific response format.
    *
    * @param exception - The HTTP exception to convert
+   * @param options - CORS and other response mapping options
    * @returns The platform-specific response
    */
-  mapExceptionToResponse: (exception: HttpException) => TResponse;
+  mapExceptionToResponse: (exception: HttpException, options?: ResponseMappingOptions) => TResponse;
+
+  /**
+   * Response mapping options to pass to mapExceptionToResponse.
+   * Typically includes CORS configuration.
+   */
+  responseOptions?: ResponseMappingOptions;
 }
 
 /**
@@ -85,7 +93,7 @@ function logInternalError(exception: InternalServerErrorException): void {
 export function createExceptionHandler<TResponse>(
   config: ExceptionHandlerConfig<TResponse>,
 ): <THandler extends (...args: never[]) => Promise<TResponse>>(handler: THandler) => THandler {
-  const { mapExceptionToResponse } = config;
+  const { mapExceptionToResponse, responseOptions } = config;
 
   return <THandler extends (...args: never[]) => Promise<TResponse>>(
     handler: THandler,
@@ -100,7 +108,7 @@ export function createExceptionHandler<TResponse>(
           if (error instanceof InternalServerErrorException) {
             logInternalError(error);
           }
-          return mapExceptionToResponse(error);
+          return mapExceptionToResponse(error, responseOptions);
         }
 
         // Map framework errors to HTTP exceptions
@@ -111,7 +119,7 @@ export function createExceptionHandler<TResponse>(
           logInternalError(httpException);
         }
 
-        return mapExceptionToResponse(httpException);
+        return mapExceptionToResponse(httpException, responseOptions);
       }
     };
 

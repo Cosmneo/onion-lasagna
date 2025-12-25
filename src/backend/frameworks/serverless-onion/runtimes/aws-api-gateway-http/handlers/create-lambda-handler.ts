@@ -5,7 +5,12 @@ import type {
 } from 'aws-lambda';
 import type { Controller } from '../../../../../core/onion-layers/presentation/interfaces/types/controller.type';
 import type { HttpResponse } from '../../../../../core/onion-layers/presentation/interfaces/types/http';
-import { createBaseHandler, type PlatformAdapter } from '../../../core/handlers';
+import {
+  createBaseHandler,
+  type PlatformAdapter,
+  type ResponseMappingOptions,
+} from '../../../core/handlers';
+import type { ServerlessOnionConfig } from '../../../core/types';
 import {
   mapRequest,
   mapRequestBody,
@@ -24,17 +29,24 @@ const awsAdapter: PlatformAdapter<APIGatewayProxyEventV2, APIGatewayProxyResultV
   extractBody: (event) => mapRequestBody(event),
   extractHeaders: (event) => mapRequestHeaders(event) ?? {},
   extractQueryParams: (event) => mapRequestQueryParams(event) ?? {},
-  mapResponse: (response) =>
-    mapResponse({
-      statusCode: response.statusCode,
-      body: response.body,
-      headers: response.headers,
-    }),
-  mapExceptionToResponse: (exception) =>
-    mapResponse({
-      statusCode: exception.statusCode,
-      body: exception.toResponse(),
-    }),
+  extractOrigin: (event) => event.headers?.['origin'],
+  mapResponse: (response, options?: ResponseMappingOptions) =>
+    mapResponse(
+      {
+        statusCode: response.statusCode,
+        body: response.body,
+        headers: response.headers,
+      },
+      { cors: options?.cors, requestOrigin: options?.requestOrigin },
+    ),
+  mapExceptionToResponse: (exception, options?: ResponseMappingOptions) =>
+    mapResponse(
+      {
+        statusCode: exception.statusCode,
+        body: exception.toResponse(),
+      },
+      { cors: options?.cors, requestOrigin: options?.requestOrigin },
+    ),
 };
 
 /**
@@ -128,6 +140,32 @@ export interface CreateLambdaHandlerConfig<
    * @default true
    */
   handleExceptions?: boolean;
+
+  /**
+   * Framework configuration including CORS and other settings.
+   *
+   * @example Configure CORS
+   * ```typescript
+   * createLambdaHandler({
+   *   controller: myController,
+   *   config: {
+   *     cors: {
+   *       origin: 'https://myapp.com',
+   *       credentials: true,
+   *     },
+   *   },
+   * });
+   * ```
+   *
+   * @example Disable CORS headers
+   * ```typescript
+   * createLambdaHandler({
+   *   controller: myController,
+   *   config: { cors: false },
+   * });
+   * ```
+   */
+  config?: ServerlessOnionConfig;
 }
 
 /**
@@ -200,7 +238,7 @@ export function createLambdaHandler<
   TMiddlewares extends readonly AnyMiddleware<TEnv>[] = readonly [],
   TEnv = undefined,
 >(
-  config: CreateLambdaHandlerConfig<TInput, TOutput, TMiddlewares, TEnv>,
+  handlerConfig: CreateLambdaHandlerConfig<TInput, TOutput, TMiddlewares, TEnv>,
 ): APIGatewayProxyHandlerV2 {
   const {
     controller,
@@ -210,7 +248,8 @@ export function createLambdaHandler<
     mapOutput = (output: TOutput) => output as unknown as HttpResponse,
     handleWarmup = true,
     handleExceptions = true,
-  } = config;
+    config,
+  } = handlerConfig;
 
   // Create base handler using the core factory
   const baseHandlerFactory = createBaseHandler<
@@ -225,6 +264,7 @@ export function createLambdaHandler<
     mapInput,
     mapOutput,
     handleExceptions,
+    config,
   });
 
   // Wrap with warmup handling

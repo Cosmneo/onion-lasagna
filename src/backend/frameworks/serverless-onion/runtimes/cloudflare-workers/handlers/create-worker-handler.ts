@@ -1,6 +1,11 @@
 import type { Controller } from '../../../../../core/onion-layers/presentation/interfaces/types/controller.type';
 import type { HttpResponse } from '../../../../../core/onion-layers/presentation/interfaces/types/http';
-import { createBaseHandler, type PlatformAdapter } from '../../../core/handlers';
+import {
+  createBaseHandler,
+  type PlatformAdapter,
+  type ResponseMappingOptions,
+} from '../../../core/handlers';
+import type { ServerlessOnionConfig } from '../../../core/types';
 import type { AccumulatedContext, AnyMiddleware } from '../middleware';
 import {
   mapRequest,
@@ -19,17 +24,24 @@ const cloudflareAdapter: PlatformAdapter<Request, Response> = {
   extractBody: (request) => mapRequestBody(request),
   extractHeaders: (request) => mapRequestHeaders(request) ?? {},
   extractQueryParams: (request) => mapRequestQueryParams(request) ?? {},
-  mapResponse: (response) =>
-    mapResponse({
-      statusCode: response.statusCode,
-      body: response.body,
-      headers: response.headers,
-    }),
-  mapExceptionToResponse: (exception) =>
-    mapResponse({
-      statusCode: exception.statusCode,
-      body: exception.toResponse(),
-    }),
+  extractOrigin: (request) => request.headers.get('origin') ?? undefined,
+  mapResponse: (response, options?: ResponseMappingOptions) =>
+    mapResponse(
+      {
+        statusCode: response.statusCode,
+        body: response.body,
+        headers: response.headers,
+      },
+      { cors: options?.cors, requestOrigin: options?.requestOrigin },
+    ),
+  mapExceptionToResponse: (exception, options?: ResponseMappingOptions) =>
+    mapResponse(
+      {
+        statusCode: exception.statusCode,
+        body: exception.toResponse(),
+      },
+      { cors: options?.cors, requestOrigin: options?.requestOrigin },
+    ),
 };
 
 /**
@@ -93,6 +105,32 @@ export interface CreateWorkerHandlerConfig<
    * If not provided, assumes the controller returns an HttpResponse.
    */
   mapOutput?: (output: TOutput) => HttpResponse;
+
+  /**
+   * Framework configuration including CORS and other settings.
+   *
+   * @example Configure CORS
+   * ```typescript
+   * createWorkerHandler({
+   *   controller: myController,
+   *   config: {
+   *     cors: {
+   *       origin: 'https://myapp.com',
+   *       credentials: true,
+   *     },
+   *   },
+   * });
+   * ```
+   *
+   * @example Disable CORS headers
+   * ```typescript
+   * createWorkerHandler({
+   *   controller: myController,
+   *   config: { cors: false },
+   * });
+   * ```
+   */
+  config?: ServerlessOnionConfig;
 }
 
 /**
@@ -154,14 +192,17 @@ export function createWorkerHandler<
   TOutput,
   TMiddlewares extends readonly AnyMiddleware<TEnv>[] = readonly [],
   TEnv extends WorkerEnv = WorkerEnv,
->(config: CreateWorkerHandlerConfig<TInput, TOutput, TMiddlewares, TEnv>): WorkerHandler<TEnv> {
+>(
+  handlerConfig: CreateWorkerHandlerConfig<TInput, TOutput, TMiddlewares, TEnv>,
+): WorkerHandler<TEnv> {
   const {
     controller,
     middlewares = [] as unknown as TMiddlewares,
     handleExceptions = true,
     mapInput = async (request: Request) => (await mapRequest(request)) as TInput,
     mapOutput = (output: TOutput) => output as unknown as HttpResponse,
-  } = config;
+    config,
+  } = handlerConfig;
 
   // Create base handler using the core factory
   const baseHandlerFactory = createBaseHandler<Request, Response, TEnv>(cloudflareAdapter);
@@ -172,6 +213,7 @@ export function createWorkerHandler<
     mapInput,
     mapOutput,
     handleExceptions,
+    config,
   });
 
   // Wrap to match WorkerHandler signature (adds unused ctx parameter)

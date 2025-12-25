@@ -4,7 +4,9 @@ import { assertHttpResponse } from '../../../../core/onion-layers/presentation/u
 import { createExceptionHandler } from '../wrappers';
 import { runMiddlewareChain } from '../middleware';
 import type { AccumulatedContext, AnyMiddleware } from '../middleware/types';
-import type { PlatformAdapter } from './types';
+import type { ServerlessOnionConfig } from '../types';
+import type { PlatformAdapter, ResponseMappingOptions } from './types';
+import { resolveCorsConfig } from './types';
 
 /**
  * Base handler configuration shared across all platforms.
@@ -62,6 +64,28 @@ export interface BaseHandlerConfig<
    * @default true
    */
   handleExceptions?: boolean;
+
+  /**
+   * Framework configuration including CORS and other settings.
+   *
+   * @example Configure CORS
+   * ```typescript
+   * config: {
+   *   cors: {
+   *     origin: 'https://myapp.com',
+   *     credentials: true,
+   *   },
+   * }
+   * ```
+   *
+   * @example Disable CORS headers
+   * ```typescript
+   * config: {
+   *   cors: false,
+   * }
+   * ```
+   */
+  config?: ServerlessOnionConfig;
 }
 
 /**
@@ -132,17 +156,12 @@ export type BaseHandlerFactory<TPlatformRequest, TPlatformResponse, TEnv> = <
 export function createBaseHandler<TPlatformRequest, TPlatformResponse, TEnv = unknown>(
   adapter: PlatformAdapter<TPlatformRequest, TPlatformResponse>,
 ): BaseHandlerFactory<TPlatformRequest, TPlatformResponse, TEnv> {
-  // Create exception handler wrapper using the platform adapter
-  const withExceptionHandler = createExceptionHandler<TPlatformResponse>({
-    mapExceptionToResponse: adapter.mapExceptionToResponse,
-  });
-
   return function createHandler<
     TInput,
     TOutput,
     TMiddlewares extends readonly AnyMiddleware<TEnv, TPlatformRequest>[],
   >(
-    config: BaseHandlerConfig<TInput, TOutput, TMiddlewares, TEnv, TPlatformRequest>,
+    handlerConfig: BaseHandlerConfig<TInput, TOutput, TMiddlewares, TEnv, TPlatformRequest>,
   ): (request: TPlatformRequest, env: TEnv) => Promise<TPlatformResponse> {
     const {
       controller,
@@ -150,12 +169,25 @@ export function createBaseHandler<TPlatformRequest, TPlatformResponse, TEnv = un
       mapInput,
       mapOutput = (output: TOutput) => output as unknown as HttpResponse,
       handleExceptions = true,
-    } = config;
+      config,
+    } = handlerConfig;
+
+    // Resolve CORS config from framework config
+    const corsConfig = resolveCorsConfig(config);
 
     const coreHandler = async (
       request: TPlatformRequest,
       env: TEnv,
     ): Promise<TPlatformResponse> => {
+      // Extract request origin for dynamic CORS matching
+      const requestOrigin = adapter.extractOrigin?.(request);
+
+      // Build response mapping options
+      const responseOptions: ResponseMappingOptions = {
+        cors: corsConfig,
+        requestOrigin,
+      };
+
       // 1. Run middleware chain
       let middlewareContext: AccumulatedContext<TMiddlewares, TEnv, TPlatformRequest>;
 
@@ -185,12 +217,17 @@ export function createBaseHandler<TPlatformRequest, TPlatformResponse, TEnv = un
       const httpResponse = mapOutput(output);
       assertHttpResponse(httpResponse, 'mapOutput result');
 
-      // 5. Convert to platform response
-      return adapter.mapResponse(httpResponse);
+      // 5. Convert to platform response with CORS headers
+      return adapter.mapResponse(httpResponse, responseOptions);
     };
 
     // Wrap with exception handler if enabled
     if (handleExceptions) {
+      // Create exception handler with CORS config (note: request origin is set at handler call time)
+      const withExceptionHandler = createExceptionHandler<TPlatformResponse>({
+        mapExceptionToResponse: adapter.mapExceptionToResponse,
+        responseOptions: { cors: corsConfig },
+      });
       return withExceptionHandler(coreHandler);
     }
 
