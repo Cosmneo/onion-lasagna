@@ -1,14 +1,27 @@
-import { BASE_HEADERS } from '../../constants';
+import type { CorsConfig } from '../../types';
+import { buildCorsHeaders } from '../../utils';
 
 /**
  * Options for mapping response headers.
  */
 export interface MapResponseHeadersOptions {
   /**
-   * Whether to include CORS base headers.
-   * @default true
+   * CORS configuration.
+   *
+   * - `CorsConfig` - Apply custom CORS configuration
+   * - `false` - Disable CORS headers entirely
+   * - `undefined` - Use default permissive CORS (same as old BASE_HEADERS)
+   *
+   * @default undefined (uses default CORS)
    */
-  includeBaseHeaders?: boolean;
+  cors?: CorsConfig | false;
+
+  /**
+   * The Origin header from the incoming request.
+   * Used for dynamic origin matching when cors.origin is an array
+   * or when credentials are enabled with '*' origin.
+   */
+  requestOrigin?: string;
 
   /**
    * Whether the response has a body (adds Content-Type if true).
@@ -18,9 +31,9 @@ export interface MapResponseHeadersOptions {
 }
 
 /**
- * Maps response headers, merging base headers with custom headers.
+ * Maps response headers, merging CORS headers with custom headers.
  *
- * - Includes CORS base headers by default
+ * - Applies CORS headers based on configuration (or defaults)
  * - Adds Content-Type header for responses with body
  * - Converts all values to strings for cross-platform compatibility
  * - Filters out undefined/null header values
@@ -29,7 +42,7 @@ export interface MapResponseHeadersOptions {
  * @param options - Mapping options
  * @returns Merged headers object with all string values
  *
- * @example
+ * @example Default CORS (permissive)
  * ```typescript
  * mapResponseHeaders({ 'X-Custom': 'value' }, { hasBody: true })
  * // {
@@ -39,19 +52,44 @@ export interface MapResponseHeadersOptions {
  * //   'X-Custom': 'value'
  * // }
  * ```
+ *
+ * @example Custom CORS
+ * ```typescript
+ * mapResponseHeaders(
+ *   { 'X-Custom': 'value' },
+ *   {
+ *     cors: { origin: 'https://myapp.com', credentials: true },
+ *     hasBody: true,
+ *   }
+ * )
+ * // {
+ * //   'Content-Type': 'application/json',
+ * //   'Access-Control-Allow-Origin': 'https://myapp.com',
+ * //   'Access-Control-Allow-Credentials': 'true',
+ * //   ...
+ * // }
+ * ```
+ *
+ * @example No CORS
+ * ```typescript
+ * mapResponseHeaders({ 'X-Custom': 'value' }, { cors: false, hasBody: true })
+ * // { 'Content-Type': 'application/json', 'X-Custom': 'value' }
+ * ```
  */
 export function mapResponseHeaders(
   headers: Record<string, unknown> | undefined,
   options: MapResponseHeadersOptions = {},
 ): Record<string, string> {
-  const { includeBaseHeaders = true, hasBody = false } = options;
+  const { cors, requestOrigin, hasBody = false } = options;
 
   const result: Record<string, string> = {};
 
-  // Add base headers if enabled
-  if (includeBaseHeaders) {
-    for (const [key, value] of Object.entries(BASE_HEADERS)) {
-      result[key] = String(value);
+  // Add CORS headers unless explicitly disabled
+  if (cors !== false) {
+    const corsConfig = cors ?? {}; // undefined = use defaults
+    const corsHeaders = buildCorsHeaders(corsConfig, requestOrigin);
+    for (const [key, value] of Object.entries(corsHeaders)) {
+      result[key] = value;
     }
   }
 

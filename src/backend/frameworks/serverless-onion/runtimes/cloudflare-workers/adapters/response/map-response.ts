@@ -1,15 +1,31 @@
 import type { HttpResponse } from '../../../../../../core/onion-layers/presentation/interfaces/types/http';
-import { isNoBodyStatus, mapResponseBody, mapResponseHeaders } from '../../../../core';
+import {
+  isNoBodyStatus,
+  mapResponseBody,
+  mapResponseHeaders,
+  type CorsConfig,
+} from '../../../../core';
 
 /**
  * Options for mapping responses.
  */
 export interface MapResponseOptions {
   /**
-   * Whether to include CORS base headers.
-   * @default true
+   * CORS configuration.
+   *
+   * - `CorsConfig` - Apply custom CORS configuration
+   * - `false` - Disable CORS headers entirely
+   * - `undefined` - Use default permissive CORS
+   *
+   * @default undefined (uses default CORS)
    */
-  includeBaseHeaders?: boolean;
+  cors?: CorsConfig | false;
+
+  /**
+   * The Origin header from the incoming request.
+   * Used for dynamic origin matching with CORS.
+   */
+  requestOrigin?: string;
 }
 
 /**
@@ -22,10 +38,10 @@ export interface MapResponseOptions {
  * are created without a body.
  *
  * @param response - The HttpResponse to convert
- * @param options - Mapping options
+ * @param options - Mapping options (CORS config, request origin)
  * @returns A Cloudflare Workers Response
  *
- * @example
+ * @example Default CORS
  * ```typescript
  * const response = mapResponse({
  *   statusCode: 200,
@@ -33,19 +49,29 @@ export interface MapResponseOptions {
  *   headers: { 'X-Custom': 'value' },
  * });
  * // Response with status 200, JSON body, CORS headers, and custom header
+ * ```
  *
- * // 204 No Content - no body
- * const noContentResponse = mapResponse({ statusCode: 204 });
- * // Response with status 204, no body, CORS headers
+ * @example Custom CORS
+ * ```typescript
+ * const response = mapResponse(
+ *   { statusCode: 200, body: { ok: true } },
+ *   { cors: { origin: 'https://myapp.com', credentials: true } }
+ * );
+ * ```
+ *
+ * @example No CORS
+ * ```typescript
+ * const response = mapResponse({ statusCode: 200, body: { ok: true } }, { cors: false });
  * ```
  */
 export function mapResponse(response: HttpResponse, options: MapResponseOptions = {}): Response {
-  const { includeBaseHeaders = true } = options;
+  const { cors, requestOrigin } = options;
 
   // RFC 9110: 1xx, 204, and 304 responses must not include a body
   if (isNoBodyStatus(response.statusCode)) {
     const headers = mapResponseHeaders(response.headers, {
-      includeBaseHeaders,
+      cors,
+      requestOrigin,
       hasBody: false,
     });
 
@@ -57,7 +83,8 @@ export function mapResponse(response: HttpResponse, options: MapResponseOptions 
 
   const body = mapResponseBody(response.body);
   const headers = mapResponseHeaders(response.headers, {
-    includeBaseHeaders,
+    cors,
+    requestOrigin,
     hasBody: body !== '',
   });
 

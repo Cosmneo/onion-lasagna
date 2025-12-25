@@ -1,5 +1,25 @@
 import type { HttpResponse } from '../../../../core/onion-layers/presentation/interfaces/types/http';
 import type { HttpException } from '../exceptions';
+import type { CorsConfig, ServerlessOnionConfig } from '../types';
+
+/**
+ * Options passed to response mapping functions.
+ */
+export interface ResponseMappingOptions {
+  /**
+   * CORS configuration from handler config.
+   * - `CorsConfig` - Apply custom CORS
+   * - `false` - Disable CORS headers
+   * - `undefined` - Use default permissive CORS
+   */
+  cors?: CorsConfig | false;
+
+  /**
+   * The Origin header from the incoming request.
+   * Used for dynamic origin matching with CORS.
+   */
+  requestOrigin?: string;
+}
 
 /**
  * Platform adapter interface for handler factories.
@@ -18,14 +38,15 @@ import type { HttpException } from '../exceptions';
  *   extractBody: (event) => parseBody(event.body),
  *   extractHeaders: (event) => event.headers ?? {},
  *   extractQueryParams: (event) => event.queryStringParameters ?? {},
- *   mapResponse: (response) => ({
+ *   mapResponse: (response, options) => ({
  *     statusCode: response.statusCode,
  *     body: JSON.stringify(response.body),
- *     headers: response.headers,
+ *     headers: mapResponseHeaders(response.headers, options),
  *   }),
- *   mapExceptionToResponse: (exception) => ({
+ *   mapExceptionToResponse: (exception, options) => ({
  *     statusCode: exception.statusCode,
  *     body: JSON.stringify(exception.toResponse()),
+ *     headers: mapResponseHeaders(undefined, options),
  *   }),
  * };
  * ```
@@ -36,13 +57,13 @@ import type { HttpException } from '../exceptions';
  *   extractBody: async (request) => await request.clone().json().catch(() => undefined),
  *   extractHeaders: (request) => Object.fromEntries(request.headers.entries()),
  *   extractQueryParams: (request) => Object.fromEntries(new URL(request.url).searchParams),
- *   mapResponse: (response) => new Response(
+ *   mapResponse: (response, options) => new Response(
  *     JSON.stringify(response.body),
- *     { status: response.statusCode, headers: response.headers },
+ *     { status: response.statusCode, headers: mapResponseHeaders(response.headers, options) },
  *   ),
- *   mapExceptionToResponse: (exception) => new Response(
+ *   mapExceptionToResponse: (exception, options) => new Response(
  *     JSON.stringify(exception.toResponse()),
- *     { status: exception.statusCode },
+ *     { status: exception.statusCode, headers: mapResponseHeaders(undefined, options) },
  *   ),
  * };
  * ```
@@ -75,15 +96,32 @@ export interface PlatformAdapter<TPlatformRequest, TPlatformResponse> {
   extractQueryParams: (request: TPlatformRequest) => Record<string, string | string[]>;
 
   /**
-   * Converts an HttpResponse to the platform's native response type.
+   * Extracts the Origin header from the request.
+   * Used for dynamic CORS origin matching.
+   *
+   * @returns The Origin header value, or undefined if not present
    */
-  mapResponse: (response: HttpResponse) => TPlatformResponse;
+  extractOrigin?: (request: TPlatformRequest) => string | undefined;
+
+  /**
+   * Converts an HttpResponse to the platform's native response type.
+   *
+   * @param response - The HttpResponse to convert
+   * @param options - CORS and other response options
+   */
+  mapResponse: (response: HttpResponse, options?: ResponseMappingOptions) => TPlatformResponse;
 
   /**
    * Converts an HttpException to the platform's native response type.
    * Used by the exception handler wrapper.
+   *
+   * @param exception - The HttpException to convert
+   * @param options - CORS and other response options
    */
-  mapExceptionToResponse: (exception: HttpException) => TPlatformResponse;
+  mapExceptionToResponse: (
+    exception: HttpException,
+    options?: ResponseMappingOptions,
+  ) => TPlatformResponse;
 }
 
 /**
@@ -105,8 +143,8 @@ export interface PlatformAdapter<TPlatformRequest, TPlatformResponse> {
  *   extractBody: (event) => parseBody(event.body),
  *   extractHeaders: (event) => event.headers ?? {},
  *   extractQueryParams: (event) => event.queryStringParameters ?? {},
- *   mapResponse: (response) => ({ statusCode: response.statusCode, body: JSON.stringify(response.body) }),
- *   mapExceptionToResponse: (exception) => ({ statusCode: exception.statusCode, body: JSON.stringify(exception.toResponse()) }),
+ *   mapResponse: (response, options) => ({ statusCode: response.statusCode, body: JSON.stringify(response.body) }),
+ *   mapExceptionToResponse: (exception, options) => ({ statusCode: exception.statusCode, body: JSON.stringify(exception.toResponse()) }),
  * };
  * ```
  *
@@ -120,8 +158,8 @@ export interface PlatformAdapter<TPlatformRequest, TPlatformResponse> {
  *   extractBody: async (request) => await request.clone().json().catch(() => undefined),
  *   extractHeaders: (request) => Object.fromEntries(request.headers.entries()),
  *   extractQueryParams: (request) => Object.fromEntries(new URL(request.url).searchParams),
- *   mapResponse: (response) => new Response(JSON.stringify(response.body), { status: response.statusCode }),
- *   mapExceptionToResponse: (exception) => new Response(JSON.stringify(exception.toResponse()), { status: exception.statusCode }),
+ *   mapResponse: (response, options) => new Response(JSON.stringify(response.body), { status: response.statusCode }),
+ *   mapExceptionToResponse: (exception, options) => new Response(JSON.stringify(exception.toResponse()), { status: exception.statusCode }),
  * };
  * ```
  */
@@ -142,4 +180,15 @@ export interface PlatformProxyAdapter<TPlatformRequest, TPlatformResponse> exten
 export interface RouteInfo {
   path: string;
   method: string;
+}
+
+/**
+ * Resolves CORS configuration from ServerlessOnionConfig.
+ *
+ * @param config - The serverless onion config
+ * @returns CORS config, false to disable, or undefined for defaults
+ */
+export function resolveCorsConfig(config?: ServerlessOnionConfig): CorsConfig | false | undefined {
+  if (!config) return undefined;
+  return config.cors;
 }

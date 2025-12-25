@@ -6,7 +6,12 @@ import type {
 import type { Controller } from '../../../../../core/onion-layers/presentation/interfaces/types/controller.type';
 import type { BaseRequestMetadata } from '../../../../../core/onion-layers/presentation/interfaces/types/http';
 import type { RouteInput } from '../../../../../core/onion-layers/presentation/routing';
-import { createBaseProxyHandler, type PlatformProxyAdapter } from '../../../core/handlers';
+import {
+  createBaseProxyHandler,
+  type PlatformProxyAdapter,
+  type ResponseMappingOptions,
+} from '../../../core/handlers';
+import type { ServerlessOnionConfig } from '../../../core/types';
 import { mapRequestBody, mapRequestHeaders, mapRequestQueryParams } from '../adapters/request';
 import { mapResponse } from '../adapters/response';
 import { getWarmupResponse, isWarmupCall } from '../features/warmup';
@@ -24,17 +29,24 @@ const awsProxyAdapter: PlatformProxyAdapter<APIGatewayProxyEventV2, APIGatewayPr
   extractBody: (event) => mapRequestBody(event),
   extractHeaders: (event) => mapRequestHeaders(event) ?? {},
   extractQueryParams: (event) => mapRequestQueryParams(event) ?? {},
-  mapResponse: (response) =>
-    mapResponse({
-      statusCode: response.statusCode,
-      body: response.body,
-      headers: response.headers,
-    }),
-  mapExceptionToResponse: (exception) =>
-    mapResponse({
-      statusCode: exception.statusCode,
-      body: exception.toResponse(),
-    }),
+  extractOrigin: (event) => event.headers?.['origin'],
+  mapResponse: (response, options?: ResponseMappingOptions) =>
+    mapResponse(
+      {
+        statusCode: response.statusCode,
+        body: response.body,
+        headers: response.headers,
+      },
+      { cors: options?.cors, requestOrigin: options?.requestOrigin },
+    ),
+  mapExceptionToResponse: (exception, options?: ResponseMappingOptions) =>
+    mapResponse(
+      {
+        statusCode: exception.statusCode,
+        body: exception.toResponse(),
+      },
+      { cors: options?.cors, requestOrigin: options?.requestOrigin },
+    ),
 };
 
 /**
@@ -176,6 +188,34 @@ export interface CreateGreedyProxyHandlerConfig<
    * @default true
    */
   handleExceptions?: boolean;
+
+  /**
+   * Framework configuration including CORS and other settings.
+   *
+   * @example Configure CORS
+   * ```typescript
+   * createGreedyProxyHandler({
+   *   serviceName: 'UserService',
+   *   routes: [...],
+   *   config: {
+   *     cors: {
+   *       origin: 'https://myapp.com',
+   *       credentials: true,
+   *     },
+   *   },
+   * });
+   * ```
+   *
+   * @example Disable CORS headers
+   * ```typescript
+   * createGreedyProxyHandler({
+   *   serviceName: 'UserService',
+   *   routes: [...],
+   *   config: { cors: false },
+   * });
+   * ```
+   */
+  config?: ServerlessOnionConfig;
 }
 
 /**
@@ -264,7 +304,12 @@ export function createGreedyProxyHandler<
   TEnv = undefined,
   TAuthorizerContext extends object = object,
 >(
-  config: CreateGreedyProxyHandlerConfig<TController, TMiddlewares, TEnv, TAuthorizerContext>,
+  handlerConfig: CreateGreedyProxyHandlerConfig<
+    TController,
+    TMiddlewares,
+    TEnv,
+    TAuthorizerContext
+  >,
 ): APIGatewayProxyHandlerV2 {
   const {
     serviceName,
@@ -274,7 +319,8 @@ export function createGreedyProxyHandler<
     extractAuthorizerContext,
     handleWarmup = true,
     handleExceptions = true,
-  } = config;
+    config,
+  } = handlerConfig;
 
   // Create base proxy handler using the core factory
   const baseProxyHandlerFactory = createBaseProxyHandler<
@@ -293,6 +339,7 @@ export function createGreedyProxyHandler<
     routes,
     middlewares,
     handleExceptions,
+    config,
     extractMetadata: (event) => ({
       path: event.rawPath,
       method: event.requestContext.http.method,

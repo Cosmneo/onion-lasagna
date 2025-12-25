@@ -1,4 +1,9 @@
-export type { AnyMiddleware, Middleware, MiddlewareInput, MiddlewareOutput } from './middleware.type';
+export type {
+  AnyMiddleware,
+  Middleware,
+  MiddlewareInput,
+  MiddlewareOutput,
+} from './middleware.type';
 export type {
   AccumulatedContext,
   EmptyMiddlewareChain,
