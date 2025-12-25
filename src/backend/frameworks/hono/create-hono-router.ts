@@ -124,6 +124,19 @@ export type RouteInputOrArray = RouteInput<HttpController> | RouteInput<HttpCont
  */
 export interface RegisterRoutesOptions {
   /**
+   * Prefix to apply to all routes in this registration.
+   *
+   * @example
+   * ```typescript
+   * registerHonoRoutes(app, userRoutes, {
+   *   prefix: '/api/v1',
+   * });
+   * // Routes will be: /api/v1/users, /api/v1/users/:id, etc.
+   * ```
+   */
+  prefix?: string;
+
+  /**
    * Middlewares to apply to all routes in this registration.
    * These run before the controller handler.
    *
@@ -171,6 +184,14 @@ export interface RegisterRoutesOptions {
  * ]);
  * ```
  *
+ * @example With prefix
+ * ```typescript
+ * registerHonoRoutes(app, userRoutes, {
+ *   prefix: '/api/v1',
+ * });
+ * // Routes will be: /api/v1/users, /api/v1/users/:id, etc.
+ * ```
+ *
  * @example With middlewares
  * ```typescript
  * import { jwt } from 'hono/jwt';
@@ -200,10 +221,11 @@ export function registerHonoRoutes(
   options?: RegisterRoutesOptions,
 ): void {
   const routeArray = Array.isArray(routes) ? routes : [routes];
+  const prefix = options?.prefix ?? '';
   const middlewares = options?.middlewares ?? [];
 
   for (const { metadata, controller } of routeArray) {
-    const path = toHonoPath(metadata.servicePath);
+    const path = prefix + toHonoPath(metadata.servicePath);
     const method = metadata.method.toLowerCase();
 
     const handler = async (c: Context) => {
