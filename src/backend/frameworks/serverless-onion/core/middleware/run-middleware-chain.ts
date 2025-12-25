@@ -1,5 +1,6 @@
 import type { AccumulatedContext } from './types/middleware-chain.type';
 import type { Middleware } from './types/middleware.type';
+import { assertMiddlewareContext } from './middleware-context.util';
 
 /**
  * Executes a chain of middlewares sequentially, accumulating context.
@@ -57,9 +58,15 @@ export async function runMiddlewareChain<
 ): Promise<TInitialContext & AccumulatedContext<TMiddlewares, TEnv, TRequest>> {
   let accumulatedContext: object = initialContext ?? {};
 
-  for (const middleware of middlewares) {
+  for (let i = 0; i < middlewares.length; i++) {
+    // Non-null assertion is safe here: i is always within bounds due to loop condition
+    const middleware = middlewares[i]!;
+
     // Each middleware receives the accumulated context from previous middlewares
     const middlewareContext = await middleware(request, env, accumulatedContext);
+
+    // Validate middleware returned a valid context object
+    assertMiddlewareContext(middlewareContext, i);
 
     // Merge the new context with accumulated
     accumulatedContext = {

@@ -21,21 +21,26 @@ export async function mapRequestBody(request: Request): Promise<unknown> {
     return undefined;
   }
 
-  // Clone the request to avoid consuming the body
-  const clonedRequest = request.clone();
-
   const contentType = request.headers.get('content-type') ?? '';
 
   if (contentType.includes('application/json')) {
+    // Clone the request to read body as text first (can only read once)
+    const clonedRequest = request.clone();
+    const text = await clonedRequest.text();
+
+    if (text.length === 0) {
+      return undefined;
+    }
+
     try {
-      return await clonedRequest.json();
+      return JSON.parse(text);
     } catch {
-      // If JSON parsing fails, return as text
-      return await request.clone().text();
+      // If JSON parsing fails, return raw text
+      return text;
     }
   }
 
   // For non-JSON content, return as text
-  const text = await clonedRequest.text();
+  const text = await request.clone().text();
   return text.length > 0 ? text : undefined;
 }

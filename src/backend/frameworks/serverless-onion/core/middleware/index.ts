@@ -13,3 +13,6 @@ export { defineMiddleware } from './define-middleware';
 
 // Execution
 export { runMiddlewareChain } from './run-middleware-chain';
+
+// Utilities
+export { assertMiddlewareContext, isMiddlewareContext } from './middleware-context.util';

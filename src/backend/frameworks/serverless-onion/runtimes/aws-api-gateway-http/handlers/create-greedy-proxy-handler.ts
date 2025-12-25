@@ -3,16 +3,16 @@ import type {
   APIGatewayProxyHandlerV2,
   APIGatewayProxyResultV2,
 } from 'aws-lambda';
-import type { Controller } from '../../../../../core/bounded-context/presentation/interfaces/types/controller.type';
+import type { Controller } from '../../../../../core/onion-layers/presentation/interfaces/types/controller.type';
 import type {
   BaseRequestMetadata,
   HttpResponse,
-} from '../../../../../core/bounded-context/presentation/interfaces/types/http';
+} from '../../../../../core/onion-layers/presentation/interfaces/types/http';
 import type {
   ResolvedRoute,
   RouteInput,
-} from '../../../../../core/bounded-context/presentation/routing';
-import { createRoutingMap } from '../../../../../core/bounded-context/presentation/routing';
+} from '../../../../../core/onion-layers/presentation/routing';
+import { createRoutingMap } from '../../../../../core/onion-layers/presentation/routing';
 import { NotFoundException, runMiddlewareChain } from '../../../core';
 import { mapRequestBody, mapRequestHeaders, mapRequestQueryParams } from '../adapters/request';
 import { mapResponse } from '../adapters/response';

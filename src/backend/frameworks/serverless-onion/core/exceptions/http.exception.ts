@@ -1,4 +1,4 @@
-import { ControllerError } from '../../../../core/bounded-context/presentation/exceptions/controller.error';
+import { ControllerError } from '../../../../core/onion-layers/presentation/exceptions/controller.error';
 import type { ErrorItem, HttpExceptionResponse } from '../types';
 
 /**

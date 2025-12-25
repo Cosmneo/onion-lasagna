@@ -3,8 +3,9 @@ import type {
   APIGatewayProxyHandlerV2,
   APIGatewayProxyResultV2,
 } from 'aws-lambda';
-import type { Controller } from '../../../../../core/bounded-context/presentation/interfaces/types/controller.type';
-import type { HttpResponse } from '../../../../../core/bounded-context/presentation/interfaces/types/http';
+import type { Controller } from '../../../../../core/onion-layers/presentation/interfaces/types/controller.type';
+import type { HttpResponse } from '../../../../../core/onion-layers/presentation/interfaces/types/http';
+import { assertHttpResponse } from '../../../../../core/onion-layers/presentation/utils';
 import { runMiddlewareChain } from '../../../core';
 import { mapRequest } from '../adapters/request';
 import { mapResponse } from '../adapters/response';
@@ -208,8 +209,9 @@ export function createLambdaHandler<
     // Execute controller
     const output = await controller.execute(input);
 
-    // Map output to response
+    // Map output to response and validate
     const httpResponse = mapOutput(output);
+    assertHttpResponse(httpResponse, 'mapOutput result');
 
     return mapResponse(httpResponse);
   };
