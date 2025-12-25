@@ -30,6 +30,8 @@ Makes sense. If serverless-onion is positioned as a standalone framework (not ju
 
 ## Issue #2: Code Duplication Between Runtimes
 
+> **Status**: COMPLETED (2025-12-25)
+
 ### My Suggestion
 
 **Solution A**: Extract platform-agnostic core with thin platform adapters.
@@ -47,11 +49,21 @@ Agreed. The refactor will:
 3. Create `serverless-onion/adapters/cloudflare-workers/` with CF-specific code
 4. Future adapters (Hono, Deno, Vercel) become trivial to add
 
-**Action**: Implement Solution A - extract platform-agnostic core.
+**Action**: ~~Implement Solution A - extract platform-agnostic core.~~
+
+### Implementation
+
+Implemented in commit `42d7f4f`:
+- Created `core/handlers/` with `createBaseHandler` and `createBaseProxyHandler` factories
+- Created `core/handlers/types/` with `PlatformAdapter` and `PlatformProxyAdapter` interfaces
+- Platform runtimes now use thin adapters that delegate to core handlers
+- Added comprehensive JSDoc documentation
 
 ---
 
 ## Issue #3: Middleware Order Fragility
+
+> **Status**: COMPLETED (2025-12-25)
 
 ### My Suggestion
 
@@ -74,7 +86,29 @@ const chain = createMiddlewareChain<Env, Request>()
 // Compile error if order is wrong
 ```
 
-**Action**: Implement builder pattern for middleware chains.
+**Action**: ~~Implement builder pattern for middleware chains.~~
+
+### Implementation
+
+Implemented in commit `e5e9b86`:
+- Created `createMiddlewareChain()` builder with `.use()` and `.build()` methods
+- Created `MiddlewareChainBuilder` interface with compile-time order validation
+- Added `AnyMiddleware` type alias to handle TypeScript contravariance cleanly
+- Created platform-specific builders for AWS and Cloudflare
+- Uses `TRequired extends TAccumulatedContext` constraint for compile-time enforcement
+
+Example:
+```typescript
+const chain = createMiddlewareChain<Env>()
+  .use(authMiddleware)      // Context: {} → { userId }
+  .use(tenantMiddleware)    // Context: { userId } → { userId, tenantId }
+  .build();
+
+// Compile error if wrong order:
+createMiddlewareChain<Env>()
+  .use(tenantMiddleware)    // ERROR: requires AuthContext
+  .use(authMiddleware);     // Too late!
+```
 
 ---
 
@@ -208,6 +242,8 @@ Understood. Tests will be added after the refactoring decisions are finalized. M
 
 ## Issue #8: Middleware Context Key Collisions
 
+> **Status**: COMPLETED (2025-12-25)
+
 ### My Suggestion
 
 Solution A (namespacing) + Solution B (runtime warnings).
@@ -232,7 +268,30 @@ const authMiddleware = defineMiddleware<{ auth: { user: User } }>();
 const authMiddleware = defineMiddleware<{ user: User }>();
 ```
 
-**Action**: Implement namespacing convention in middleware examples and docs.
+**Action**: ~~Implement namespacing convention in middleware examples and docs.~~
+
+### Implementation
+
+Updated all middleware documentation and examples to use namespaced keys:
+
+1. **README.md**: Added "Context Namespacing Convention" section with:
+   - Best practice examples showing namespaced keys
+   - Anti-pattern examples showing flat key collisions
+   - Benefits explanation (clear ownership, self-documenting, safe merging)
+
+2. **Core define-middleware.ts**: Updated JSDoc with namespaced examples
+
+3. **AWS define-middleware.ts**: Updated JSDoc with namespaced examples
+
+4. **Cloudflare define-middleware.ts**: Updated JSDoc with namespaced examples
+
+5. **All middleware examples**: Updated to use pattern:
+   ```typescript
+   interface AuthContext {
+     auth: { userId: string; roles: string[] };
+   }
+   // Access: ctx.auth.userId
+   ```
 
 ---
 
@@ -240,16 +299,16 @@ const authMiddleware = defineMiddleware<{ user: User }>();
 
 Based on your decisions:
 
-| Step | Issue | Action                                                                 |
-| ---- | ----- | ---------------------------------------------------------------------- |
-| 1    | #5    | **Discuss app router design** - this affects everything else           |
-| 2    | #6    | **Investigate exception flow** - understand before changing            |
-| 3    | #2    | **Extract platform-agnostic core** - enables cleaner #5 implementation |
-| 4    | #3    | **Middleware chain builder** - can be done with #2                     |
-| 5    | #4    | **Core config system** - builds on new core structure                  |
-| 6    | #8    | **Namespace convention** - documentation + examples                    |
-| 7    | #1    | **No action** - keep separate exceptions                               |
-| 8    | #7    | **Tests** - after refactoring stabilizes                               |
+| Step | Issue | Action                                                                 | Status      |
+| ---- | ----- | ---------------------------------------------------------------------- | ----------- |
+| 1    | #5    | **Discuss app router design** - this affects everything else           | Pending     |
+| 2    | #6    | **Investigate exception flow** - understand before changing            | Pending     |
+| 3    | #2    | **Extract platform-agnostic core** - enables cleaner #5 implementation | ✅ DONE     |
+| 4    | #3    | **Middleware chain builder** - can be done with #2                     | ✅ DONE     |
+| 5    | #4    | **Core config system** - builds on new core structure                  | Pending     |
+| 6    | #8    | **Namespace convention** - documentation + examples                    | ✅ DONE     |
+| 7    | #1    | **No action** - keep separate exceptions                               | ✅ No action |
+| 8    | #7    | **Tests** - after refactoring stabilizes                               | Pending     |
 
 ---
 
