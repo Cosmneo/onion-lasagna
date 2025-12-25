@@ -12,6 +12,7 @@
     "express": "^5.2.1",
     "globals": "^16.5.0",
     "hono": "^4",
+    "elysia": "^1.2",
     "fastify": "^5",
     "prettier": "^3.7.4",
     "tsup": "^8.5.1",
@@ -25,6 +26,7 @@
     "@types/aws-lambda": "^8.10.0",
     "arktype": "^2.1.29",
     "hono": "^4",
+    "elysia": "^1.2",
     "fastify": "^5",
     "http-status-codes": "^2.3.0",
     "typescript": "^5",
@@ -112,6 +114,12 @@
       "import": "./dist/backend/frameworks/nestjs.js",
       "require": "./dist/backend/frameworks/nestjs.cjs",
       "default": "./dist/backend/frameworks/nestjs.js"
+    },
+    "./backend/frameworks/elysia": {
+      "types": "./dist/backend/frameworks/elysia.d.ts",
+      "import": "./dist/backend/frameworks/elysia.js",
+      "require": "./dist/backend/frameworks/elysia.cjs",
+      "default": "./dist/backend/frameworks/elysia.js"
     },
     "./backend/frameworks/fastify": {
       "types": "./dist/backend/frameworks/fastify.d.ts",
