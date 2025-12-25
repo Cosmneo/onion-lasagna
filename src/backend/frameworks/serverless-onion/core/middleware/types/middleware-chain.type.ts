@@ -1,4 +1,4 @@
-import type { Middleware, MiddlewareOutput } from './middleware.type';
+import type { AnyMiddleware, MiddlewareOutput } from './middleware.type';
 
 /**
  * Computes the accumulated context type from a tuple of middlewares.
@@ -26,13 +26,13 @@ import type { Middleware, MiddlewareOutput } from './middleware.type';
  * ```
  */
 export type AccumulatedContext<
-  TMiddlewares extends readonly Middleware<object, object, TEnv, TRequest>[],
+  TMiddlewares extends readonly AnyMiddleware<TEnv, TRequest>[],
   TEnv = unknown,
   TRequest = Request,
   TAcc extends object = object,
 > = TMiddlewares extends readonly [
-  infer Head extends Middleware<object, object, TEnv, TRequest>,
-  ...infer Tail extends readonly Middleware<object, object, TEnv, TRequest>[],
+  infer Head extends AnyMiddleware<TEnv, TRequest>,
+  ...infer Tail extends readonly AnyMiddleware<TEnv, TRequest>[],
 ]
   ? AccumulatedContext<Tail, TEnv, TRequest, TAcc & MiddlewareOutput<Head>>
   : TAcc;
@@ -47,12 +47,12 @@ export type EmptyMiddlewareChain = readonly [];
  * Type guard to check if a value is a non-empty middleware array.
  */
 export type NonEmptyMiddlewareChain<
-  TMiddlewares extends readonly Middleware<object, object, TEnv, TRequest>[],
+  TMiddlewares extends readonly AnyMiddleware<TEnv, TRequest>[],
   TEnv = unknown,
   TRequest = Request,
 > = TMiddlewares extends readonly [
-  Middleware<object, object, TEnv, TRequest>,
-  ...Middleware<object, object, TEnv, TRequest>[],
+  AnyMiddleware<TEnv, TRequest>,
+  ...AnyMiddleware<TEnv, TRequest>[],
 ]
   ? TMiddlewares
   : never;

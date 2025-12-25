@@ -1,7 +1,7 @@
 import type { Controller } from '../../../../../core/onion-layers/presentation/interfaces/types/controller.type';
 import type { HttpResponse } from '../../../../../core/onion-layers/presentation/interfaces/types/http';
 import { createBaseHandler, type PlatformAdapter } from '../../../core/handlers';
-import type { AccumulatedContext, Middleware } from '../middleware';
+import type { AccumulatedContext, AnyMiddleware } from '../middleware';
 import {
   mapRequest,
   mapRequestBody,
@@ -38,7 +38,7 @@ const cloudflareAdapter: PlatformAdapter<Request, Response> = {
 export interface CreateWorkerHandlerConfig<
   TInput,
   TOutput,
-  TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
+  TMiddlewares extends readonly AnyMiddleware<TEnv>[] = readonly [],
   TEnv extends WorkerEnv = WorkerEnv,
 > {
   /**
@@ -152,7 +152,7 @@ export interface CreateWorkerHandlerConfig<
 export function createWorkerHandler<
   TInput,
   TOutput,
-  TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
+  TMiddlewares extends readonly AnyMiddleware<TEnv>[] = readonly [],
   TEnv extends WorkerEnv = WorkerEnv,
 >(config: CreateWorkerHandlerConfig<TInput, TOutput, TMiddlewares, TEnv>): WorkerHandler<TEnv> {
   const {

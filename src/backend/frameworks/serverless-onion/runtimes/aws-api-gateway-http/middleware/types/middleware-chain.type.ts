@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import type { AccumulatedContext as CoreAccumulatedContext } from '../../../../core';
-import type { Middleware } from './middleware.type';
+import type { AnyMiddleware } from './middleware.type';
 
 /**
  * Computes the accumulated context type from a tuple of AWS middlewares.
@@ -26,6 +26,6 @@ import type { Middleware } from './middleware.type';
  * ```
  */
 export type AccumulatedContext<
-  TMiddlewares extends readonly Middleware<object, object, TEnv>[],
+  TMiddlewares extends readonly AnyMiddleware<TEnv>[],
   TEnv = undefined,
 > = CoreAccumulatedContext<TMiddlewares, TEnv, APIGatewayProxyEventV2>;

@@ -1,5 +1,6 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import type {
+  AnyMiddleware as CoreAnyMiddleware,
   Middleware as CoreMiddleware,
   MiddlewareInput as CoreMiddlewareInput,
   MiddlewareOutput as CoreMiddlewareOutput,
@@ -87,3 +88,15 @@ export type MiddlewareOutput<T> = CoreMiddlewareOutput<T>;
  * ```
  */
 export type MiddlewareInput<T> = CoreMiddlewareInput<T>;
+
+/**
+ * An AWS Lambda middleware with any required context.
+ *
+ * This type is used in constraints where we need to accept middlewares
+ * with varying required contexts (e.g., in handler configs, middleware chains).
+ *
+ * @typeParam TEnv - Environment/dependencies object (defaults to undefined)
+ *
+ * @see {@link AnyMiddleware} in core for why `any` is necessary
+ */
+export type AnyMiddleware<TEnv = undefined> = CoreAnyMiddleware<TEnv, APIGatewayProxyEventV2>;

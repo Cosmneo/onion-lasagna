@@ -7,7 +7,7 @@ import type { RouteInput } from '../../../../core/onion-layers/presentation/rout
 import { createRoutingMap } from '../../../../core/onion-layers/presentation/routing';
 import { createExceptionHandler, NotFoundException } from '../index';
 import { runMiddlewareChain } from '../middleware';
-import type { AccumulatedContext, Middleware } from '../middleware/types';
+import type { AccumulatedContext, AnyMiddleware } from '../middleware/types';
 import { buildHttpRequest } from './build-http-request';
 import type { PlatformProxyAdapter } from './types';
 
@@ -24,7 +24,7 @@ import type { PlatformProxyAdapter } from './types';
  */
 export interface BaseProxyHandlerConfig<
   TController extends Controller,
-  TMiddlewares extends readonly Middleware<object, object, TEnv, TPlatformRequest>[],
+  TMiddlewares extends readonly AnyMiddleware<TEnv, TPlatformRequest>[],
   TEnv,
   TPlatformRequest,
   TPlatformResponse,
@@ -116,7 +116,7 @@ export interface BaseProxyHandlerConfig<
  */
 export type BaseProxyHandlerFactory<TPlatformRequest, TPlatformResponse, TEnv> = <
   TController extends Controller,
-  TMiddlewares extends readonly Middleware<object, object, TEnv, TPlatformRequest>[],
+  TMiddlewares extends readonly AnyMiddleware<TEnv, TPlatformRequest>[],
   TMetadata extends BaseRequestMetadata,
   TInitialContext extends object = object,
 >(
@@ -203,7 +203,7 @@ export function createBaseProxyHandler<TPlatformRequest, TPlatformResponse, TEnv
 
   return function createProxyHandler<
     TController extends Controller,
-    TMiddlewares extends readonly Middleware<object, object, TEnv, TPlatformRequest>[],
+    TMiddlewares extends readonly AnyMiddleware<TEnv, TPlatformRequest>[],
     TMetadata extends BaseRequestMetadata,
     TInitialContext extends object = object,
   >(

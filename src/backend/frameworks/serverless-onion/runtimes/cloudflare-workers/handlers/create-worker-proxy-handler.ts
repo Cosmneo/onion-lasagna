@@ -2,7 +2,7 @@ import type { Controller } from '../../../../../core/onion-layers/presentation/i
 import type { BaseRequestMetadata } from '../../../../../core/onion-layers/presentation/interfaces/types/http';
 import type { RouteInput } from '../../../../../core/onion-layers/presentation/routing';
 import { createBaseProxyHandler, type PlatformProxyAdapter } from '../../../core/handlers';
-import type { Middleware } from '../middleware';
+import type { AnyMiddleware } from '../middleware';
 import { mapRequestBody, mapRequestHeaders, mapRequestQueryParams } from '../adapters/request';
 import { mapResponse } from '../adapters/response';
 import type { WorkerContext, WorkerEnv, WorkerHandler } from '../types';
@@ -52,7 +52,7 @@ export interface RequestMetadata extends BaseRequestMetadata {
  */
 export interface CreateWorkerProxyHandlerConfig<
   TController extends Controller = Controller,
-  TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
+  TMiddlewares extends readonly AnyMiddleware<TEnv>[] = readonly [],
   TEnv extends WorkerEnv = WorkerEnv,
 > {
   /**
@@ -144,7 +144,7 @@ export interface CreateWorkerProxyHandlerConfig<
  */
 export function createWorkerProxyHandler<
   TController extends Controller = Controller,
-  TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
+  TMiddlewares extends readonly AnyMiddleware<TEnv>[] = readonly [],
   TEnv extends WorkerEnv = WorkerEnv,
 >(config: CreateWorkerProxyHandlerConfig<TController, TMiddlewares, TEnv>): WorkerHandler<TEnv> {
   const {
