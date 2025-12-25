@@ -10,13 +10,13 @@ npm install @cosmneo/onion-lasagna @nestjs/common @nestjs/core
 
 ## Exports
 
-| Export | Description |
-|--------|-------------|
-| `OnionRequest` | Parameter decorator that extracts `HttpRequest` from NestJS request |
-| `OnionExceptionFilter` | Exception filter that maps onion-lasagna errors to HTTP responses |
-| `HttpController` | Type alias for `Controller<HttpRequest, HttpResponse>` |
-| `HttpRequest` | Request type with body, headers, queryParams, pathParams |
-| `HttpResponse` | Response type with statusCode, body, headers |
+| Export                 | Description                                                         |
+| ---------------------- | ------------------------------------------------------------------- |
+| `OnionRequest`         | Parameter decorator that extracts `HttpRequest` from NestJS request |
+| `OnionExceptionFilter` | Exception filter that maps onion-lasagna errors to HTTP responses   |
+| `HttpController`       | Type alias for `Controller<HttpRequest, HttpResponse>`              |
+| `HttpRequest`          | Request type with body, headers, queryParams, pathParams            |
+| `HttpResponse`         | Response type with statusCode, body, headers                        |
 
 ## Usage
 
@@ -25,7 +25,10 @@ npm install @cosmneo/onion-lasagna @nestjs/common @nestjs/core
 ```typescript
 // users.controller.ts
 import { Controller, Get, Post, Delete, UseGuards, UseFilters } from '@nestjs/common';
-import { OnionRequest, OnionExceptionFilter } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import {
+  OnionRequest,
+  OnionExceptionFilter,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
 import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { getUserController, createUserController, deleteUserController } from './controllers';
@@ -72,10 +75,10 @@ bootstrap();
 
 This integration uses a layered authorization model:
 
-| Layer | Responsibility | Example |
-|-------|----------------|---------|
+| Layer             | Responsibility          | Example                                 |
+| ----------------- | ----------------------- | --------------------------------------- |
 | **NestJS Guards** | Infrastructure concerns | JWT validation, rate limiting, API keys |
-| **AccessGuard** | Business authorization | "Can this user delete this resource?" |
+| **AccessGuard**   | Business authorization  | "Can this user delete this resource?"   |
 
 NestJS Guards run first and handle infrastructure-level security. Business authorization happens inside onion-lasagna controllers using `AccessGuard` or `GuardedController`.
 
@@ -96,31 +99,31 @@ export class OrdersController {
 
 The `OnionExceptionFilter` maps onion-lasagna errors to HTTP responses:
 
-| Error Type | HTTP Status | Response |
-|------------|-------------|----------|
-| `ObjectValidationError` | 400 | Includes `errorItems` with field details |
-| `InvalidRequestError` | 400 | Includes `errorItems` with field details |
-| `AccessDeniedError` | 403 | Message and error code |
-| `NotFoundError` | 404 | Message and error code |
-| `ConflictError` | 409 | Message and error code |
-| `UnprocessableError` | 422 | Message and error code |
-| `UseCaseError` (other) | 400 | Message and error code |
-| `DomainError` | 500 | Masked: "An unexpected error occurred" |
-| `InfraError` | 500 | Masked: "An unexpected error occurred" |
-| `ControllerError` | 500 | Masked: "An unexpected error occurred" |
-| Unknown | 500 | Masked: "An unexpected error occurred" |
+| Error Type              | HTTP Status | Response                                 |
+| ----------------------- | ----------- | ---------------------------------------- |
+| `ObjectValidationError` | 400         | Includes `errorItems` with field details |
+| `InvalidRequestError`   | 400         | Includes `errorItems` with field details |
+| `AccessDeniedError`     | 403         | Message and error code                   |
+| `NotFoundError`         | 404         | Message and error code                   |
+| `ConflictError`         | 409         | Message and error code                   |
+| `UnprocessableError`    | 422         | Message and error code                   |
+| `UseCaseError` (other)  | 400         | Message and error code                   |
+| `DomainError`           | 500         | Masked: "An unexpected error occurred"   |
+| `InfraError`            | 500         | Masked: "An unexpected error occurred"   |
+| `ControllerError`       | 500         | Masked: "An unexpected error occurred"   |
+| Unknown                 | 500         | Masked: "An unexpected error occurred"   |
 
 **Security:** Internal errors (Domain, Infra, Controller) are masked to prevent leaking implementation details.
 
 ## Comparison with Hono Integration
 
-| Aspect | Hono | NestJS |
-|--------|------|--------|
-| Route Registration | Dynamic (`registerHonoRoutes`) | Decorator-based (`@Get`, `@Post`) |
-| Request Extraction | `extractRequest(context)` | `@OnionRequest()` decorator |
-| Error Handling | `app.onError(handler)` | `@UseFilters(OnionExceptionFilter)` |
-| Middleware/Guards | `options.middlewares` | NestJS `@UseGuards` (infra) + onion `AccessGuard` (business) |
-| Response Transform | Automatic in handler | Controller returns body directly |
+| Aspect             | Hono                           | NestJS                                                       |
+| ------------------ | ------------------------------ | ------------------------------------------------------------ |
+| Route Registration | Dynamic (`registerHonoRoutes`) | Decorator-based (`@Get`, `@Post`)                            |
+| Request Extraction | `extractRequest(context)`      | `@OnionRequest()` decorator                                  |
+| Error Handling     | `app.onError(handler)`         | `@UseFilters(OnionExceptionFilter)`                          |
+| Middleware/Guards  | `options.middlewares`          | NestJS `@UseGuards` (infra) + onion `AccessGuard` (business) |
+| Response Transform | Automatic in handler           | Controller returns body directly                             |
 
 ## Philosophy
 
