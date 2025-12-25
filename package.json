@@ -23,6 +23,7 @@
     "zod": "^4.2.1"
   },
   "dependencies": {
+    "http-status-codes": "^2.3.0",
     "uuid": "^13.0.0"
   },
   "scripts": {
@@ -34,11 +35,11 @@
     "lint:fix": "eslint . --fix"
   },
   "exports": {
-    "./backend/core/bounded-context": {
-      "types": "./dist/backend/core/bounded-context.d.ts",
-      "import": "./dist/backend/core/bounded-context.js",
-      "require": "./dist/backend/core/bounded-context.cjs",
-      "default": "./dist/backend/core/bounded-context.js"
+    "./backend/core/onion-layers": {
+      "types": "./dist/backend/core/onion-layers.d.ts",
+      "import": "./dist/backend/core/onion-layers.js",
+      "require": "./dist/backend/core/onion-layers.cjs",
+      "default": "./dist/backend/core/onion-layers.js"
     },
     "./backend/core/global": {
       "types": "./dist/backend/core/global.d.ts",

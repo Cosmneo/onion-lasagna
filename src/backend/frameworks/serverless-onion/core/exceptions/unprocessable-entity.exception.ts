@@ -1,3 +1,5 @@
+import { StatusCodes } from 'http-status-codes';
+
 import type { ErrorItem } from '../types';
 import { HttpException } from './http.exception';
 
@@ -16,7 +18,7 @@ import { HttpException } from './http.exception';
  * ```
  */
 export class UnprocessableEntityException extends HttpException {
-  readonly statusCode = 422;
+  readonly statusCode = StatusCodes.UNPROCESSABLE_ENTITY;
 
   constructor({
     message = 'Unprocessable Entity',
