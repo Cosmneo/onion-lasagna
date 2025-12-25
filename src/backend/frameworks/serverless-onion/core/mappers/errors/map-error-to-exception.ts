@@ -1,14 +1,14 @@
 import { CodedError } from '../../../../../core/global/exceptions/coded-error.error';
 import { ObjectValidationError } from '../../../../../core/global/exceptions/object-validation.error';
-import { DomainError } from '../../../../../core/bounded-context/domain/exceptions/domain-error';
-import { UseCaseError } from '../../../../../core/bounded-context/app/exceptions/use-case.error';
-import { NotFoundError } from '../../../../../core/bounded-context/app/exceptions/not-found.error';
-import { ConflictError } from '../../../../../core/bounded-context/app/exceptions/conflict.error';
-import { UnprocessableError } from '../../../../../core/bounded-context/app/exceptions/unprocessable.error';
-import { InfraError } from '../../../../../core/bounded-context/infra/exceptions/infra.error';
-import { ControllerError } from '../../../../../core/bounded-context/presentation/exceptions/controller.error';
-import { AccessDeniedError } from '../../../../../core/bounded-context/presentation/exceptions/access-denied.error';
-import { InvalidRequestError } from '../../../../../core/bounded-context/presentation/exceptions/invalid-request.error';
+import { DomainError } from '../../../../../core/onion-layers/domain/exceptions/domain.error';
+import { UseCaseError } from '../../../../../core/onion-layers/app/exceptions/use-case.error';
+import { NotFoundError } from '../../../../../core/onion-layers/app/exceptions/not-found.error';
+import { ConflictError } from '../../../../../core/onion-layers/app/exceptions/conflict.error';
+import { UnprocessableError } from '../../../../../core/onion-layers/app/exceptions/unprocessable.error';
+import { InfraError } from '../../../../../core/onion-layers/infra/exceptions/infra.error';
+import { ControllerError } from '../../../../../core/onion-layers/presentation/exceptions/controller.error';
+import { AccessDeniedError } from '../../../../../core/onion-layers/presentation/exceptions/access-denied.error';
+import { InvalidRequestError } from '../../../../../core/onion-layers/presentation/exceptions/invalid-request.error';
 import {
   BadRequestException,
   ConflictException,
@@ -126,8 +126,8 @@ export function mapErrorToException(error: unknown): HttpException {
   }
 
   // Domain errors → 500 Internal Server Error (masked)
+  // Note: Logging is handled by the exception handler wrapper to avoid double-logging
   if (error instanceof DomainError) {
-    console.error('[DomainError]', error);
     return new InternalServerErrorException({
       message: 'An unexpected error occurred',
       code: 'INTERNAL_ERROR',
@@ -137,7 +137,6 @@ export function mapErrorToException(error: unknown): HttpException {
 
   // Infrastructure errors → 500 Internal Server Error (masked)
   if (error instanceof InfraError) {
-    console.error('[InfraError]', error);
     return new InternalServerErrorException({
       message: 'An unexpected error occurred',
       code: 'INTERNAL_ERROR',
@@ -147,7 +146,6 @@ export function mapErrorToException(error: unknown): HttpException {
 
   // Controller errors → 500 Internal Server Error (masked)
   if (error instanceof ControllerError) {
-    console.error('[ControllerError]', error);
     return new InternalServerErrorException({
       message: 'An unexpected error occurred',
       code: 'INTERNAL_ERROR',
@@ -157,7 +155,6 @@ export function mapErrorToException(error: unknown): HttpException {
 
   // CodedError (catch-all for known errors) → 500 (masked)
   if (error instanceof CodedError) {
-    console.error('[CodedError]', error);
     return new InternalServerErrorException({
       message: 'An unexpected error occurred',
       code: 'INTERNAL_ERROR',
@@ -166,7 +163,6 @@ export function mapErrorToException(error: unknown): HttpException {
   }
 
   // Unknown errors → 500 Internal Server Error (masked)
-  console.error('[UnknownError]', error);
   return new InternalServerErrorException({
     message: 'An unexpected error occurred',
     code: 'INTERNAL_ERROR',

@@ -1,5 +1,6 @@
 import type { APIGatewayProxyResultV2 } from 'aws-lambda';
-import type { HttpResponse } from '../../../../../../core/bounded-context/presentation/interfaces/types/http';
+import type { HttpResponse } from '../../../../../../core/onion-layers/presentation/interfaces/types/http';
+import { isNoBodyStatus } from '../../../../core';
 import { mapResponseBody } from './map-response-body';
 import { mapResponseHeaders } from './map-response-headers';
 
@@ -10,6 +11,7 @@ import { mapResponseHeaders } from './map-response-headers';
  * - Adds Content-Type header for JSON responses
  * - Includes base CORS headers by default
  * - Merges custom headers from the response
+ * - Omits body for status codes that forbid it (204, 304, 1xx) per RFC 9110
  *
  * @param response - The HttpResponse to convert
  * @param options - Optional configuration
@@ -28,6 +30,10 @@ import { mapResponseHeaders } from './map-response-headers';
  * //   body: '{"id":1,"name":"John"}',
  * //   headers: { 'Content-Type': 'application/json', 'X-Custom': 'value', ...CORS }
  * // }
+ *
+ * // 204 No Content - body is omitted
+ * const noContentResponse = mapResponse({ statusCode: 204 });
+ * // { statusCode: 204, headers: {...CORS} }
  * ```
  */
 export function mapResponse(
@@ -35,6 +41,15 @@ export function mapResponse(
   options: { includeBaseHeaders?: boolean } = {},
 ): APIGatewayProxyResultV2 {
   const { includeBaseHeaders = true } = options;
+
+  // RFC 9110: 1xx, 204, and 304 responses must not include a body
+  if (isNoBodyStatus(response.statusCode)) {
+    return {
+      statusCode: response.statusCode,
+      headers: mapResponseHeaders(response.headers, { includeBaseHeaders, hasBody: false }),
+    };
+  }
+
   const hasBody = response.body !== undefined && response.body !== null;
 
   return {
