@@ -1,3 +1,5 @@
+import { StatusCodes } from 'http-status-codes';
+
 import type { ErrorItem } from '../types';
 import { HttpException } from './http.exception';
 
@@ -16,7 +18,7 @@ import { HttpException } from './http.exception';
  * ```
  */
 export class NotFoundException extends HttpException {
-  readonly statusCode = 404;
+  readonly statusCode = StatusCodes.NOT_FOUND;
 
   constructor({
     message = 'Not Found',
