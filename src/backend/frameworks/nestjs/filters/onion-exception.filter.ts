@@ -62,8 +62,7 @@ function isErrorType(error: unknown, typeName: string): error is CodedErrorLike 
 function hasValidationErrors(error: unknown): error is ErrorWithValidation {
   if (!error || typeof error !== 'object') return false;
   return (
-    'validationErrors' in error &&
-    Array.isArray((error as ErrorWithValidation).validationErrors)
+    'validationErrors' in error && Array.isArray((error as ErrorWithValidation).validationErrors)
   );
 }
 
