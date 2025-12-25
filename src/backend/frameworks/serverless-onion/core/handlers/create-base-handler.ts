@@ -3,7 +3,7 @@ import type { HttpResponse } from '../../../../core/onion-layers/presentation/in
 import { assertHttpResponse } from '../../../../core/onion-layers/presentation/utils';
 import { createExceptionHandler } from '../wrappers';
 import { runMiddlewareChain } from '../middleware';
-import type { AccumulatedContext, Middleware } from '../middleware/types';
+import type { AccumulatedContext, AnyMiddleware } from '../middleware/types';
 import type { PlatformAdapter } from './types';
 
 /**
@@ -21,7 +21,7 @@ import type { PlatformAdapter } from './types';
 export interface BaseHandlerConfig<
   TInput,
   TOutput,
-  TMiddlewares extends readonly Middleware<object, object, TEnv, TPlatformRequest>[],
+  TMiddlewares extends readonly AnyMiddleware<TEnv, TPlatformRequest>[],
   TEnv,
   TPlatformRequest,
 > {
@@ -71,7 +71,7 @@ export interface BaseHandlerConfig<
 export type BaseHandlerFactory<TPlatformRequest, TPlatformResponse, TEnv> = <
   TInput,
   TOutput,
-  TMiddlewares extends readonly Middleware<object, object, TEnv, TPlatformRequest>[],
+  TMiddlewares extends readonly AnyMiddleware<TEnv, TPlatformRequest>[],
 >(
   config: BaseHandlerConfig<TInput, TOutput, TMiddlewares, TEnv, TPlatformRequest>,
 ) => (request: TPlatformRequest, env: TEnv) => Promise<TPlatformResponse>;
@@ -140,7 +140,7 @@ export function createBaseHandler<TPlatformRequest, TPlatformResponse, TEnv = un
   return function createHandler<
     TInput,
     TOutput,
-    TMiddlewares extends readonly Middleware<object, object, TEnv, TPlatformRequest>[],
+    TMiddlewares extends readonly AnyMiddleware<TEnv, TPlatformRequest>[],
   >(
     config: BaseHandlerConfig<TInput, TOutput, TMiddlewares, TEnv, TPlatformRequest>,
   ): (request: TPlatformRequest, env: TEnv) => Promise<TPlatformResponse> {

@@ -14,7 +14,7 @@ import {
 } from '../adapters/request';
 import { mapResponse } from '../adapters/response';
 import { getWarmupResponse, isWarmupCall } from '../features/warmup';
-import type { AccumulatedContext, Middleware } from '../middleware';
+import type { AccumulatedContext, AnyMiddleware } from '../middleware';
 
 /**
  * AWS Lambda platform adapter.
@@ -43,7 +43,7 @@ const awsAdapter: PlatformAdapter<APIGatewayProxyEventV2, APIGatewayProxyResultV
 export interface CreateLambdaHandlerConfig<
   TInput,
   TOutput,
-  TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
+  TMiddlewares extends readonly AnyMiddleware<TEnv>[] = readonly [],
   TEnv = undefined,
 > {
   /**
@@ -197,7 +197,7 @@ export interface CreateLambdaHandlerConfig<
 export function createLambdaHandler<
   TInput,
   TOutput,
-  TMiddlewares extends readonly Middleware<object, object, TEnv>[] = readonly [],
+  TMiddlewares extends readonly AnyMiddleware<TEnv>[] = readonly [],
   TEnv = undefined,
 >(
   config: CreateLambdaHandlerConfig<TInput, TOutput, TMiddlewares, TEnv>,

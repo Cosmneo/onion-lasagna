@@ -1,6 +1,6 @@
 import type { AccumulatedContext as CoreAccumulatedContext } from '../../../../core';
 import type { WorkerEnv } from '../../types';
-import type { Middleware } from './middleware.type';
+import type { AnyMiddleware } from './middleware.type';
 
 /**
  * Computes the accumulated context type from a tuple of Cloudflare middlewares.
@@ -26,6 +26,6 @@ import type { Middleware } from './middleware.type';
  * ```
  */
 export type AccumulatedContext<
-  TMiddlewares extends readonly Middleware<object, object, TEnv>[],
+  TMiddlewares extends readonly AnyMiddleware<TEnv>[],
   TEnv extends WorkerEnv = WorkerEnv,
 > = CoreAccumulatedContext<TMiddlewares, TEnv, Request>;
