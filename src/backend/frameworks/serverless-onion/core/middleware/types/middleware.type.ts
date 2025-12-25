@@ -101,9 +101,9 @@ export type MiddlewareInput<T> =
  * };
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyMiddleware<TEnv = unknown, TRequest = Request> = Middleware<
   object,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any,
   TEnv,
   TRequest

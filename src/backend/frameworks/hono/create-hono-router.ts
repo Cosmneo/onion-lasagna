@@ -1,4 +1,5 @@
 import type { Context, Handler, Hono, MiddlewareHandler } from 'hono';
+import type { ContentfulStatusCode, StatusCode } from 'hono/utils/http-status';
 import type { Controller } from '../../core/onion-layers/presentation/interfaces/types/controller.type';
 import type { HttpRequest } from '../../core/onion-layers/presentation/interfaces/types/http/http-request';
 import type { HttpResponse } from '../../core/onion-layers/presentation/interfaces/types/http/http-response';
@@ -103,14 +104,14 @@ function sendResponse(c: Context, response: HttpResponse) {
   }
 
   if (response.body === undefined || response.body === null) {
-    return c.body(null, response.statusCode as any);
+    return c.body(null, response.statusCode as StatusCode);
   }
 
   if (typeof response.body === 'string') {
-    return c.text(response.body, response.statusCode as any);
+    return c.text(response.body, response.statusCode as ContentfulStatusCode);
   }
 
-  return c.json(response.body as object, response.statusCode as any);
+  return c.json(response.body as object, response.statusCode as ContentfulStatusCode);
 }
 
 /**
