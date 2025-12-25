@@ -190,11 +190,11 @@ interface RegisterRoutesOptions {
 }
 ```
 
-| Parameter         | Type                | Description                                    |
-| ----------------- | ------------------- | ---------------------------------------------- |
-| `app`             | `FastifyInstance`   | The Fastify instance (passed by reference)     |
-| `routes`          | `RouteInputOrArray` | A single route or an array of routes           |
-| `options?.prefix` | `string`            | Prefix to apply to all routes                  |
+| Parameter         | Type                | Description                                |
+| ----------------- | ------------------- | ------------------------------------------ |
+| `app`             | `FastifyInstance`   | The Fastify instance (passed by reference) |
+| `routes`          | `RouteInputOrArray` | A single route or an array of routes       |
+| `options?.prefix` | `string`            | Prefix to apply to all routes              |
 
 #### Path Conversion
 
@@ -402,7 +402,10 @@ Fastify's hooks and plugins work seamlessly with the onion integration.
 
 ```typescript
 import Fastify from 'fastify';
-import { registerFastifyRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
+import {
+  registerFastifyRoutes,
+  onionErrorHandler,
+} from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
 
 const app = Fastify({ logger: true });
 
@@ -424,7 +427,10 @@ registerFastifyRoutes(app, routes);
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
-import { registerFastifyRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
+import {
+  registerFastifyRoutes,
+  onionErrorHandler,
+} from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
 
 const app = Fastify({ logger: true });
 
@@ -705,15 +711,15 @@ interface HttpResponse {
 
 ### Fastify Integration vs Hono Integration
 
-| Feature            | Fastify Integration | Hono Integration   |
-| ------------------ | :-----------------: | :----------------: |
-| **Runtime**        | Node.js / Bun       | Multi-runtime      |
-| **Plugin System**  | Built-in            | Middleware-based   |
-| **Validation**     | Schema support      | Manual             |
-| **Logging**        | Built-in (pino)     | External           |
-| **Performance**    | Excellent           | Excellent          |
-| **Type Safety**    | Full                | Full               |
-| **Serialization**  | Fast JSON           | Standard JSON      |
+| Feature           | Fastify Integration | Hono Integration |
+| ----------------- | :-----------------: | :--------------: |
+| **Runtime**       |    Node.js / Bun    |  Multi-runtime   |
+| **Plugin System** |      Built-in       | Middleware-based |
+| **Validation**    |   Schema support    |      Manual      |
+| **Logging**       |   Built-in (pino)   |     External     |
+| **Performance**   |      Excellent      |    Excellent     |
+| **Type Safety**   |        Full         |       Full       |
+| **Serialization** |      Fast JSON      |  Standard JSON   |
 
 > **Recommendation:** Use Fastify for Node.js applications that need its rich plugin ecosystem and built-in features like logging and validation. Use Hono for edge deployments or when you need multi-runtime support.
 
