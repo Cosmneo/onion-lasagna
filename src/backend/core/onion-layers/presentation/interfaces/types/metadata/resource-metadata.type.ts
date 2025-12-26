@@ -42,8 +42,17 @@ export interface ResourceMetadata {
   description: string;
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DOMAIN (resource-specific — ordering)
+  // DOMAIN (resource-specific — routing, ordering)
   // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Resource path segment (relative to service basePath).
+   *
+   * Combined with service basePath and endpoint path to form the full route.
+   *
+   * Example: `/users`
+   */
+  path: string;
 
   /**
    * Explicit ordering for UI grouping within the service.

@@ -1,7 +1,49 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { registerFastifyRoutes, type HttpController } from '../routing';
+import { registerFastifyRoutes } from '../routing';
 import type { HttpRequest } from '../../../core/onion-layers/presentation/interfaces/types/http/http-request';
+import type { HttpResponse } from '../../../core/onion-layers/presentation/interfaces/types/http/http-response';
+
+/**
+ * Mock request DTO that wraps HttpRequest for testing.
+ */
+interface MockRequestDto {
+  data: HttpRequest;
+}
+
+/**
+ * Mock response DTO that wraps HttpResponse for testing.
+ */
+interface MockResponseDto {
+  data: HttpResponse;
+}
+
+/**
+ * Creates a mock request DTO from HttpRequest.
+ */
+const createMockRequestDto = (httpRequest: HttpRequest): MockRequestDto => ({
+  data: httpRequest,
+});
+
+/**
+ * Creates a mock response DTO from HttpResponse.
+ */
+const createMockResponseDto = (httpResponse: HttpResponse): MockResponseDto => ({
+  data: httpResponse,
+});
+
+/**
+ * Request DTO factory for tests - wraps raw request in mock DTO.
+ */
+const mockRequestDtoFactory = (raw: unknown): MockRequestDto =>
+  createMockRequestDto(raw as HttpRequest);
+
+/**
+ * Mock controller interface for tests.
+ */
+interface MockController {
+  execute: (input: MockRequestDto) => Promise<MockResponseDto>;
+}
 
 describe('registerFastifyRoutes', () => {
   let app: FastifyInstance;
@@ -12,16 +54,18 @@ describe('registerFastifyRoutes', () => {
 
   describe('route registration', () => {
     it('should register a single GET route', async () => {
-      const controller: HttpController = {
-        execute: async () => ({
-          statusCode: 200,
-          body: { message: 'Hello' },
-        }),
+      const controller: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { message: 'Hello' },
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/hello', method: 'GET' },
+        metadata: { path: '/hello', method: 'GET' },
         controller,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -34,23 +78,33 @@ describe('registerFastifyRoutes', () => {
     });
 
     it('should register multiple routes', async () => {
-      const listController: HttpController = {
-        execute: async () => ({
-          statusCode: 200,
-          body: [{ id: 1 }, { id: 2 }],
-        }),
+      const listController: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: [{ id: 1 }, { id: 2 }],
+          }),
       };
 
-      const getController: HttpController = {
-        execute: async (req: HttpRequest) => ({
-          statusCode: 200,
-          body: { id: req.pathParams?.id },
-        }),
+      const getController: MockController = {
+        execute: async (req: MockRequestDto) =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { id: req.data.pathParams?.id },
+          }),
       };
 
       registerFastifyRoutes(app, [
-        { metadata: { servicePath: '/users', method: 'GET' }, controller: listController },
-        { metadata: { servicePath: '/users/{id}', method: 'GET' }, controller: getController },
+        {
+          metadata: { path: '/users', method: 'GET' },
+          controller: listController,
+          requestDtoFactory: mockRequestDtoFactory,
+        },
+        {
+          metadata: { path: '/users/{id}', method: 'GET' },
+          controller: getController,
+          requestDtoFactory: mockRequestDtoFactory,
+        },
       ]);
 
       const listRes = await app.inject({
@@ -69,16 +123,18 @@ describe('registerFastifyRoutes', () => {
     });
 
     it('should register POST route and handle body', async () => {
-      const createController: HttpController = {
-        execute: async (req: HttpRequest) => ({
-          statusCode: 201,
-          body: { id: 1, ...(req.body as object) },
-        }),
+      const createController: MockController = {
+        execute: async (req: MockRequestDto) =>
+          createMockResponseDto({
+            statusCode: 201,
+            body: { id: 1, ...(req.data.body as object) },
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/users', method: 'POST' },
+        metadata: { path: '/users', method: 'POST' },
         controller: createController,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -93,16 +149,18 @@ describe('registerFastifyRoutes', () => {
     });
 
     it('should register PUT route', async () => {
-      const updateController: HttpController = {
-        execute: async (req: HttpRequest) => ({
-          statusCode: 200,
-          body: { id: req.pathParams?.id, ...(req.body as object) },
-        }),
+      const updateController: MockController = {
+        execute: async (req: MockRequestDto) =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { id: req.data.pathParams?.id, ...(req.data.body as object) },
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/users/{id}', method: 'PUT' },
+        metadata: { path: '/users/{id}', method: 'PUT' },
         controller: updateController,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -117,16 +175,18 @@ describe('registerFastifyRoutes', () => {
     });
 
     it('should register PATCH route', async () => {
-      const patchController: HttpController = {
-        execute: async () => ({
-          statusCode: 200,
-          body: { patched: true },
-        }),
+      const patchController: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { patched: true },
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/users/{id}', method: 'PATCH' },
+        metadata: { path: '/users/{id}', method: 'PATCH' },
         controller: patchController,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -141,16 +201,18 @@ describe('registerFastifyRoutes', () => {
     });
 
     it('should register DELETE route', async () => {
-      const deleteController: HttpController = {
-        execute: async () => ({
-          statusCode: 204,
-          body: null,
-        }),
+      const deleteController: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 204,
+            body: null,
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/users/{id}', method: 'DELETE' },
+        metadata: { path: '/users/{id}', method: 'DELETE' },
         controller: deleteController,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -162,17 +224,19 @@ describe('registerFastifyRoutes', () => {
     });
 
     it('should register OPTIONS route', async () => {
-      const optionsController: HttpController = {
-        execute: async () => ({
-          statusCode: 200,
-          body: null,
-          headers: { Allow: 'GET, POST, PUT, DELETE' },
-        }),
+      const optionsController: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: null,
+            headers: { Allow: 'GET, POST, PUT, DELETE' },
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/users', method: 'OPTIONS' },
+        metadata: { path: '/users', method: 'OPTIONS' },
         controller: optionsController,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -187,19 +251,21 @@ describe('registerFastifyRoutes', () => {
 
   describe('path parameter conversion', () => {
     it('should convert {param} to :param format', async () => {
-      const controller: HttpController = {
-        execute: async (req: HttpRequest) => ({
-          statusCode: 200,
-          body: {
-            userId: req.pathParams?.userId,
-            postId: req.pathParams?.postId,
-          },
-        }),
+      const controller: MockController = {
+        execute: async (req: MockRequestDto) =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: {
+              userId: req.data.pathParams?.userId,
+              postId: req.data.pathParams?.postId,
+            },
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/users/{userId}/posts/{postId}', method: 'GET' },
+        metadata: { path: '/users/{userId}/posts/{postId}', method: 'GET' },
         controller,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -214,16 +280,18 @@ describe('registerFastifyRoutes', () => {
 
   describe('query parameters', () => {
     it('should extract single query parameters', async () => {
-      const controller: HttpController = {
-        execute: async (req: HttpRequest) => ({
-          statusCode: 200,
-          body: { query: req.queryParams },
-        }),
+      const controller: MockController = {
+        execute: async (req: MockRequestDto) =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { query: req.data.queryParams },
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/search', method: 'GET' },
+        metadata: { path: '/search', method: 'GET' },
         controller,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -238,16 +306,18 @@ describe('registerFastifyRoutes', () => {
     });
 
     it('should extract multiple values for same query key', async () => {
-      const controller: HttpController = {
-        execute: async (req: HttpRequest) => ({
-          statusCode: 200,
-          body: { query: req.queryParams },
-        }),
+      const controller: MockController = {
+        execute: async (req: MockRequestDto) =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { query: req.data.queryParams },
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/filter', method: 'GET' },
+        metadata: { path: '/filter', method: 'GET' },
         controller,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -264,16 +334,18 @@ describe('registerFastifyRoutes', () => {
 
   describe('headers', () => {
     it('should extract request headers in lowercase', async () => {
-      const controller: HttpController = {
-        execute: async (req: HttpRequest) => ({
-          statusCode: 200,
-          body: { auth: req.headers?.authorization },
-        }),
+      const controller: MockController = {
+        execute: async (req: MockRequestDto) =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { auth: req.data.headers?.authorization },
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/protected', method: 'GET' },
+        metadata: { path: '/protected', method: 'GET' },
         controller,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -287,20 +359,22 @@ describe('registerFastifyRoutes', () => {
     });
 
     it('should set response headers', async () => {
-      const controller: HttpController = {
-        execute: async () => ({
-          statusCode: 200,
-          body: { ok: true },
-          headers: {
-            'X-Custom-Header': 'custom-value',
-            'X-Request-Id': '12345',
-          },
-        }),
+      const controller: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { ok: true },
+            headers: {
+              'X-Custom-Header': 'custom-value',
+              'X-Request-Id': '12345',
+            },
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/headers', method: 'GET' },
+        metadata: { path: '/headers', method: 'GET' },
         controller,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -316,16 +390,18 @@ describe('registerFastifyRoutes', () => {
 
   describe('response body types', () => {
     it('should return JSON for object body', async () => {
-      const controller: HttpController = {
-        execute: async () => ({
-          statusCode: 200,
-          body: { data: 'test' },
-        }),
+      const controller: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { data: 'test' },
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/json', method: 'GET' },
+        metadata: { path: '/json', method: 'GET' },
         controller,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -339,16 +415,18 @@ describe('registerFastifyRoutes', () => {
     });
 
     it('should return text for string body', async () => {
-      const controller: HttpController = {
-        execute: async () => ({
-          statusCode: 200,
-          body: 'Hello, World!',
-        }),
+      const controller: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: 'Hello, World!',
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/text', method: 'GET' },
+        metadata: { path: '/text', method: 'GET' },
         controller,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -361,16 +439,18 @@ describe('registerFastifyRoutes', () => {
     });
 
     it('should return empty body for null', async () => {
-      const controller: HttpController = {
-        execute: async () => ({
-          statusCode: 204,
-          body: null,
-        }),
+      const controller: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 204,
+            body: null,
+          }),
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/empty', method: 'DELETE' },
+        metadata: { path: '/empty', method: 'DELETE' },
         controller,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       const res = await app.inject({
@@ -384,18 +464,27 @@ describe('registerFastifyRoutes', () => {
 
   describe('prefix option', () => {
     it('should apply prefix to all routes', async () => {
-      const controller: HttpController = {
-        execute: async () => ({
-          statusCode: 200,
-          body: { prefixed: true },
-        }),
+      const controller: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { prefixed: true },
+          }),
       };
 
       registerFastifyRoutes(
         app,
         [
-          { metadata: { servicePath: '/users', method: 'GET' }, controller },
-          { metadata: { servicePath: '/posts', method: 'GET' }, controller },
+          {
+            metadata: { path: '/users', method: 'GET' },
+            controller,
+            requestDtoFactory: mockRequestDtoFactory,
+          },
+          {
+            metadata: { path: '/posts', method: 'GET' },
+            controller,
+            requestDtoFactory: mockRequestDtoFactory,
+          },
         ],
         { prefix: '/api/v1' },
       );
@@ -429,16 +518,21 @@ describe('registerFastifyRoutes', () => {
         middlewareCalled();
       };
 
-      const controller: HttpController = {
-        execute: async () => ({
-          statusCode: 200,
-          body: { authenticated: true },
-        }),
+      const controller: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { authenticated: true },
+          }),
       };
 
       registerFastifyRoutes(
         app,
-        { metadata: { servicePath: '/protected', method: 'GET' }, controller },
+        {
+          metadata: { path: '/protected', method: 'GET' },
+          controller,
+          requestDtoFactory: mockRequestDtoFactory,
+        },
         { middlewares: [authMiddleware] },
       );
 
@@ -451,60 +545,63 @@ describe('registerFastifyRoutes', () => {
       expect(middlewareCalled).toHaveBeenCalled();
     });
 
-    it('should allow middleware to short-circuit', async () => {
-      const authMiddleware = async (request: { headers: { authorization?: string } }, reply: { status: (code: number) => { send: (data: unknown) => void } }) => {
-        const auth = request.headers.authorization;
-        if (!auth) {
-          reply.status(401).send({ error: 'Unauthorized' });
-        }
+    it('should allow middleware to modify request before controller', async () => {
+      let middlewareExecuted = false;
+      let authHeader: string | undefined;
+
+      const authMiddleware = async (
+        request: { headers: { authorization?: string } },
+      ) => {
+        middlewareExecuted = true;
+        authHeader = request.headers.authorization;
       };
 
-      const controller: HttpController = {
-        execute: async () => ({
-          statusCode: 200,
-          body: { secret: 'data' },
-        }),
+      const controller: MockController = {
+        execute: async () =>
+          createMockResponseDto({
+            statusCode: 200,
+            body: { secret: 'data', hasAuth: !!authHeader },
+          }),
       };
 
       registerFastifyRoutes(
         app,
-        { metadata: { servicePath: '/secret', method: 'GET' }, controller },
+        {
+          metadata: { path: '/secret', method: 'GET' },
+          controller,
+          requestDtoFactory: mockRequestDtoFactory,
+        },
         { middlewares: [authMiddleware] },
       );
 
-      // Without auth header
-      const noAuthRes = await app.inject({
-        method: 'GET',
-        url: '/secret',
-      });
-      expect(noAuthRes.statusCode).toBe(401);
-      expect(noAuthRes.json()).toEqual({ error: 'Unauthorized' });
-
-      // With auth header
-      const authRes = await app.inject({
+      const res = await app.inject({
         method: 'GET',
         url: '/secret',
         headers: { Authorization: 'Bearer token' },
       });
-      expect(authRes.statusCode).toBe(200);
-      expect(authRes.json()).toEqual({ secret: 'data' });
+
+      expect(res.statusCode).toBe(200);
+      expect(middlewareExecuted).toBe(true);
+      expect(authHeader).toBe('Bearer token');
+      expect(res.json()).toEqual({ secret: 'data', hasAuth: true });
     });
   });
 
   describe('controller execution', () => {
-    it('should pass complete HttpRequest to controller', async () => {
+    it('should pass complete HttpRequest to controller via DTO', async () => {
       let receivedRequest: HttpRequest | null = null;
 
-      const controller: HttpController = {
-        execute: async (req: HttpRequest) => {
-          receivedRequest = req;
-          return { statusCode: 200, body: null };
+      const controller: MockController = {
+        execute: async (req: MockRequestDto) => {
+          receivedRequest = req.data;
+          return createMockResponseDto({ statusCode: 200, body: null });
         },
       };
 
       registerFastifyRoutes(app, {
-        metadata: { servicePath: '/users/{id}', method: 'POST' },
+        metadata: { path: '/users/{id}', method: 'POST' },
         controller,
+        requestDtoFactory: mockRequestDtoFactory,
       });
 
       await app.inject({

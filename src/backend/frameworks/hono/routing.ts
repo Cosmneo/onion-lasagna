@@ -8,7 +8,7 @@ import type { RouteInput } from '../../core/onion-layers/presentation/routing';
 /**
  * Supported HTTP methods in Hono.
  */
-type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete' | 'options';
+type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete' | 'options' | 'head';
 
 /**
  * Type-safe route registration function signature.
@@ -33,6 +33,11 @@ function getRouteRegistrar(app: Hono, method: string): RouteRegistrar {
       return app.delete.bind(app);
     case 'options':
       return app.options.bind(app);
+    case 'head':
+      // Hono's on() method accepts method string and path
+      return ((path: string, ...handlers: (MiddlewareHandler | Handler)[]) =>
+        // @ts-expect-error Hono's on() typing is complex, but runtime works
+        app.on('HEAD', path, ...handlers)) as RouteRegistrar;
     default:
       throw new Error(`Unsupported HTTP method: ${method}`);
   }
@@ -51,8 +56,8 @@ export type HonoMiddleware = MiddlewareHandler;
 /**
  * Converts `{param}` to Hono's `:param` format.
  */
-function toHonoPath(servicePath: string): string {
-  return servicePath.replace(/\{([^}]+)\}/g, ':$1');
+function toHonoPath(path: string): string {
+  return path.replace(/\{([^}]+)\}/g, ':$1');
 }
 
 /**
@@ -117,7 +122,7 @@ function sendResponse(c: Context, response: HttpResponse) {
 /**
  * Route input type that accepts either a single route or an array of routes.
  */
-export type RouteInputOrArray = RouteInput<HttpController> | RouteInput<HttpController>[];
+export type RouteInputOrArray = RouteInput | RouteInput[];
 
 /**
  * Options for registering routes.
@@ -168,7 +173,7 @@ export interface RegisterRoutesOptions {
  * const app = new Hono();
  *
  * registerHonoRoutes(app, {
- *   metadata: { servicePath: '/health', method: 'GET' },
+ *   metadata: { path: '/health', method: 'GET' },
  *   controller: healthController,
  * });
  * ```
@@ -178,9 +183,9 @@ export interface RegisterRoutesOptions {
  * const app = new Hono();
  *
  * registerHonoRoutes(app, [
- *   { metadata: { servicePath: '/users', method: 'POST' }, controller: createUserController },
- *   { metadata: { servicePath: '/users/{id}', method: 'GET' }, controller: getUserController },
- *   { metadata: { servicePath: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
+ *   { metadata: { path: '/users', method: 'POST' }, controller: createUserController },
+ *   { metadata: { path: '/users/{id}', method: 'GET' }, controller: getUserController },
+ *   { metadata: { path: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
  * ]);
  * ```
  *
@@ -224,14 +229,15 @@ export function registerHonoRoutes(
   const prefix = options?.prefix ?? '';
   const middlewares = options?.middlewares ?? [];
 
-  for (const { metadata, controller } of routeArray) {
-    const path = prefix + toHonoPath(metadata.servicePath);
+  for (const { metadata, controller, requestDtoFactory } of routeArray) {
+    const path = prefix + toHonoPath(metadata.path);
     const method = metadata.method.toLowerCase();
 
     const handler = async (c: Context) => {
-      const request = await extractRequest(c);
-      const response = await controller.execute(request);
-      return sendResponse(c, response);
+      const rawRequest = await extractRequest(c);
+      const requestDto = requestDtoFactory(rawRequest);
+      const responseDto = await controller.execute(requestDto);
+      return sendResponse(c, responseDto.data);
     };
 
     // Type-safe route registration

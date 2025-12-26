@@ -1,4 +1,5 @@
 import type { Elysia, Handler } from 'elysia';
+import type { BaseDto } from '../../core/global/classes/base-dto.class';
 import type { Controller } from '../../core/onion-layers/presentation/interfaces/types/controller.type';
 import type { HttpRequest } from '../../core/onion-layers/presentation/interfaces/types/http/http-request';
 import type { HttpResponse } from '../../core/onion-layers/presentation/interfaces/types/http/http-response';
@@ -7,12 +8,15 @@ import type { RouteInput } from '../../core/onion-layers/presentation/routing';
 /**
  * Supported HTTP methods in Elysia.
  */
-type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete' | 'options';
+type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete' | 'options' | 'head';
 
 /**
- * Controller that works with HttpRequest/HttpResponse.
+ * Controller that works with a validated request DTO and returns HttpResponse.
  */
-export type HttpController = Controller<HttpRequest, HttpResponse>;
+export type HttpController<TRequestDto extends BaseDto<unknown> = BaseDto<unknown>> = Controller<
+  TRequestDto,
+  HttpResponse
+>;
 
 /**
  * Elysia beforeHandle middleware type.
@@ -28,8 +32,8 @@ export type ElysiaMiddleware = (context: {
 /**
  * Converts `{param}` to Elysia's `:param` format.
  */
-function toElysiaPath(servicePath: string): string {
-  return servicePath.replace(/\{([^}]+)\}/g, ':$1');
+function toElysiaPath(path: string): string {
+  return path.replace(/\{([^}]+)\}/g, ':$1');
 }
 
 /**
@@ -103,7 +107,7 @@ function createResponse(response: HttpResponse): Response {
 /**
  * Route input type that accepts either a single route or an array of routes.
  */
-export type RouteInputOrArray = RouteInput<HttpController> | RouteInput<HttpController>[];
+export type RouteInputOrArray = RouteInput | RouteInput[];
 
 /**
  * Options for registering routes.
@@ -157,7 +161,7 @@ export interface RegisterRoutesOptions {
  * const app = new Elysia();
  *
  * registerElysiaRoutes(app, {
- *   metadata: { servicePath: '/health', method: 'GET' },
+ *   metadata: { path: '/health', method: 'GET' },
  *   controller: healthController,
  * });
  * ```
@@ -167,9 +171,9 @@ export interface RegisterRoutesOptions {
  * const app = new Elysia();
  *
  * registerElysiaRoutes(app, [
- *   { metadata: { servicePath: '/users', method: 'POST' }, controller: createUserController },
- *   { metadata: { servicePath: '/users/{id}', method: 'GET' }, controller: getUserController },
- *   { metadata: { servicePath: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
+ *   { metadata: { path: '/users', method: 'POST' }, controller: createUserController },
+ *   { metadata: { path: '/users/{id}', method: 'GET' }, controller: getUserController },
+ *   { metadata: { path: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
  * ]);
  * ```
  *
@@ -216,8 +220,8 @@ export function registerElysiaRoutes(
   const prefix = options?.prefix ?? '';
   const middlewares = options?.middlewares ?? [];
 
-  for (const { metadata, controller } of routeArray) {
-    const path = prefix + toElysiaPath(metadata.servicePath);
+  for (const { metadata, controller, requestDtoFactory } of routeArray) {
+    const path = prefix + toElysiaPath(metadata.path);
     const method = metadata.method.toLowerCase() as HttpMethod;
 
     const handler: Handler = async (context) => {
@@ -227,9 +231,10 @@ export function registerElysiaRoutes(
         if (result !== undefined) return result;
       }
 
-      const request = extractRequest(context as Parameters<typeof extractRequest>[0]);
-      const response = await controller.execute(request);
-      return createResponse(response);
+      const rawRequest = extractRequest(context as Parameters<typeof extractRequest>[0]);
+      const requestDto = requestDtoFactory(rawRequest);
+      const responseDto = await controller.execute(requestDto);
+      return createResponse(responseDto.data);
     };
 
     switch (method) {
@@ -250,6 +255,9 @@ export function registerElysiaRoutes(
         break;
       case 'options':
         app.options(path, handler);
+        break;
+      case 'head':
+        app.head(path, handler);
         break;
       default:
         throw new Error(`Unsupported HTTP method: ${method}`);

@@ -153,15 +153,15 @@ app.onError(onionErrorHandler);
 
 // 2. Register routes (array)
 registerHonoRoutes(app, [
-  { metadata: { servicePath: '/users', method: 'POST' }, controller: createUserController },
-  { metadata: { servicePath: '/users/{id}', method: 'GET' }, controller: getUserController },
-  { metadata: { servicePath: '/users/{id}', method: 'PUT' }, controller: updateUserController },
-  { metadata: { servicePath: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
+  { metadata: { path: '/users', method: 'POST' }, controller: createUserController },
+  { metadata: { path: '/users/{id}', method: 'GET' }, controller: getUserController },
+  { metadata: { path: '/users/{id}', method: 'PUT' }, controller: updateUserController },
+  { metadata: { path: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
 ]);
 
 // 3. Or register a single route
 registerHonoRoutes(app, {
-  metadata: { servicePath: '/health', method: 'GET' },
+  metadata: { path: '/health', method: 'GET' },
   controller: healthController,
 });
 
@@ -212,9 +212,9 @@ app.onError(onionErrorHandler);
 // Public routes - no authentication
 // ─────────────────────────────────────────────────────────────
 registerHonoRoutes(app, [
-  { metadata: { servicePath: '/health', method: 'GET' }, controller: healthController },
-  { metadata: { servicePath: '/auth/login', method: 'POST' }, controller: loginController },
-  { metadata: { servicePath: '/auth/register', method: 'POST' }, controller: registerController },
+  { metadata: { path: '/health', method: 'GET' }, controller: healthController },
+  { metadata: { path: '/auth/login', method: 'POST' }, controller: loginController },
+  { metadata: { path: '/auth/register', method: 'POST' }, controller: registerController },
 ]);
 
 // ─────────────────────────────────────────────────────────────
@@ -314,7 +314,7 @@ The function automatically converts onion-lasagna path syntax to Hono format:
 
 ```typescript
 registerHonoRoutes(app, {
-  metadata: { servicePath: '/health', method: 'GET' },
+  metadata: { path: '/health', method: 'GET' },
   controller: healthController,
 });
 ```
@@ -323,8 +323,8 @@ registerHonoRoutes(app, {
 
 ```typescript
 registerHonoRoutes(app, [
-  { metadata: { servicePath: '/users', method: 'POST' }, controller: createUserController },
-  { metadata: { servicePath: '/users/{id}', method: 'GET' }, controller: getUserController },
+  { metadata: { path: '/users', method: 'POST' }, controller: createUserController },
+  { metadata: { path: '/users/{id}', method: 'GET' }, controller: getUserController },
 ]);
 ```
 
@@ -517,23 +517,23 @@ import {
 
 export const userRoutes: RouteInput<HttpController>[] = [
   {
-    metadata: { servicePath: '/users', method: 'POST' },
+    metadata: { path: '/users', method: 'POST' },
     controller: createUserController,
   },
   {
-    metadata: { servicePath: '/users', method: 'GET' },
+    metadata: { path: '/users', method: 'GET' },
     controller: listUsersController,
   },
   {
-    metadata: { servicePath: '/users/{id}', method: 'GET' },
+    metadata: { path: '/users/{id}', method: 'GET' },
     controller: getUserController,
   },
   {
-    metadata: { servicePath: '/users/{id}', method: 'PUT' },
+    metadata: { path: '/users/{id}', method: 'PUT' },
     controller: updateUserController,
   },
   {
-    metadata: { servicePath: '/users/{id}', method: 'DELETE' },
+    metadata: { path: '/users/{id}', method: 'DELETE' },
     controller: deleteUserController,
   },
 ];
