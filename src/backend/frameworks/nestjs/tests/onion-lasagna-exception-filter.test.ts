@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { OnionExceptionFilter } from '../filters/onion-exception.filter';
+import { OnionLasagnaExceptionFilter } from '../filters/onion-lasagna-exception.filter';
 import type { ArgumentsHost } from '@nestjs/common';
 import { NotFoundError } from '../../../core/onion-layers/app/exceptions/not-found.error';
 import { ConflictError } from '../../../core/onion-layers/app/exceptions/conflict.error';
@@ -12,8 +12,8 @@ import { InfraError } from '../../../core/onion-layers/infra/exceptions/infra.er
 import { ControllerError } from '../../../core/onion-layers/presentation/exceptions/controller.error';
 import { ObjectValidationError } from '../../../core/global/exceptions/object-validation.error';
 
-describe('OnionExceptionFilter', () => {
-  let filter: OnionExceptionFilter;
+describe('OnionLasagnaExceptionFilter', () => {
+  let filter: OnionLasagnaExceptionFilter;
   let mockResponse: {
     status: ReturnType<typeof vi.fn>;
     json: ReturnType<typeof vi.fn>;
@@ -21,7 +21,7 @@ describe('OnionExceptionFilter', () => {
   let mockHost: ArgumentsHost;
 
   beforeEach(() => {
-    filter = new OnionExceptionFilter();
+    filter = new OnionLasagnaExceptionFilter();
 
     mockResponse = {
       status: vi.fn().mockReturnThis(),

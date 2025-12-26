@@ -101,10 +101,10 @@ const INTERNAL_ERROR_TYPES = [
  * @example
  * ```typescript
  * import { Controller, UseFilters } from '@nestjs/common';
- * import { OnionExceptionFilter } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+ * import { OnionLasagnaExceptionFilter } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
  *
  * @Controller('users')
- * @UseFilters(OnionExceptionFilter)
+ * @UseFilters(OnionLasagnaExceptionFilter)
  * export class UsersController {
  *   // ...
  * }
@@ -113,14 +113,14 @@ const INTERNAL_ERROR_TYPES = [
  * @example Global registration in main.ts
  * ```typescript
  * import { NestFactory } from '@nestjs/core';
- * import { OnionExceptionFilter } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+ * import { OnionLasagnaExceptionFilter } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
  *
  * const app = await NestFactory.create(AppModule);
- * app.useGlobalFilters(new OnionExceptionFilter());
+ * app.useGlobalFilters(new OnionLasagnaExceptionFilter());
  * ```
  */
 @Catch()
-export class OnionExceptionFilter implements ExceptionFilter {
+export class OnionLasagnaExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();

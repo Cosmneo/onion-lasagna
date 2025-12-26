@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { of } from 'rxjs';
-import { OnionResponseInterceptor } from '../interceptors/onion-response.interceptor';
+import { OnionLasagnaResponseInterceptor } from '../interceptors/onion-lasagna-response.interceptor';
 import type { ExecutionContext, CallHandler } from '@nestjs/common';
 
-describe('OnionResponseInterceptor', () => {
-  let interceptor: OnionResponseInterceptor;
+describe('OnionLasagnaResponseInterceptor', () => {
+  let interceptor: OnionLasagnaResponseInterceptor;
   let mockResponse: {
     status: ReturnType<typeof vi.fn>;
     setHeader: ReturnType<typeof vi.fn>;
@@ -12,7 +12,7 @@ describe('OnionResponseInterceptor', () => {
   let mockContext: ExecutionContext;
 
   beforeEach(() => {
-    interceptor = new OnionResponseInterceptor();
+    interceptor = new OnionLasagnaResponseInterceptor();
 
     mockResponse = {
       status: vi.fn().mockReturnThis(),

@@ -41,15 +41,15 @@ function isHttpResponse(value: unknown): value is HttpResponseLike {
  * @example
  * ```typescript
  * import { Controller, Get, UseInterceptors, UseFilters } from '@nestjs/common';
- * import { OnionRequest, OnionExceptionFilter, OnionResponseInterceptor } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+ * import { OnionLasagnaRequest, OnionLasagnaExceptionFilter, OnionLasagnaResponseInterceptor } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
  * import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
  *
  * @Controller('users')
- * @UseFilters(OnionExceptionFilter)
- * @UseInterceptors(OnionResponseInterceptor)
+ * @UseFilters(OnionLasagnaExceptionFilter)
+ * @UseInterceptors(OnionLasagnaResponseInterceptor)
  * export class UsersController {
  *   @Get(':id')
- *   getUser(@OnionRequest() request: HttpRequest) {
+ *   getUser(@OnionLasagnaRequest() request: HttpRequest) {
  *     return getUserController.execute(request);
  *   }
  * }
@@ -58,16 +58,16 @@ function isHttpResponse(value: unknown): value is HttpResponseLike {
  * @example Global registration in main.ts
  * ```typescript
  * import { NestFactory } from '@nestjs/core';
- * import { OnionExceptionFilter, OnionResponseInterceptor } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+ * import { OnionLasagnaExceptionFilter, OnionLasagnaResponseInterceptor } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
  *
  * const app = await NestFactory.create(AppModule);
- * app.useGlobalFilters(new OnionExceptionFilter());
- * app.useGlobalInterceptors(new OnionResponseInterceptor());
+ * app.useGlobalFilters(new OnionLasagnaExceptionFilter());
+ * app.useGlobalInterceptors(new OnionLasagnaResponseInterceptor());
  * await app.listen(3000);
  * ```
  */
 @Injectable()
-export class OnionResponseInterceptor implements NestInterceptor {
+export class OnionLasagnaResponseInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     return next.handle().pipe(
       map((data: unknown) => {

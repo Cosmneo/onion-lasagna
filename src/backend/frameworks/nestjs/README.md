@@ -10,47 +10,70 @@ npm install @cosmneo/onion-lasagna @nestjs/common @nestjs/core
 
 ## Exports
 
-| Export                 | Description                                                         |
-| ---------------------- | ------------------------------------------------------------------- |
-| `OnionRequest`         | Parameter decorator that extracts `HttpRequest` from NestJS request |
-| `OnionExceptionFilter` | Exception filter that maps onion-lasagna errors to HTTP responses   |
-| `HttpController`       | Type alias for `Controller<HttpRequest, HttpResponse>`              |
-| `HttpRequest`          | Request type with body, headers, queryParams, pathParams            |
-| `HttpResponse`         | Response type with statusCode, body, headers                        |
+| Export                           | Description                                                            |
+| -------------------------------- | ---------------------------------------------------------------------- |
+| `BaseNestController`             | Abstract base class with auto-wired filter and interceptor             |
+| `OnionLasagnaRequest`            | Parameter decorator that extracts `HttpRequest` from NestJS request    |
+| `OnionLasagnaExceptionFilter`    | Exception filter that maps onion-lasagna errors to HTTP responses      |
+| `OnionLasagnaResponseInterceptor`| Interceptor that transforms `HttpResponse` to NestJS response          |
+| `HttpController`                 | Type alias for `Controller<HttpRequest, HttpResponse>`                 |
+| `HttpRequest`                    | Request type with body, headers, queryParams, pathParams               |
+| `HttpResponse`                   | Response type with statusCode, body, headers                           |
 
 ## Usage
 
-### Basic Setup
+### Using BaseNestController (Recommended)
+
+Extend `BaseNestController` to automatically apply the exception filter and response interceptor:
 
 ```typescript
 // users.controller.ts
-import { Controller, Get, Post, Delete, UseGuards, UseFilters } from '@nestjs/common';
-import {
-  OnionRequest,
-  OnionExceptionFilter,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import { Controller, Get, Post, Delete, UseGuards } from '@nestjs/common';
+import { BaseNestController, OnionLasagnaRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
 import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { getUserController, createUserController, deleteUserController } from './controllers';
 
 @Controller('users')
-@UseFilters(OnionExceptionFilter)
 @UseGuards(JwtAuthGuard) // Infrastructure: "Is token valid?"
-export class UsersController {
+export class UsersController extends BaseNestController {
   @Get(':id')
-  getUser(@OnionRequest() request: HttpRequest) {
+  getUser(@OnionLasagnaRequest() request: HttpRequest) {
     return getUserController.execute(request);
   }
 
   @Post()
-  createUser(@OnionRequest() request: HttpRequest) {
+  createUser(@OnionLasagnaRequest() request: HttpRequest) {
     return createUserController.execute(request);
   }
 
   @Delete(':id')
-  deleteUser(@OnionRequest() request: HttpRequest) {
+  deleteUser(@OnionLasagnaRequest() request: HttpRequest) {
     // GuardedController handles business authorization
     return deleteUserController.execute(request);
+  }
+}
+```
+
+### Manual Setup
+
+If you prefer not to use inheritance, apply the decorators manually:
+
+```typescript
+import { Controller, Get, UseFilters, UseInterceptors } from '@nestjs/common';
+import {
+  OnionLasagnaRequest,
+  OnionLasagnaExceptionFilter,
+  OnionLasagnaResponseInterceptor,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+@Controller('users')
+@UseFilters(OnionLasagnaExceptionFilter)
+@UseInterceptors(OnionLasagnaResponseInterceptor)
+export class UsersController {
+  @Get(':id')
+  getUser(@OnionLasagnaRequest() request: HttpRequest) {
+    return getUserController.execute(request);
   }
 }
 ```
@@ -60,12 +83,12 @@ export class UsersController {
 ```typescript
 // main.ts
 import { NestFactory } from '@nestjs/core';
-import { OnionExceptionFilter } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import { OnionLasagnaExceptionFilter } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.useGlobalFilters(new OnionExceptionFilter());
+  app.useGlobalFilters(new OnionLasagnaExceptionFilter());
   await app.listen(3000);
 }
 bootstrap();
@@ -84,11 +107,11 @@ NestJS Guards run first and handle infrastructure-level security. Business autho
 
 ```typescript
 @Controller('orders')
-@UseFilters(OnionExceptionFilter)
+@UseFilters(OnionLasagnaExceptionFilter)
 @UseGuards(JwtAuthGuard) // Infra: validates token
 export class OrdersController {
   @Delete(':id')
-  deleteOrder(@OnionRequest() request: HttpRequest) {
+  deleteOrder(@OnionLasagnaRequest() request: HttpRequest) {
     // Business: GuardedController checks if user owns this order
     return deleteOrderController.execute(request);
   }
@@ -97,7 +120,7 @@ export class OrdersController {
 
 ## Error Mapping
 
-The `OnionExceptionFilter` maps onion-lasagna errors to HTTP responses:
+The `OnionLasagnaExceptionFilter` maps onion-lasagna errors to HTTP responses:
 
 | Error Type              | HTTP Status | Response                                 |
 | ----------------------- | ----------- | ---------------------------------------- |
@@ -117,19 +140,21 @@ The `OnionExceptionFilter` maps onion-lasagna errors to HTTP responses:
 
 ## Comparison with Hono Integration
 
-| Aspect             | Hono                           | NestJS                                                       |
-| ------------------ | ------------------------------ | ------------------------------------------------------------ |
-| Route Registration | Dynamic (`registerHonoRoutes`) | Decorator-based (`@Get`, `@Post`)                            |
-| Request Extraction | `extractRequest(context)`      | `@OnionRequest()` decorator                                  |
-| Error Handling     | `app.onError(handler)`         | `@UseFilters(OnionExceptionFilter)`                          |
-| Middleware/Guards  | `options.middlewares`          | NestJS `@UseGuards` (infra) + onion `AccessGuard` (business) |
-| Response Transform | Automatic in handler           | Controller returns body directly                             |
+| Aspect             | Hono                           | NestJS                                                              |
+| ------------------ | ------------------------------ | ------------------------------------------------------------------- |
+| Route Registration | Dynamic (`registerHonoRoutes`) | Decorator-based (`@Get`, `@Post`)                                   |
+| Request Extraction | `extractRequest(context)`      | `@OnionLasagnaRequest()` decorator                                  |
+| Error Handling     | `app.onError(handler)`         | `@UseFilters(OnionLasagnaExceptionFilter)`                          |
+| Middleware/Guards  | `options.middlewares`          | NestJS `@UseGuards` (infra) + onion `AccessGuard` (business)        |
+| Response Transform | Automatic in handler           | Controller returns body directly                                    |
 
 ## Philosophy
 
-This integration provides only the essential adapter utilities:
+This integration provides essential adapter utilities:
 
-1. **`@OnionRequest()`** - Extracts the NestJS request into onion-lasagna's `HttpRequest` format
-2. **`OnionExceptionFilter`** - Maps onion-lasagna errors to consistent HTTP responses
+1. **`BaseNestController`** - Abstract base class that auto-wires filter and interceptor
+2. **`@OnionLasagnaRequest()`** - Extracts the NestJS request into onion-lasagna's `HttpRequest` format
+3. **`OnionLasagnaExceptionFilter`** - Maps onion-lasagna errors to consistent HTTP responses
+4. **`OnionLasagnaResponseInterceptor`** - Transforms `HttpResponse` objects to NestJS responses
 
-Everything else (guards, interceptors, pipes) is left to the NestJS ecosystem. This keeps the adapter minimal and gives developers full control over their NestJS application.
+Everything else (guards, pipes, other interceptors) is left to the NestJS ecosystem. This keeps the adapter minimal and gives developers full control over their NestJS application.
