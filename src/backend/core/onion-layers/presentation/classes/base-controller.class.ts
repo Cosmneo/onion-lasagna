@@ -2,76 +2,123 @@ import type { BaseInboundPort } from '../../app/interfaces/ports/base-inbound.po
 import type { BaseDto } from '../../../global/classes/base-dto.class';
 import { CodedError } from '../../../global/exceptions/coded-error.error';
 import { ObjectValidationError } from '../../../global/exceptions/object-validation.error';
-import { wrapErrorUnlessAsync } from '../../../global/utils/wrap-error.util';
+import { wrapErrorUnless, wrapErrorUnlessAsync } from '../../../global/utils/wrap-error.util';
 import { ControllerError } from '../exceptions/controller.error';
 import { InvalidRequestError } from '../exceptions/invalid-request.error';
-import type { Controller } from '../interfaces/types/controller.type';
 
 /**
  * Configuration for creating a BaseController instance.
  *
- * @typeParam TRequest - The raw request type (e.g., HTTP request body)
- * @typeParam TResponse - The response type to return
+ * All types must be DTOs (extending BaseDto) to ensure validation at every boundary:
+ * - TRequestDto: Validated HTTP request (body, headers, params, query)
+ * - TResponseDto: Validated HTTP response structure
+ * - TInDto: Validated use case input
+ * - TOutDto: Validated use case output
+ *
+ * @typeParam TRequestDto - Validated request DTO from the framework layer
+ * @typeParam TResponseDto - Validated response DTO to return to the framework
  * @typeParam TInDto - Input DTO type for the use case
  * @typeParam TOutDto - Output DTO type from the use case
  */
 export interface BaseControllerConfig<
-  TRequest,
-  TResponse,
+  TRequestDto extends BaseDto<unknown>,
+  TResponseDto extends BaseDto<unknown>,
   TInDto extends BaseDto<unknown>,
   TOutDto extends BaseDto<unknown>,
 > {
-  /** Maps the raw request to a validated input DTO. */
-  requestMapper: (request: TRequest) => TInDto;
+  /** Maps the validated request DTO to a use case input DTO. */
+  requestMapper: (request: TRequestDto) => TInDto;
   /** The use case to execute. */
   useCase: BaseInboundPort<TInDto, TOutDto>;
-  /** Maps the use case output DTO to the response format. */
-  responseMapper: (output: TOutDto) => TResponse;
+  /** Maps the use case output DTO to a validated response DTO. */
+  responseMapper: (output: TOutDto) => TResponseDto;
 }
 
 /**
  * Base controller implementing the request/response pipeline.
  *
- * Orchestrates the flow: `request → requestMapper → useCase → responseMapper → response`
+ * Orchestrates the flow: `requestDto → mapRequest → executeUseCase → mapResponse → responseDto`
+ *
+ * All boundaries are validated DTOs:
+ * - Input: TRequestDto (validated by framework layer before controller)
+ * - Use case input: TInDto (validated by mapRequest)
+ * - Use case output: TOutDto (validated by use case)
+ * - Output: TResponseDto (validated by mapResponse)
  *
  * Features:
  * - Converts {@link ObjectValidationError} to {@link InvalidRequestError}
  * - Passes through known {@link CodedError} types
  * - Wraps unknown errors in {@link ControllerError}
  *
- * @typeParam TRequest - The raw request type (e.g., HTTP request body)
- * @typeParam TResponse - The response type to return
+ * Architecture:
+ * - {@link execute} - Public entry point with error wrapping (do not override)
+ * - {@link pipeline} - Protected pipeline orchestration (override for custom flow)
+ * - {@link mapRequest} - Request-to-input transformation
+ * - {@link executeUseCase} - Use case execution
+ * - {@link mapResponse} - Output-to-response transformation
+ *
+ * @typeParam TRequestDto - Validated request DTO from the framework layer
+ * @typeParam TResponseDto - Validated response DTO to return to the framework
  * @typeParam TInDto - Input DTO type for the use case
  * @typeParam TOutDto - Output DTO type from the use case
  *
- * @example
+ * @example Basic usage
  * ```typescript
  * const controller = BaseController.create({
- *   requestMapper: (req) => CreateUserInputDto.create(req.body),
+ *   requestMapper: (req) => CreateUserInputDto.create(req.data),
  *   useCase: createUserUseCase,
- *   responseMapper: (output) => ({ id: output.value.id }),
+ *   responseMapper: (output) => CreateUserResponseDto.create({ id: output.data.id }),
  * });
  *
- * const response = await controller.execute(request);
+ * // Framework layer creates the request DTO
+ * const requestDto = CreateUserRequestDto.create(httpRequest);
+ * const responseDto = await controller.execute(requestDto);
+ * ```
+ *
+ * @example Custom controller overriding pipeline
+ * ```typescript
+ * class LoggingController extends BaseController<...> {
+ *   protected override async pipeline(input: TRequestDto): Promise<TResponseDto> {
+ *     console.log('Request received:', input);
+ *     const result = await super.pipeline(input);
+ *     console.log('Response:', result);
+ *     return result;
+ *   }
+ * }
+ * ```
+ *
+ * @example Custom controller overriding individual methods
+ * ```typescript
+ * class CachingController extends BaseController<...> {
+ *   private cache = new Map();
+ *
+ *   protected override async executeUseCase(input: TInDto): Promise<TOutDto> {
+ *     const key = JSON.stringify(input.data);
+ *     if (this.cache.has(key)) return this.cache.get(key);
+ *     const result = await super.executeUseCase(input);
+ *     this.cache.set(key, result);
+ *     return result;
+ *   }
+ * }
  * ```
  */
 export class BaseController<
-  TRequest,
-  TResponse,
+  TRequestDto extends BaseDto<unknown>,
+  TResponseDto extends BaseDto<unknown>,
   TInDto extends BaseDto<unknown>,
   TOutDto extends BaseDto<unknown>,
-> implements Controller<TRequest, TResponse> {
+> {
   /**
    * Creates a new BaseController instance.
    *
-   * @param requestMapper - Function to map request to input DTO
+   * @param requestMapper - Function to map request DTO to use case input DTO
    * @param useCase - The use case port to execute
-   * @param responseMapper - Function to map output DTO to response
+   * @param responseMapper - Function to map use case output DTO to response DTO
    */
   constructor(
-    protected readonly requestMapper: (request: TRequest) => TInDto,
+    protected readonly requestMapper: (request: TRequestDto) => TInDto,
     protected readonly useCase: BaseInboundPort<TInDto, TOutDto>,
-    protected readonly responseMapper: (output: TOutDto) => TResponse,
+    protected readonly responseMapper: (output: TOutDto) => TResponseDto,
   ) {}
 
   /**
@@ -81,32 +128,33 @@ export class BaseController<
    * @returns A new BaseController instance
    */
   static create<
-    TRequest,
-    TResponse,
+    TRequestDto extends BaseDto<unknown>,
+    TResponseDto extends BaseDto<unknown>,
     TInDto extends BaseDto<unknown>,
     TOutDto extends BaseDto<unknown>,
   >(
-    config: BaseControllerConfig<TRequest, TResponse, TInDto, TOutDto>,
-  ): BaseController<TRequest, TResponse, TInDto, TOutDto> {
+    config: BaseControllerConfig<TRequestDto, TResponseDto, TInDto, TOutDto>,
+  ): BaseController<TRequestDto, TResponseDto, TInDto, TOutDto> {
     return new BaseController(config.requestMapper, config.useCase, config.responseMapper);
   }
 
   /**
-   * Executes the controller pipeline.
+   * Executes the controller pipeline with error wrapping.
    *
-   * @param input - The raw request input
-   * @returns Promise resolving to the mapped response
-   * @throws {InvalidRequestError} When request validation fails
+   * This is the public entry point that ensures consistent error handling.
+   * All errors are wrapped in {@link ControllerError} unless they extend {@link CodedError}.
+   *
+   * **Do not override this method.** Override {@link pipeline} instead for custom pipeline logic.
+   *
+   * @param input - The validated request DTO
+   * @returns Promise resolving to the validated response DTO
+   * @throws {InvalidRequestError} When request mapping/validation fails
    * @throws {ControllerError} When an unexpected error occurs
    * @throws {CodedError} When use case throws a known error type
    */
-  async execute(input: TRequest): Promise<TResponse> {
+  async execute(input: TRequestDto): Promise<TResponseDto> {
     return wrapErrorUnlessAsync(
-      async () => {
-        const mappedInput = this.mapRequest(input);
-        const result = await this.useCase.execute(mappedInput);
-        return this.responseMapper(result);
-      },
+      () => this.pipeline(input),
       (cause) =>
         new ControllerError({
           message: cause instanceof Error ? cause.message : 'Controller execution failed',
@@ -117,21 +165,95 @@ export class BaseController<
   }
 
   /**
-   * Maps the raw request to an input DTO, converting validation errors.
-   * @internal
+   * Runs the controller pipeline.
+   *
+   * Orchestrates: `mapRequest → executeUseCase → mapResponse`
+   *
+   * Override this method to customize the entire pipeline flow, or override
+   * individual protected methods ({@link mapRequest}, {@link executeUseCase},
+   * {@link mapResponse}) for more granular control.
+   *
+   * @param input - The validated request DTO
+   * @returns Promise resolving to the validated response DTO
    */
-  private mapRequest(input: TRequest): TInDto {
-    try {
-      return this.requestMapper(input);
-    } catch (error) {
-      if (error instanceof ObjectValidationError) {
-        throw new InvalidRequestError({
-          message: error.message,
-          cause: error,
-          validationErrors: error.validationErrors,
+  protected async pipeline(input: TRequestDto): Promise<TResponseDto> {
+    const mappedInput = this.mapRequest(input);
+    const result = await this.executeUseCase(mappedInput);
+    return this.mapResponse(result);
+  }
+
+  /**
+   * Maps the request DTO to a use case input DTO.
+   *
+   * Override to add custom pre-processing, logging, or transformation logic.
+   * The default implementation uses the configured `requestMapper` and converts
+   * {@link ObjectValidationError} to {@link InvalidRequestError}.
+   *
+   * @param input - The validated request DTO
+   * @returns The use case input DTO
+   * @throws {InvalidRequestError} When validation fails
+   * @throws {ControllerError} When mapping fails unexpectedly
+   */
+  protected mapRequest(input: TRequestDto): TInDto {
+    return wrapErrorUnless(
+      () => this.requestMapper(input),
+      (cause) => {
+        if (cause instanceof ObjectValidationError) {
+          return new InvalidRequestError({
+            message: cause.message,
+            cause,
+            validationErrors: cause.validationErrors,
+          });
+        }
+        return new ControllerError({
+          message: cause instanceof Error ? cause.message : 'Request mapping failed',
+          cause,
         });
-      }
-      throw error;
-    }
+      },
+      [CodedError],
+    );
+  }
+
+  /**
+   * Executes the use case with the mapped input.
+   *
+   * Override to add custom logic around use case execution, such as:
+   * - Logging/tracing
+   * - Caching
+   * - Retry logic
+   * - Multi-use-case orchestration
+   *
+   * @param input - The use case input DTO
+   * @returns Promise resolving to the use case output DTO
+   */
+  protected async executeUseCase(input: TInDto): Promise<TOutDto> {
+    return this.useCase.execute(input);
+  }
+
+  /**
+   * Maps the use case output DTO to a response DTO.
+   *
+   * Override to add custom post-processing, logging, or transformation logic.
+   * The default implementation uses the configured `responseMapper`.
+   *
+   * @param output - The use case output DTO
+   * @returns The response DTO
+   * @throws {ControllerError} When mapping or validation fails
+   */
+  protected mapResponse(output: TOutDto): TResponseDto {
+    return wrapErrorUnless(
+      () => this.responseMapper(output),
+      (cause) =>
+        new ControllerError({
+          message:
+            cause instanceof ObjectValidationError
+              ? 'Response validation failed'
+              : cause instanceof Error
+                ? cause.message
+                : 'Response mapping failed',
+          cause,
+        }),
+      [CodedError],
+    );
   }
 }
