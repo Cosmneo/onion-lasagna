@@ -2,7 +2,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { BaseShortTextVo } from '../base-short-text.vo';
 import { BaseMediumTextVo } from '../base-medium-text.vo';
 import { BaseLongTextVo } from '../base-long-text.vo';
-import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../../classes/base-value-object.class';
+import {
+  BaseValueObject,
+  SKIP_VALUE_OBJECT_VALIDATION,
+} from '../../classes/base-value-object.class';
 import type { BoundValidator } from '../../../../global/interfaces/ports/object-validator.port';
 
 // Concrete implementations for testing

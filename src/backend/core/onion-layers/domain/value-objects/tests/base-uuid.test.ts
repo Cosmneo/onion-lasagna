@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { BaseUuidV4Vo } from '../base-uuid-v4.vo';
 import { BaseUuidV7Vo } from '../base-uuid-v7.vo';
-import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../../classes/base-value-object.class';
+import {
+  BaseValueObject,
+  SKIP_VALUE_OBJECT_VALIDATION,
+} from '../../classes/base-value-object.class';
 import type { BoundValidator } from '../../../../global/interfaces/ports/object-validator.port';
 
 // Concrete test implementations
@@ -132,7 +135,9 @@ describe('BaseUuidV7Vo', () => {
       const uuid = BaseUuidV7Vo.generate();
 
       // UUID v7 has version 7 in position 14
-      expect(uuid.value).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+      expect(uuid.value).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
     });
 
     it('should generate unique UUIDs', () => {

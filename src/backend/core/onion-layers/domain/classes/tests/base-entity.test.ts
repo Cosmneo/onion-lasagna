@@ -21,11 +21,7 @@ class TestEntity extends BaseEntity<TestId, TestEntityProps> {
     return new TestEntity(TestId.create(id), { name, active });
   }
 
-  static fromPersistence(
-    id: string,
-    props: TestEntityProps,
-    version: number,
-  ): TestEntity {
+  static fromPersistence(id: string, props: TestEntityProps, version: number): TestEntity {
     return new TestEntity(TestId.create(id), props, version);
   }
 
@@ -67,11 +63,7 @@ describe('BaseEntity', () => {
     });
 
     it('should accept custom version', () => {
-      const entity = TestEntity.fromPersistence(
-        '123',
-        { name: 'Test', active: true },
-        5,
-      );
+      const entity = TestEntity.fromPersistence('123', { name: 'Test', active: true }, 5);
 
       expect(entity.version).toBe(5);
     });

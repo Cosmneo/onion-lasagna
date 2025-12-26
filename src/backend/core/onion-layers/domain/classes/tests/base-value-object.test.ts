@@ -1,8 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import {
-  BaseValueObject,
-  SKIP_VALUE_OBJECT_VALIDATION,
-} from '../base-value-object.class';
+import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../base-value-object.class';
 import type { BoundValidator } from '../../../../global/interfaces/ports/object-validator.port';
 
 // Concrete implementation for testing

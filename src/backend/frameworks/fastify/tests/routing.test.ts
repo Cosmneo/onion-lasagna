@@ -549,9 +549,7 @@ describe('registerFastifyRoutes', () => {
       let middlewareExecuted = false;
       let authHeader: string | undefined;
 
-      const authMiddleware = async (
-        request: { headers: { authorization?: string } },
-      ) => {
+      const authMiddleware = async (request: { headers: { authorization?: string } }) => {
         middlewareExecuted = true;
         authHeader = request.headers.authorization;
       };

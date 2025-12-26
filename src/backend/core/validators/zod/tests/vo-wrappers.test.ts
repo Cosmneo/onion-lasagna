@@ -58,9 +58,7 @@ describe('Zod Value Object Wrappers', () => {
       const uuid = UuidV4Vo.generate();
 
       // UUIDs have the format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-      expect(uuid.value).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-      );
+      expect(uuid.value).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
     it('should generate unique UUIDs', () => {
@@ -96,9 +94,7 @@ describe('Zod Value Object Wrappers', () => {
       const uuid = UuidV7Vo.generate();
 
       // UUIDs have the format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-      expect(uuid.value).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-      );
+      expect(uuid.value).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
     it('should generate unique UUIDs', () => {
