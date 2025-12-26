@@ -123,13 +123,18 @@ export abstract class BaseAuditInfoVo extends BaseValueObject<{
 
   /**
    * Whether the entity has been modified since creation.
-   * Compares both timestamps and user IDs.
+   *
+   * Compares both timestamps and user IDs. Returns `true` if either:
+   * - The updatedAt timestamp differs from createdAt
+   * - The updatedBy user differs from createdBy
+   *
+   * Note: When both createdBy and updatedBy are undefined (system-created
+   * entities), this correctly returns false for the user comparison.
    */
   get isModified(): boolean {
-    return (
-      this.updatedAt.getTime() !== this.createdAt.getTime() ||
-      this.updatedBy?.value !== this.createdBy?.value
-    );
+    const timestampChanged = this.updatedAt.getTime() !== this.createdAt.getTime();
+    const userChanged = this.updatedBy?.value !== this.createdBy?.value;
+    return timestampChanged || userChanged;
   }
 
   /**
