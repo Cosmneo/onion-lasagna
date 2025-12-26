@@ -4,8 +4,6 @@ Enterprise-grade TypeScript library for building backend applications with hexag
 
 [![Documentation](https://img.shields.io/badge/docs-onion--lasagna.cosmneo.com-blue)](https://onion-lasagna.cosmneo.com)
 
-> Comprehensive documentation available at **[onion-lasagna.cosmneo.com](https://onion-lasagna.cosmneo.com)**
-
 ---
 
 ## Features
