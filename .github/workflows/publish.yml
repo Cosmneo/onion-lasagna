@@ -31,6 +31,8 @@ jobs:
 
       - name: Build (as a test)
         run: bun run build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
 
       - name: Check format
         run: bun run format:check
@@ -71,6 +73,8 @@ jobs:
 
       - name: Build package
         run: bun run build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
 
       - name: Check for manual version changes (Beta only)
         if: github.ref == 'refs/heads/beta'
