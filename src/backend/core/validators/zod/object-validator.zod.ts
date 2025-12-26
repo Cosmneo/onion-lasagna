@@ -44,7 +44,7 @@ const formatPath = (path: (string | number | symbol)[]): string => {
   return path
     .map((segment, index) => {
       if (typeof segment === 'number') return `[${segment}]`;
-      if (typeof segment === 'symbol') return segment.description ?? 'symbol';
+      if (typeof segment === 'symbol') return segment.description ?? String(segment);
       return index === 0 ? segment : `.${segment}`;
     })
     .join('');
