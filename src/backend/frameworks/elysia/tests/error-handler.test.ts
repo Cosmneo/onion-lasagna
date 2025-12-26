@@ -199,14 +199,12 @@ describe('onionErrorHandler integration', () => {
   // the error handler is invoked and returns valid responses.
 
   it('should return valid error response when NotFoundError is thrown', async () => {
-    const app = new Elysia()
-      .onError(onionErrorHandler)
-      .get('/users/:id', () => {
-        throw new NotFoundError({
-          message: 'User not found',
-          code: 'USER_NOT_FOUND',
-        });
+    const app = new Elysia().onError(onionErrorHandler).get('/users/:id', () => {
+      throw new NotFoundError({
+        message: 'User not found',
+        code: 'USER_NOT_FOUND',
       });
+    });
 
     const res = await app.handle(new Request('http://localhost/users/123'));
     // Verify response is JSON with error structure
@@ -216,14 +214,12 @@ describe('onionErrorHandler integration', () => {
   });
 
   it('should return valid error response when AccessDeniedError is thrown', async () => {
-    const app = new Elysia()
-      .onError(onionErrorHandler)
-      .get('/admin', () => {
-        throw new AccessDeniedError({
-          message: 'Admin access required',
-          code: 'ADMIN_REQUIRED',
-        });
+    const app = new Elysia().onError(onionErrorHandler).get('/admin', () => {
+      throw new AccessDeniedError({
+        message: 'Admin access required',
+        code: 'ADMIN_REQUIRED',
       });
+    });
 
     const res = await app.handle(new Request('http://localhost/admin'));
     const body = await res.json();
@@ -232,29 +228,23 @@ describe('onionErrorHandler integration', () => {
   });
 
   it('should return valid error response when ConflictError is thrown', async () => {
-    const app = new Elysia()
-      .onError(onionErrorHandler)
-      .post('/users', () => {
-        throw new ConflictError({
-          message: 'Email already registered',
-          code: 'EMAIL_EXISTS',
-        });
+    const app = new Elysia().onError(onionErrorHandler).post('/users', () => {
+      throw new ConflictError({
+        message: 'Email already registered',
+        code: 'EMAIL_EXISTS',
       });
+    });
 
-    const res = await app.handle(
-      new Request('http://localhost/users', { method: 'POST' }),
-    );
+    const res = await app.handle(new Request('http://localhost/users', { method: 'POST' }));
     const body = await res.json();
     expect(body).toHaveProperty('message');
     expect(body).toHaveProperty('errorCode');
   });
 
   it('should mask internal errors from route', async () => {
-    const app = new Elysia()
-      .onError(onionErrorHandler)
-      .get('/crash', () => {
-        throw new Error('Unexpected internal error');
-      });
+    const app = new Elysia().onError(onionErrorHandler).get('/crash', () => {
+      throw new Error('Unexpected internal error');
+    });
 
     const res = await app.handle(new Request('http://localhost/crash'));
     expect(res.status).toBe(500);

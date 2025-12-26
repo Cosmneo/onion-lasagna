@@ -126,9 +126,7 @@ describe('Valibot Dto Wrapper', () => {
         }
 
         static create(data: unknown) {
-          return new CreateUserDto(
-            data as { username: string; email: string; password: string },
-          );
+          return new CreateUserDto(data as { username: string; email: string; password: string });
         }
       }
 
