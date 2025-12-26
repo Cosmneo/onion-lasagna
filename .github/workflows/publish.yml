@@ -128,3 +128,4 @@ jobs:
           npm publish --tag $TAG --registry=https://npm.pkg.github.com
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          NODE_OPTIONS: '--max-old-space-size=4096'
