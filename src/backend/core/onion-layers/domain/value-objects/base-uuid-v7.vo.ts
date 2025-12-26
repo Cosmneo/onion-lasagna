@@ -83,17 +83,23 @@ export class BaseUuidV7Vo extends BaseValueObject<string> {
   /**
    * Creates a UUID v7 value object from an existing string.
    *
-   * At the base level, this skips validation. Subclasses from validator
-   * packages (zod, arktype, etc.) override this to add validation.
+   * **Important:** This base implementation skips validation and accepts
+   * any string value. Subclasses should override this method with a
+   * validator to ensure UUID format correctness.
    *
-   * @param value - The UUID v7 string value
+   * @param value - The UUID v7 string value (not validated at base level)
    * @returns A new BaseUuidV7Vo with the provided value
    *
-   * @example
+   * @example Subclass with validation (recommended)
    * ```typescript
-   * class OrderId extends BaseUuidV7Vo {}
-   * const orderId = OrderId.create('018f3b1c-5e7d-7000-8000-000000000001');
+   * class OrderId extends BaseUuidV7Vo {
+   *   static override create(value: string): OrderId {
+   *     return new OrderId(value, uuidV7Validator);
+   *   }
+   * }
    * ```
+   *
+   * @see generate - For creating new UUIDs (always valid)
    */
   static create(value: string): BaseUuidV7Vo {
     return new this(value, SKIP_VALUE_OBJECT_VALIDATION);
