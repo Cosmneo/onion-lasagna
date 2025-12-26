@@ -1,7 +1,51 @@
 {
   "name": "@cosmneo/onion-lasagna",
   "version": "0.1.0",
+  "description": "Enterprise-grade TypeScript library for building backend applications with hexagonal/onion architecture",
   "type": "module",
+  "license": "MIT",
+  "author": "Cosmneo",
+  "homepage": "https://onion-lasagna.cosmneo.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cosmneo/onion-lasagna.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Cosmneo/onion-lasagna/issues"
+  },
+  "keywords": [
+    "hexagonal-architecture",
+    "onion-architecture",
+    "clean-architecture",
+    "ddd",
+    "domain-driven-design",
+    "typescript",
+    "backend",
+    "enterprise",
+    "value-objects",
+    "entities",
+    "aggregates",
+    "use-cases",
+    "ports-and-adapters",
+    "hono",
+    "nestjs",
+    "elysia",
+    "fastify",
+    "zod",
+    "arktype",
+    "valibot",
+    "typebox"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@types/express": "^5.0.6",
@@ -27,14 +71,46 @@
     "@sinclair/typebox": "^0.34.41",
     "@types/aws-lambda": "^8.10.0",
     "arktype": "^2.1.29",
-    "hono": "^4",
     "elysia": "^1.2",
     "fastify": "^5",
+    "hono": "^4",
     "http-status-codes": "^2.3.0",
     "typescript": "^5",
     "uuid": "^13.0.0",
     "valibot": "^1.2.0",
     "zod": "^4.2.1"
+  },
+  "peerDependenciesMeta": {
+    "@nestjs/common": {
+      "optional": true
+    },
+    "@nestjs/core": {
+      "optional": true
+    },
+    "@sinclair/typebox": {
+      "optional": true
+    },
+    "@types/aws-lambda": {
+      "optional": true
+    },
+    "arktype": {
+      "optional": true
+    },
+    "elysia": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    },
+    "valibot": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
   },
   "scripts": {
     "build": "tsup",
@@ -45,7 +121,8 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "bun run build"
   },
   "exports": {
     "./backend/core/onion-layers": {
@@ -89,24 +166,6 @@
       "import": "./dist/backend/core/validators/typebox.js",
       "require": "./dist/backend/core/validators/typebox.cjs",
       "default": "./dist/backend/core/validators/typebox.js"
-    },
-    "./backend/frameworks/serverless-onion/core": {
-      "types": "./dist/backend/frameworks/serverless-onion/core.d.ts",
-      "import": "./dist/backend/frameworks/serverless-onion/core.js",
-      "require": "./dist/backend/frameworks/serverless-onion/core.cjs",
-      "default": "./dist/backend/frameworks/serverless-onion/core.js"
-    },
-    "./backend/frameworks/serverless-onion/aws": {
-      "types": "./dist/backend/frameworks/serverless-onion/aws.d.ts",
-      "import": "./dist/backend/frameworks/serverless-onion/aws.js",
-      "require": "./dist/backend/frameworks/serverless-onion/aws.cjs",
-      "default": "./dist/backend/frameworks/serverless-onion/aws.js"
-    },
-    "./backend/frameworks/serverless-onion/cloudflare": {
-      "types": "./dist/backend/frameworks/serverless-onion/cloudflare.d.ts",
-      "import": "./dist/backend/frameworks/serverless-onion/cloudflare.js",
-      "require": "./dist/backend/frameworks/serverless-onion/cloudflare.cjs",
-      "default": "./dist/backend/frameworks/serverless-onion/cloudflare.js"
     },
     "./backend/frameworks/hono": {
       "types": "./dist/backend/frameworks/hono.d.ts",
