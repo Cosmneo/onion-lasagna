@@ -6,17 +6,19 @@
     "@eslint/js": "^9.39.2",
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.3",
+    "@vitest/coverage-v8": "^4.0.16",
     "arktype": "^2.1.29",
+    "elysia": "^1.2",
     "eslint": "^9.39.2",
     "eslint-plugin-unused-imports": "^4.3.0",
     "express": "^5.2.1",
+    "fastify": "^5",
     "globals": "^16.5.0",
     "hono": "^4",
-    "elysia": "^1.2",
-    "fastify": "^5",
     "prettier": "^3.7.4",
     "tsup": "^8.5.1",
     "typescript-eslint": "^8.50.1",
+    "vitest": "^4.0.16",
     "zod": "^4.2.1"
   },
   "peerDependencies": {
@@ -40,7 +42,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "exports": {
     "./backend/core/onion-layers": {

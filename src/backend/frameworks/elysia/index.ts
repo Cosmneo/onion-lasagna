@@ -4,7 +4,7 @@ export {
   type ElysiaMiddleware,
   type RouteInputOrArray,
   type RegisterRoutesOptions,
-} from './create-elysia-router';
+} from './routing';
 export {
   mapErrorToResponse,
   type ErrorResponseBody,
