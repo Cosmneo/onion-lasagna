@@ -7,6 +7,8 @@ import { DbError } from '../../exceptions/db.error';
 // This is needed because BaseOutboundAdapter uses prototype-level markers
 function createTestRepository() {
   class TestRepository extends BaseOutboundAdapter {
+    // Required: BaseOutboundAdapter has protected constructor
+    // eslint-disable-next-line @typescript-eslint/no-useless-constructor
     constructor() {
       super();
     }
@@ -37,6 +39,7 @@ function createTestRepository() {
 
 function createCustomErrorRepository() {
   class CustomErrorRepository extends BaseOutboundAdapter {
+    // eslint-disable-next-line @typescript-eslint/no-useless-constructor
     constructor() {
       super();
     }
@@ -57,6 +60,7 @@ function createCustomErrorRepository() {
 
 function createRepositoryWithGetter() {
   class RepositoryWithGetter extends BaseOutboundAdapter {
+    // eslint-disable-next-line @typescript-eslint/no-useless-constructor
     constructor() {
       super();
     }
@@ -197,6 +201,7 @@ describe('BaseOutboundAdapter', () => {
   describe('promise handling', () => {
     it('should handle rejected promises', async () => {
       class RejectingRepo extends BaseOutboundAdapter {
+        // eslint-disable-next-line @typescript-eslint/no-useless-constructor
         constructor() {
           super();
         }
@@ -213,6 +218,7 @@ describe('BaseOutboundAdapter', () => {
 
     it('should handle promise that resolves then throws', async () => {
       class DelayedErrorRepo extends BaseOutboundAdapter {
+        // eslint-disable-next-line @typescript-eslint/no-useless-constructor
         constructor() {
           super();
         }
