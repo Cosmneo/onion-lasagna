@@ -23,7 +23,7 @@ export type ElysiaMiddleware = (context: {
   headers: Record<string, string | undefined>;
   query: Record<string, string | undefined>;
   params: Record<string, string>;
-}) => Response | undefined | void | Promise<Response | undefined | void>;
+}) => Response | undefined | Promise<Response | undefined>;
 
 /**
  * Converts `{param}` to Elysia's `:param` format.
