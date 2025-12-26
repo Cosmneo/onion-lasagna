@@ -2,9 +2,8 @@
  * Access guard types for controller authorization.
  *
  * Provides type definitions for the authorization pattern used by
- * {@link GuardedController} and the {@link AllowRequest} decorator.
- * Guards can be synchronous or asynchronous, enabling both simple
- * checks and complex authorization logic.
+ * {@link GuardedController}. Guards can be synchronous or asynchronous,
+ * enabling both simple checks and complex authorization logic.
  *
  * @example Synchronous guard (simple role check)
  * ```typescript
@@ -40,25 +39,17 @@ import type { AccessGuardResult } from './access-guard-result.type';
  * @param request - The incoming request to evaluate
  * @returns An {@link AccessGuardResult} or Promise resolving to one
  *
- * @example With GuardedController
+ * @example With GuardedController.create()
  * ```typescript
- * const guard: AccessGuard<MyRequest> = (req) => ({
- *   isAllowed: req.authenticated,
+ * const controller = GuardedController.create({
+ *   accessGuard: (req) => ({
+ *     isAllowed: req.authenticated,
+ *     reason: 'Authentication required',
+ *   }),
+ *   requestMapper: (req) => MyInputDto.create(req),
+ *   useCase: myUseCase,
+ *   responseMapper: (out) => MyOutputDto.create(out),
  * });
- *
- * class MyController extends GuardedController<MyRequest, MyResponse> {
- *   constructor() {
- *     super({ accessGuard: guard, ... });
- *   }
- * }
- * ```
- *
- * @example With @AllowRequest decorator
- * ```typescript
- * @AllowRequest<Request>((req) => ({
- *   isAllowed: req.user != null,
- * }))
- * async execute(input: Request): Promise<Response> { ... }
  * ```
  */
 export type AccessGuard<T = unknown> = (

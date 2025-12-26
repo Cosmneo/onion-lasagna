@@ -82,8 +82,7 @@ CodedError (base with code + cause)
 **Controllers:**
 
 - `BaseController` - simple pipeline: requestMapper → useCase → responseMapper. Converts `ObjectValidationError` from DTOs to `InvalidRequestError`
-- `GuardedController` - extends BaseController with `@AllowRequest` decorator for access guard
-- `@AllowRequest(accessGuard)` - checks access guard before execution
+- `GuardedController` - extends BaseController with built-in access guard via `accessGuard` config option
 
 ### Framework Integrations (`src/backend/frameworks/`)
 
