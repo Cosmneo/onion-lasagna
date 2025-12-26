@@ -133,18 +133,14 @@ export interface HttpEndpointMetadata {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Resource-relative path (without the service base path).
+   * Endpoint-relative path (without service or resource path).
    *
-   * Example: `/users/{id}`
+   * Combined with service basePath and resource path to form the full route.
+   * Use `computeRoutePath()` to compute the full path when needed.
+   *
+   * Example: `/{id}` or `/` for collection endpoints
    */
   path: string;
-
-  /**
-   * Fully-qualified path including service base path.
-   *
-   * Example: `/user-service/users/{id}`
-   */
-  servicePath: string;
 
   /**
    * HTTP method.

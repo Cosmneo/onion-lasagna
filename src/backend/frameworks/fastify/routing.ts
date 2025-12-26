@@ -26,8 +26,8 @@ export type FastifyMiddleware = (
 /**
  * Converts `{param}` to Fastify's `:param` format.
  */
-function toFastifyPath(servicePath: string): string {
-  return servicePath.replace(/\{([^}]+)\}/g, ':$1');
+function toFastifyPath(path: string): string {
+  return path.replace(/\{([^}]+)\}/g, ':$1');
 }
 
 /**
@@ -83,7 +83,7 @@ function sendResponse(reply: FastifyReply, response: HttpResponse): FastifyReply
 /**
  * Route input type that accepts either a single route or an array of routes.
  */
-export type RouteInputOrArray = RouteInput<HttpController> | RouteInput<HttpController>[];
+export type RouteInputOrArray = RouteInput | RouteInput[];
 
 /**
  * Options for registering routes.
@@ -137,7 +137,7 @@ export interface RegisterRoutesOptions {
  * const app = Fastify();
  *
  * registerFastifyRoutes(app, {
- *   metadata: { servicePath: '/health', method: 'GET' },
+ *   metadata: { path: '/health', method: 'GET' },
  *   controller: healthController,
  * });
  * ```
@@ -147,9 +147,9 @@ export interface RegisterRoutesOptions {
  * const app = Fastify();
  *
  * registerFastifyRoutes(app, [
- *   { metadata: { servicePath: '/users', method: 'POST' }, controller: createUserController },
- *   { metadata: { servicePath: '/users/{id}', method: 'GET' }, controller: getUserController },
- *   { metadata: { servicePath: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
+ *   { metadata: { path: '/users', method: 'POST' }, controller: createUserController },
+ *   { metadata: { path: '/users/{id}', method: 'GET' }, controller: getUserController },
+ *   { metadata: { path: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
  * ]);
  * ```
  *
@@ -196,14 +196,15 @@ export function registerFastifyRoutes(
   const prefix = options?.prefix ?? '';
   const middlewares = options?.middlewares ?? [];
 
-  for (const { metadata, controller } of routeArray) {
-    const path = prefix + toFastifyPath(metadata.servicePath);
+  for (const { metadata, controller, requestDtoFactory } of routeArray) {
+    const path = prefix + toFastifyPath(metadata.path);
     const method = metadata.method.toUpperCase() as HTTPMethods;
 
     const handler: RouteHandlerMethod = async (request, reply) => {
-      const httpRequest = extractRequest(request);
-      const response = await controller.execute(httpRequest);
-      return sendResponse(reply, response);
+      const rawRequest = extractRequest(request);
+      const requestDto = requestDtoFactory(rawRequest);
+      const responseDto = await controller.execute(requestDto);
+      return sendResponse(reply, responseDto.data);
     };
 
     app.route({
