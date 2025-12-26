@@ -21,9 +21,6 @@
     "noUnusedParameters": true,
     "noPropertyAccessFromIndexSignature": true
   },
-  "include": [
-    "design-system/**/*.ts",
-    "design-system/**/*.tsx"
-  ],
+  "include": ["design-system/**/*.ts", "design-system/**/*.tsx"],
   "exclude": ["**/*.test.ts", "**/tests/**", "dist"]
 }
