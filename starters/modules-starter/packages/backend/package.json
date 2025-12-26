@@ -1,0 +1,61 @@
+{
+  "name": "@repo/backend",
+  "version": "0.0.1",
+  "description": "Backend package with onion architecture (module-based)",
+  "type": "module",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@cosmneo/onion-lasagna": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "tsup": "^8.5.1",
+    "typescript": "^5",
+    "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "zod": "^4.2.1"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./modules/*/bounded-contexts/*": {
+      "types": "./dist/modules/*/bounded-contexts/*.d.ts",
+      "import": "./dist/modules/*/bounded-contexts/*.js",
+      "default": "./dist/modules/*/bounded-contexts/*.js"
+    },
+    "./modules/*/orchestrations/*": {
+      "types": "./dist/modules/*/orchestrations/*.d.ts",
+      "import": "./dist/modules/*/orchestrations/*.js",
+      "default": "./dist/modules/*/orchestrations/*.js"
+    },
+    "./modules/*/shared": {
+      "types": "./dist/modules/*/shared/index.d.ts",
+      "import": "./dist/modules/*/shared/index.js",
+      "default": "./dist/modules/*/shared/index.js"
+    },
+    "./shared": {
+      "types": "./dist/shared/index.d.ts",
+      "import": "./dist/shared/index.js",
+      "default": "./dist/shared/index.js"
+    }
+  }
+}
