@@ -54,7 +54,7 @@ const formatPath = (path: readonly PathItem[] | undefined): string => {
     .map((item, index) => {
       const segment = item.key;
       if (typeof segment === 'number') return `[${segment}]`;
-      if (typeof segment === 'symbol') return segment.description ?? 'symbol';
+      if (typeof segment === 'symbol') return segment.description ?? String(segment);
       return index === 0 ? String(segment) : `.${String(segment)}`;
     })
     .join('');
