@@ -96,7 +96,7 @@ describe('BaseInboundAdapter', () => {
       it('should re-throw ObjectValidationError without wrapping', async () => {
         const originalError = new ObjectValidationError({
           message: 'Validation failed',
-          validationErrors: [{ path: 'field', message: 'required' }],
+          validationErrors: [{ field: 'field', message: 'required' }],
         });
         const useCase = new FailingUseCase(originalError);
         const input = InputDto.create({ name: 'Test' });

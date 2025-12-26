@@ -5,7 +5,7 @@ import { CodedError } from '../coded-error.error';
 describe('ObjectValidationError', () => {
   describe('constructor', () => {
     it('should create with message and validation errors', () => {
-      const validationErrors = [{ path: 'email', message: 'Invalid email format' }];
+      const validationErrors = [{ field: 'email', message: 'Invalid email format' }];
       const error = new ObjectValidationError({
         message: 'Validation failed',
         validationErrors,
@@ -49,9 +49,9 @@ describe('ObjectValidationError', () => {
 
     it('should store multiple validation errors', () => {
       const validationErrors = [
-        { path: 'email', message: 'Invalid email format' },
-        { path: 'password', message: 'Too short' },
-        { path: 'age', message: 'Must be a number' },
+        { field: 'email', message: 'Invalid email format' },
+        { field: 'password', message: 'Too short' },
+        { field: 'age', message: 'Must be a number' },
       ];
 
       const error = new ObjectValidationError({
@@ -111,53 +111,53 @@ describe('ObjectValidationError', () => {
   });
 
   describe('validation error formats', () => {
-    describe('path formats', () => {
+    describe('field formats', () => {
       it('should support simple field names', () => {
         const error = new ObjectValidationError({
           message: 'Validation failed',
           validationErrors: [
-            { path: 'email', message: 'Invalid' },
-            { path: 'name', message: 'Required' },
+            { field: 'email', message: 'Invalid' },
+            { field: 'name', message: 'Required' },
           ],
         });
 
-        expect(error.validationErrors[0]?.path).toBe('email');
-        expect(error.validationErrors[1]?.path).toBe('name');
+        expect(error.validationErrors[0]?.field).toBe('email');
+        expect(error.validationErrors[1]?.field).toBe('name');
       });
 
-      it('should support dot-notation nested paths', () => {
+      it('should support dot-notation nested fields', () => {
         const error = new ObjectValidationError({
           message: 'Validation failed',
           validationErrors: [
-            { path: 'user.email', message: 'Invalid email' },
-            { path: 'user.address.city', message: 'Required' },
+            { field: 'user.email', message: 'Invalid email' },
+            { field: 'user.address.city', message: 'Required' },
           ],
         });
 
-        expect(error.validationErrors[0]?.path).toBe('user.email');
-        expect(error.validationErrors[1]?.path).toBe('user.address.city');
+        expect(error.validationErrors[0]?.field).toBe('user.email');
+        expect(error.validationErrors[1]?.field).toBe('user.address.city');
       });
 
-      it('should support array index paths', () => {
+      it('should support array index fields', () => {
         const error = new ObjectValidationError({
           message: 'Validation failed',
           validationErrors: [
-            { path: 'items.0.name', message: 'Required' },
-            { path: 'items.1.quantity', message: 'Must be positive' },
+            { field: 'items.0.name', message: 'Required' },
+            { field: 'items.1.quantity', message: 'Must be positive' },
           ],
         });
 
-        expect(error.validationErrors[0]?.path).toBe('items.0.name');
-        expect(error.validationErrors[1]?.path).toBe('items.1.quantity');
+        expect(error.validationErrors[0]?.field).toBe('items.0.name');
+        expect(error.validationErrors[1]?.field).toBe('items.1.quantity');
       });
 
-      it('should support root-level path', () => {
+      it('should support root-level field', () => {
         const error = new ObjectValidationError({
           message: 'Validation failed',
-          validationErrors: [{ path: '', message: 'Invalid root object' }],
+          validationErrors: [{ field: '', message: 'Invalid root object' }],
         });
 
-        expect(error.validationErrors[0]?.path).toBe('');
+        expect(error.validationErrors[0]?.field).toBe('');
       });
     });
 
@@ -166,8 +166,8 @@ describe('ObjectValidationError', () => {
         const error = new ObjectValidationError({
           message: 'Validation failed',
           validationErrors: [
-            { path: 'email', message: 'Must be a valid email address' },
-            { path: 'password', message: 'Must be at least 8 characters' },
+            { field: 'email', message: 'Must be a valid email address' },
+            { field: 'password', message: 'Must be at least 8 characters' },
           ],
         });
 
@@ -181,8 +181,8 @@ describe('ObjectValidationError', () => {
     it('should handle typical Zod validation errors', () => {
       // Simulating what a Zod validator might produce
       const validationErrors = [
-        { path: 'email', message: 'Invalid email' },
-        { path: 'age', message: 'Expected number, received string' },
+        { field: 'email', message: 'Invalid email' },
+        { field: 'age', message: 'Expected number, received string' },
       ];
 
       const error = new ObjectValidationError({
@@ -195,8 +195,8 @@ describe('ObjectValidationError', () => {
 
     it('should handle nested object validation', () => {
       const validationErrors = [
-        { path: 'user.profile.bio', message: 'String must contain at most 500 character(s)' },
-        { path: 'user.profile.website', message: 'Invalid url' },
+        { field: 'user.profile.bio', message: 'String must contain at most 500 character(s)' },
+        { field: 'user.profile.website', message: 'Invalid url' },
       ];
 
       const error = new ObjectValidationError({
@@ -209,8 +209,8 @@ describe('ObjectValidationError', () => {
 
     it('should handle array validation', () => {
       const validationErrors = [
-        { path: 'tags.0', message: 'String must contain at least 1 character(s)' },
-        { path: 'tags.5', message: 'String must contain at least 1 character(s)' },
+        { field: 'tags.0', message: 'String must contain at least 1 character(s)' },
+        { field: 'tags.5', message: 'String must contain at least 1 character(s)' },
       ];
 
       const error = new ObjectValidationError({
