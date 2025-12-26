@@ -69,12 +69,10 @@
     "@nestjs/common": "^11.1.10",
     "@nestjs/core": "^11.1.10",
     "@sinclair/typebox": "^0.34.41",
-    "@types/aws-lambda": "^8.10.0",
     "arktype": "^2.1.29",
     "elysia": "^1.2",
     "fastify": "^5",
     "hono": "^4",
-    "http-status-codes": "^2.3.0",
     "typescript": "^5",
     "uuid": "^13.0.0",
     "valibot": "^1.2.0",
@@ -88,9 +86,6 @@
       "optional": true
     },
     "@sinclair/typebox": {
-      "optional": true
-    },
-    "@types/aws-lambda": {
       "optional": true
     },
     "arktype": {
