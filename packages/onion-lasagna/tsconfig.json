@@ -26,5 +26,5 @@
     "noUnusedParameters": true,
     "noPropertyAccessFromIndexSignature": true
   },
-  "exclude": ["**/*.test.ts", "**/tests/**", "starters/**", "apps/**"]
+  "exclude": ["**/*.test.ts", "**/tests/**"]
 }

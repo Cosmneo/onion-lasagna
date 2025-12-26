@@ -15,7 +15,7 @@ export default defineConfig(
         ...globals.browser,
       },
       parserOptions: {
-        project: './tsconfig.eslint.json',
+        project: './packages/onion-lasagna/tsconfig.eslint.json',
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -59,6 +59,6 @@ export default defineConfig(
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**', 'bun.lock', 'starters/**'],
+    ignores: ['dist/**', 'node_modules/**', 'bun.lock', 'starters/**', 'apps/**'],
   },
 );
