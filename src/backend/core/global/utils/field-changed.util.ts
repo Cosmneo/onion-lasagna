@@ -8,6 +8,16 @@
  * - **Partial update** (default): `undefined` means "keep existing value" (no change)
  * - **Full update**: `undefined` means "set to undefined" (is a change if value !== undefined)
  *
+ * **Limitation:** Uses strict equality (`!==`) for comparison, which only works
+ * correctly for primitives and reference equality. For objects or arrays, this
+ * compares references, not content. Two objects with identical content but
+ * different references will be considered "changed".
+ *
+ * For complex objects, either:
+ * - Compare by a unique identifier (e.g., `value.id !== newValue?.id`)
+ * - Use value objects with `.equals()` methods
+ * - Implement deep equality checking in your update logic
+ *
  * @typeParam T - The type of the field being compared
  * @param options - Comparison options
  * @param options.value - The current field value
@@ -27,6 +37,14 @@
  * ```typescript
  * // undefined means "set to undefined"
  * fieldChanged({ value: 'John', newValue: undefined, partialUpdate: false }); // true
+ * ```
+ *
+ * @example Object comparison (reference-based)
+ * ```typescript
+ * const obj1 = { name: 'John' };
+ * const obj2 = { name: 'John' };
+ * fieldChanged({ value: obj1, newValue: obj2 });   // true (different references)
+ * fieldChanged({ value: obj1, newValue: obj1 });   // false (same reference)
  * ```
  */
 export function fieldChanged<T>({
