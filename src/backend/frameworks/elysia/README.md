@@ -151,15 +151,15 @@ const app = new Elysia()
 
 // 2. Register routes (array)
 registerElysiaRoutes(app, [
-  { metadata: { servicePath: '/users', method: 'POST' }, controller: createUserController },
-  { metadata: { servicePath: '/users/{id}', method: 'GET' }, controller: getUserController },
-  { metadata: { servicePath: '/users/{id}', method: 'PUT' }, controller: updateUserController },
-  { metadata: { servicePath: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
+  { metadata: { path: '/users', method: 'POST' }, controller: createUserController },
+  { metadata: { path: '/users/{id}', method: 'GET' }, controller: getUserController },
+  { metadata: { path: '/users/{id}', method: 'PUT' }, controller: updateUserController },
+  { metadata: { path: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
 ]);
 
 // 3. Or register a single route
 registerElysiaRoutes(app, {
-  metadata: { servicePath: '/health', method: 'GET' },
+  metadata: { path: '/health', method: 'GET' },
   controller: healthController,
 });
 
@@ -207,7 +207,7 @@ The function automatically converts onion-lasagna path syntax to Elysia format:
 
 ```typescript
 registerElysiaRoutes(app, {
-  metadata: { servicePath: '/health', method: 'GET' },
+  metadata: { path: '/health', method: 'GET' },
   controller: healthController,
 });
 ```
@@ -216,8 +216,8 @@ registerElysiaRoutes(app, {
 
 ```typescript
 registerElysiaRoutes(app, [
-  { metadata: { servicePath: '/users', method: 'POST' }, controller: createUserController },
-  { metadata: { servicePath: '/users/{id}', method: 'GET' }, controller: getUserController },
+  { metadata: { path: '/users', method: 'POST' }, controller: createUserController },
+  { metadata: { path: '/users/{id}', method: 'GET' }, controller: getUserController },
 ]);
 ```
 
@@ -420,23 +420,23 @@ import {
 
 export const userRoutes: RouteInput<HttpController>[] = [
   {
-    metadata: { servicePath: '/users', method: 'POST' },
+    metadata: { path: '/users', method: 'POST' },
     controller: createUserController,
   },
   {
-    metadata: { servicePath: '/users', method: 'GET' },
+    metadata: { path: '/users', method: 'GET' },
     controller: listUsersController,
   },
   {
-    metadata: { servicePath: '/users/{id}', method: 'GET' },
+    metadata: { path: '/users/{id}', method: 'GET' },
     controller: getUserController,
   },
   {
-    metadata: { servicePath: '/users/{id}', method: 'PUT' },
+    metadata: { path: '/users/{id}', method: 'PUT' },
     controller: updateUserController,
   },
   {
-    metadata: { servicePath: '/users/{id}', method: 'DELETE' },
+    metadata: { path: '/users/{id}', method: 'DELETE' },
     controller: deleteUserController,
   },
 ];
