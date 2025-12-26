@@ -27,17 +27,18 @@ export interface HttpRequest {
    * HTTP request headers (normalized to lowercase keys).
    * Common headers include authorization, content-type, accept, etc.
    */
-  headers?: Record<string, unknown>;
+  headers?: Record<string, string>;
 
   /**
    * Query string parameters from the URL.
    * For `/users?page=1&limit=10`, this would be `{ page: '1', limit: '10' }`.
+   * When a key appears multiple times (e.g., `?tag=a&tag=b`), the value is an array.
    */
-  queryParams?: Record<string, unknown>;
+  queryParams?: Record<string, string | string[]>;
 
   /**
    * Path parameters extracted from the URL pattern.
    * For route `/users/:id` and URL `/users/123`, this would be `{ id: '123' }`.
    */
-  pathParams?: Record<string, unknown>;
+  pathParams?: Record<string, string>;
 }

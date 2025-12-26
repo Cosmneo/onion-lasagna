@@ -3,33 +3,32 @@ import type { AccessGuardResult } from '../interfaces/types/access-guard-result.
 import type { BaseInboundPort } from '../../app/interfaces/ports/base-inbound.port';
 import type { BaseDto } from '../../../global/classes/base-dto.class';
 import { BaseController } from './base-controller.class';
-import {
-  AllowRequest,
-  accessGuardFromInstance,
-} from '../lib/controller-middlewares/decorators/allow-request.decorator';
+import { AccessDeniedError } from '../exceptions/access-denied.error';
 
 /**
  * Configuration for creating a GuardedController instance.
  *
- * @typeParam TRequest - The raw request type (e.g., HTTP request with auth headers)
- * @typeParam TResponse - The response type to return
+ * All types must be DTOs (extending BaseDto) to ensure validation at every boundary.
+ *
+ * @typeParam TRequestDto - Validated request DTO from the framework layer
+ * @typeParam TResponseDto - Validated response DTO to return to the framework
  * @typeParam TInDto - Input DTO type for the use case
  * @typeParam TOutDto - Output DTO type from the use case
  */
 export interface GuardedControllerConfig<
-  TRequest,
-  TResponse,
+  TRequestDto extends BaseDto<unknown>,
+  TResponseDto extends BaseDto<unknown>,
   TInDto extends BaseDto<unknown>,
   TOutDto extends BaseDto<unknown>,
 > {
-  /** Maps the raw request to a validated input DTO. */
-  requestMapper: (request: TRequest) => TInDto;
+  /** Maps the validated request DTO to a use case input DTO. */
+  requestMapper: (request: TRequestDto) => TInDto;
   /** The use case to execute. */
   useCase: BaseInboundPort<TInDto, TOutDto>;
-  /** Maps the use case output DTO to the response format. */
-  responseMapper: (output: TOutDto) => TResponse;
+  /** Maps the use case output DTO to a validated response DTO. */
+  responseMapper: (output: TOutDto) => TResponseDto;
   /** Optional access guard; defaults to allowing all requests. */
-  accessGuard?: AccessGuard<TRequest>;
+  accessGuard?: AccessGuard<TRequestDto>;
 }
 
 /**
@@ -43,55 +42,57 @@ function createAllowAllGuard<T>(): AccessGuard<T> {
 }
 
 /**
- * Controller with access control via the `@AllowRequest` decorator.
+ * Controller with access control.
  *
  * Extends {@link BaseController} with an access guard that runs before
- * the use case execution. If the guard denies access, an
- * {@link AccessDeniedError} is thrown.
+ * the pipeline. If the guard denies access, an {@link AccessDeniedError}
+ * is thrown.
  *
- * @typeParam TRequest - The raw request type (e.g., HTTP request with auth headers)
- * @typeParam TResponse - The response type to return
+ * All types must be DTOs (extending BaseDto) to ensure validation at every boundary.
+ *
+ * @typeParam TRequestDto - Validated request DTO from the framework layer
+ * @typeParam TResponseDto - Validated response DTO to return to the framework
  * @typeParam TInDto - Input DTO type for the use case
  * @typeParam TOutDto - Output DTO type from the use case
  *
  * @example
  * ```typescript
  * const controller = GuardedController.create({
- *   requestMapper: (req) => UpdateUserInputDto.create(req.body),
+ *   requestMapper: (req) => UpdateUserInputDto.create(req.data),
  *   useCase: updateUserUseCase,
- *   responseMapper: (output) => output.value,
+ *   responseMapper: (output) => UpdateUserResponseDto.create(output.data),
  *   accessGuard: async (req) => ({
- *     isAllowed: req.user?.role === 'admin',
+ *     isAllowed: req.data.user?.role === 'admin',
  *     reason: 'Admin access required',
  *   }),
  * });
  * ```
  */
 export class GuardedController<
-  TRequest,
-  TResponse,
+  TRequestDto extends BaseDto<unknown>,
+  TResponseDto extends BaseDto<unknown>,
   TInDto extends BaseDto<unknown>,
   TOutDto extends BaseDto<unknown>,
-> extends BaseController<TRequest, TResponse, TInDto, TOutDto> {
+> extends BaseController<TRequestDto, TResponseDto, TInDto, TOutDto> {
   /** The access guard function for this controller. */
-  protected readonly accessGuard: AccessGuard<TRequest>;
+  protected readonly accessGuard: AccessGuard<TRequestDto>;
 
   /**
    * Creates a new GuardedController instance.
    *
-   * @param requestMapper - Function to map request to input DTO
+   * @param requestMapper - Function to map request DTO to use case input DTO
    * @param useCase - The use case port to execute
-   * @param responseMapper - Function to map output DTO to response
+   * @param responseMapper - Function to map use case output DTO to response DTO
    * @param accessGuard - Optional access guard; defaults to allowing all
    */
   constructor(
-    requestMapper: (request: TRequest) => TInDto,
+    requestMapper: (request: TRequestDto) => TInDto,
     useCase: BaseInboundPort<TInDto, TOutDto>,
-    responseMapper: (output: TOutDto) => TResponse,
-    accessGuard?: AccessGuard<TRequest>,
+    responseMapper: (output: TOutDto) => TResponseDto,
+    accessGuard?: AccessGuard<TRequestDto>,
   ) {
     super(requestMapper, useCase, responseMapper);
-    this.accessGuard = accessGuard ?? createAllowAllGuard<TRequest>();
+    this.accessGuard = accessGuard ?? createAllowAllGuard<TRequestDto>();
   }
 
   /**
@@ -101,13 +102,13 @@ export class GuardedController<
    * @returns A new GuardedController instance
    */
   static override create<
-    TRequest,
-    TResponse,
+    TRequestDto extends BaseDto<unknown>,
+    TResponseDto extends BaseDto<unknown>,
     TInDto extends BaseDto<unknown>,
     TOutDto extends BaseDto<unknown>,
   >(
-    config: GuardedControllerConfig<TRequest, TResponse, TInDto, TOutDto>,
-  ): GuardedController<TRequest, TResponse, TInDto, TOutDto> {
+    config: GuardedControllerConfig<TRequestDto, TResponseDto, TInDto, TOutDto>,
+  ): GuardedController<TRequestDto, TResponseDto, TInDto, TOutDto> {
     return new GuardedController(
       config.requestMapper,
       config.useCase,
@@ -117,22 +118,34 @@ export class GuardedController<
   }
 
   /**
-   * Executes the controller pipeline with access control.
+   * Runs the controller pipeline with access control.
    *
-   * The `@AllowRequest` decorator runs the access guard before execution.
+   * Checks the access guard before executing the pipeline.
    * If denied, throws {@link AccessDeniedError}.
    *
-   * @param input - The raw request input
-   * @returns Promise resolving to the mapped response
+   * @param input - The validated request DTO
+   * @returns Promise resolving to the validated response DTO
    * @throws {AccessDeniedError} When access guard denies the request
    */
-  @AllowRequest(
-    accessGuardFromInstance(
-      (instance: unknown) =>
-        (instance as GuardedController<TRequest, TResponse, TInDto, TOutDto>).accessGuard,
-    ),
-  )
-  override async execute(input: TRequest): Promise<TResponse> {
-    return super.execute(input);
+  protected override async pipeline(input: TRequestDto): Promise<TResponseDto> {
+    await this.checkAccess(input);
+    return super.pipeline(input);
+  }
+
+  /**
+   * Checks access using the configured guard.
+   *
+   * Override to customize access control logic.
+   *
+   * @param input - The validated request DTO
+   * @throws {AccessDeniedError} When access is denied
+   */
+  protected async checkAccess(input: TRequestDto): Promise<void> {
+    const result = await this.accessGuard(input);
+    if (!result.isAllowed) {
+      throw new AccessDeniedError({
+        message: result.reason ?? 'Access denied',
+      });
+    }
   }
 }
