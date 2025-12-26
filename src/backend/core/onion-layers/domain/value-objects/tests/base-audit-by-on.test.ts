@@ -10,7 +10,7 @@ import { InvariantViolationError } from '../../exceptions/invariant-violation.er
 
 // Concrete implementations for testing
 class TestUserId extends BaseUuidV4Vo {
-  static create(value: string): TestUserId {
+  static override create(value: string): TestUserId {
     return new TestUserId(value, SKIP_VALUE_OBJECT_VALIDATION);
   }
 }
