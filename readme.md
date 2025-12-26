@@ -430,4 +430,4 @@ Full documentation with guides, API reference, and examples:
 
 ## License
 
-MIT
+Proprietary - Cosmneo Organization
