@@ -51,6 +51,32 @@ export abstract class BaseDomainEvent<TPayload = unknown> {
   private readonly _payload: TPayload;
 
   /**
+   * Deep clones an object, handling Date objects specially.
+   *
+   * @param obj - The object to clone
+   * @returns A deep copy of the object
+   */
+  private static deepClone<T>(obj: T): T {
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
+    }
+
+    if (obj instanceof Date) {
+      return new Date(obj.getTime()) as T;
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map((item) => BaseDomainEvent.deepClone(item)) as T;
+    }
+
+    const cloned = {} as Record<string, unknown>;
+    for (const key of Object.keys(obj)) {
+      cloned[key] = BaseDomainEvent.deepClone((obj as Record<string, unknown>)[key]);
+    }
+    return cloned as T;
+  }
+
+  /**
    * Recursively freezes an object and all nested objects.
    *
    * @param obj - The object to deep freeze
@@ -58,11 +84,6 @@ export abstract class BaseDomainEvent<TPayload = unknown> {
    */
   private static deepFreeze<T>(obj: T): T {
     if (obj === null || typeof obj !== 'object') {
-      return obj;
-    }
-
-    // Don't freeze Date objects - we clone them in the getter instead
-    if (obj instanceof Date) {
       return obj;
     }
 
@@ -84,14 +105,29 @@ export abstract class BaseDomainEvent<TPayload = unknown> {
   }
 
   /**
+   * Creates an immutable copy of the payload.
+   *
+   * Clones the payload first to avoid mutating the original object,
+   * then deep-freezes the clone to ensure immutability.
+   *
+   * @param payload - The payload to clone and freeze
+   * @returns An immutable copy of the payload
+   */
+  private static cloneAndFreeze<T>(payload: T): T {
+    const cloned = BaseDomainEvent.deepClone(payload);
+    return BaseDomainEvent.deepFreeze(cloned);
+  }
+
+  /**
    * Creates a new Domain Event.
    *
-   * The payload is deep-frozen to ensure immutability. Any attempt to modify
-   * the payload after creation will throw a TypeError in strict mode.
+   * The payload is cloned and deep-frozen to ensure immutability. The original
+   * object passed in remains unmodified. Any attempt to modify the event's
+   * payload after creation will throw a TypeError in strict mode.
    *
    * @param eventName - The name of the event (e.g., 'OrderPlaced', 'UserRegistered')
    * @param aggregateId - The ID of the aggregate that raised this event
-   * @param payload - The event-specific data (will be deep-frozen)
+   * @param payload - The event-specific data (will be cloned and deep-frozen)
    * @param eventId - Optional custom event ID (defaults to crypto.randomUUID())
    * @param occurredOn - Optional timestamp (defaults to now)
    */
@@ -106,7 +142,7 @@ export abstract class BaseDomainEvent<TPayload = unknown> {
     this._eventName = eventName;
     this._aggregateId = aggregateId;
     this._occurredOn = occurredOn ?? new Date();
-    this._payload = BaseDomainEvent.deepFreeze(payload);
+    this._payload = BaseDomainEvent.cloneAndFreeze(payload);
   }
 
   /**
