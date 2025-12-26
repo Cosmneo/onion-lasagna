@@ -20,6 +20,190 @@ Enterprise-grade TypeScript library for building backend applications with hexag
 
 ---
 
+## Architecture
+
+```mermaid
+graph TB
+    subgraph External["External World"]
+        HTTP[HTTP Request]
+        DB[(Database)]
+        EXT[External APIs]
+    end
+
+    subgraph Presentation["Presentation Layer"]
+        CTRL[Controllers]
+        ROUTE[Routing]
+    end
+
+    subgraph Application["Application Layer"]
+        UC[Use Cases]
+        DTO[DTOs]
+    end
+
+    subgraph Domain["Domain Layer"]
+        ENT[Entities]
+        VO[Value Objects]
+        AGG[Aggregates]
+        EVT[Domain Events]
+    end
+
+    subgraph Infrastructure["Infrastructure Layer"]
+        REPO[Repositories]
+        SVC[External Services]
+    end
+
+    HTTP --> CTRL
+    CTRL --> UC
+    UC --> ENT
+    UC --> REPO
+    REPO --> DB
+    SVC --> EXT
+
+    style Domain fill:#e1f5fe
+    style Application fill:#fff3e0
+    style Presentation fill:#f3e5f5
+    style Infrastructure fill:#e8f5e9
+```
+
+### Layer Responsibilities
+
+```mermaid
+graph LR
+    subgraph P["Presentation"]
+        P1[BaseController]
+        P2[GuardedController]
+        P3[HttpRequest/Response]
+    end
+
+    subgraph A["Application"]
+        A1[BaseInboundAdapter]
+        A2[Use Case Errors]
+    end
+
+    subgraph D["Domain"]
+        D1[BaseEntity]
+        D2[BaseValueObject]
+        D3[BaseAggregateRoot]
+    end
+
+    subgraph I["Infrastructure"]
+        I1[BaseOutboundAdapter]
+        I2[Auto Error Wrapping]
+    end
+
+    P1 --> A1
+    A1 --> D1
+    A1 --> I1
+
+    style P fill:#f3e5f5
+    style A fill:#fff3e0
+    style D fill:#e1f5fe
+    style I fill:#e8f5e9
+```
+
+---
+
+## Request Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Framework as Hono/NestJS/Elysia/Fastify
+    participant Controller as BaseController
+    participant UseCase as Use Case
+    participant Repository as Repository
+    participant DB as Database
+
+    Client->>Framework: HTTP Request
+    Framework->>Controller: execute(HttpRequest)
+    Controller->>Controller: requestMapper()
+    Controller->>UseCase: execute(Input)
+    UseCase->>Repository: findById()
+    Repository->>DB: Query
+    DB-->>Repository: Data
+    Repository-->>UseCase: Entity
+    UseCase-->>Controller: Output
+    Controller->>Controller: responseMapper()
+    Controller-->>Framework: HttpResponse
+    Framework-->>Client: HTTP Response
+```
+
+---
+
+## Error Hierarchy
+
+```mermaid
+graph TD
+    CE[CodedError] --> DE[DomainError]
+    CE --> UCE[UseCaseError]
+    CE --> IE[InfraError]
+    CE --> CTE[ControllerError]
+    CE --> OVE[ObjectValidationError]
+
+    DE --> IVE[InvariantViolationError]
+    DE --> PLE[PartialLoadError]
+
+    UCE --> CFE[ConflictError<br/>409]
+    UCE --> NFE[NotFoundError<br/>404]
+    UCE --> UPE[UnprocessableError<br/>422]
+
+    IE --> DBE[DbError<br/>500]
+    IE --> NWE[NetworkError<br/>500]
+    IE --> TME[TimeoutError<br/>500]
+    IE --> ESE[ExternalServiceError<br/>500]
+
+    CTE --> ADE[AccessDeniedError<br/>403]
+    CTE --> IRE[InvalidRequestError<br/>400]
+
+    style CE fill:#ffcdd2
+    style DE fill:#e1bee7
+    style UCE fill:#fff9c4
+    style IE fill:#c8e6c9
+    style CTE fill:#bbdefb
+    style OVE fill:#ffe0b2
+```
+
+---
+
+## Pick Your Stack
+
+```mermaid
+graph LR
+    subgraph Validators["Validators (pick one)"]
+        ZOD[Zod]
+        ARK[ArkType]
+        VAL[Valibot]
+        TBX[TypeBox]
+    end
+
+    subgraph Core["Onion Lasagna Core"]
+        OL[Base Classes<br/>Error Handling<br/>Value Objects]
+    end
+
+    subgraph Frameworks["Frameworks (pick one)"]
+        HONO[Hono]
+        NEST[NestJS]
+        ELIA[Elysia]
+        FAST[Fastify]
+    end
+
+    ZOD --> OL
+    ARK --> OL
+    VAL --> OL
+    TBX --> OL
+
+    OL --> HONO
+    OL --> NEST
+    OL --> ELIA
+    OL --> FAST
+
+    style Core fill:#e3f2fd
+    style Validators fill:#fff8e1
+    style Frameworks fill:#fce4ec
+```
+
+---
+
 ## Installation
 
 ```bash
@@ -101,9 +285,8 @@ export class User extends BaseEntity<UserId, UserProps> {
 ```typescript
 import {
   BaseInboundAdapter,
-  BaseInboundPort,
+  NotFoundError,
 } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-import { NotFoundError } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
 
 interface GetUserInput {
   userId: string;
@@ -185,7 +368,7 @@ registerHonoRoutes(app, [
 **NestJS:**
 
 ```typescript
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import {
   BaseNestController,
   OnionLasagnaRequest,
@@ -202,26 +385,6 @@ export class UserController extends BaseNestController {
     return this.getUserController.execute(req);
   }
 }
-```
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Presentation                           │
-│  Controllers, HTTP Request/Response, Routing                │
-├─────────────────────────────────────────────────────────────┤
-│                      Application                            │
-│  Use Cases (Inbound Adapters), Input/Output DTOs            │
-├─────────────────────────────────────────────────────────────┤
-│                        Domain                               │
-│  Entities, Value Objects, Aggregate Roots, Domain Events    │
-├─────────────────────────────────────────────────────────────┤
-│                     Infrastructure                          │
-│  Repositories (Outbound Adapters), External Services        │
-└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
