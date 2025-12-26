@@ -19,19 +19,19 @@ function normalizeHeaders(headers: Record<string, unknown>): Record<string, stri
  * @example
  * ```typescript
  * import { Controller, Get } from '@nestjs/common';
- * import { OnionRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+ * import { OnionLasagnaRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
  * import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
  *
  * @Controller('users')
  * export class UsersController {
  *   @Get(':id')
- *   getUser(@OnionRequest() request: HttpRequest) {
+ *   getUser(@OnionLasagnaRequest() request: HttpRequest) {
  *     return getUserController.execute(request);
  *   }
  * }
  * ```
  */
-export const OnionRequest = createParamDecorator(
+export const OnionLasagnaRequest = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): HttpRequest => {
     const request = ctx.switchToHttp().getRequest();
 
