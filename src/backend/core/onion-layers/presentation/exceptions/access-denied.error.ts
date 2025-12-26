@@ -16,13 +16,15 @@ import {
  * - User lacks required permissions
  * - Resource ownership check fails
  *
- * @example
+ * @example GuardedController usage
  * ```typescript
- * // Automatically thrown by @AllowRequest decorator
- * @AllowRequest<Request>((req) => ({
- *   isAllowed: req.user?.role === 'admin',
- *   reason: 'Admin access required',
- * }))
+ * const controller = GuardedController.create({
+ *   accessGuard: (req) => ({
+ *     isAllowed: req.user?.role === 'admin',
+ *     reason: 'Admin access required',
+ *   }),
+ *   // ... other config
+ * });
  * ```
  *
  * @example Manual usage

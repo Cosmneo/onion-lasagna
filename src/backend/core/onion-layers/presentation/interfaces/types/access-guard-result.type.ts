@@ -4,7 +4,7 @@
  * Represents the outcome of an authorization check, indicating whether
  * access should be granted and optionally providing a reason for denial.
  *
- * **Usage with @AllowRequest:**
+ * **Usage with GuardedController:**
  * - If `isAllowed: true`, the controller method executes normally
  * - If `isAllowed: false`, throws {@link AccessDeniedError} with the reason
  *
