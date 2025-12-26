@@ -208,9 +208,7 @@ describe('registerElysiaRoutes', () => {
         requestDtoFactory: mockRequestDtoFactory,
       });
 
-      const res = await app.handle(
-        new Request('http://localhost/users/123', { method: 'DELETE' }),
-      );
+      const res = await app.handle(new Request('http://localhost/users/123', { method: 'DELETE' }));
       expect(res.status).toBe(204);
     });
 
@@ -230,9 +228,7 @@ describe('registerElysiaRoutes', () => {
         requestDtoFactory: mockRequestDtoFactory,
       });
 
-      const res = await app.handle(
-        new Request('http://localhost/users', { method: 'OPTIONS' }),
-      );
+      const res = await app.handle(new Request('http://localhost/users', { method: 'OPTIONS' }));
       expect(res.status).toBe(200);
       expect(res.headers.get('Allow')).toBe('GET, POST, PUT, DELETE');
     });
@@ -397,9 +393,7 @@ describe('registerElysiaRoutes', () => {
         requestDtoFactory: mockRequestDtoFactory,
       });
 
-      const res = await app.handle(
-        new Request('http://localhost/empty', { method: 'DELETE' }),
-      );
+      const res = await app.handle(new Request('http://localhost/empty', { method: 'DELETE' }));
       expect(res.status).toBe(204);
     });
   });

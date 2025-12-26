@@ -57,9 +57,7 @@ describe('ArkType Value Object Wrappers', () => {
     it('should generate valid UUID v4', () => {
       const uuid = UuidV4Vo.generate();
 
-      expect(uuid.value).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-      );
+      expect(uuid.value).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
     it('should generate unique UUIDs', () => {
@@ -93,9 +91,7 @@ describe('ArkType Value Object Wrappers', () => {
     it('should generate valid UUID v7', () => {
       const uuid = UuidV7Vo.generate();
 
-      expect(uuid.value).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-      );
+      expect(uuid.value).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
     it('should generate unique UUIDs', () => {

@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { BaseAuditByVo } from '../base-audit-by.vo';
 import { BaseAuditOnVo } from '../base-audit-on.vo';
 import { BaseUuidV4Vo } from '../base-uuid-v4.vo';
-import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../../classes/base-value-object.class';
+import {
+  BaseValueObject,
+  SKIP_VALUE_OBJECT_VALIDATION,
+} from '../../classes/base-value-object.class';
 import { InvariantViolationError } from '../../exceptions/invariant-violation.error';
 
 // Concrete implementations for testing

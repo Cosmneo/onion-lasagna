@@ -22,11 +22,7 @@ describe('computeRoutePath', () => {
     });
 
     it('should handle root endpoint path', () => {
-      const result = computeRoutePath(
-        { basePath: '/api' },
-        { path: '/health' },
-        { path: '/' },
-      );
+      const result = computeRoutePath({ basePath: '/api' }, { path: '/health' }, { path: '/' });
       expect(result).toBe('/api/health');
     });
   });
@@ -146,20 +142,12 @@ describe('computeRoutePath', () => {
     });
 
     it('should handle empty resource path', () => {
-      const result = computeRoutePath(
-        { basePath: '/api' },
-        { path: '' },
-        { path: '/health' },
-      );
+      const result = computeRoutePath({ basePath: '/api' }, { path: '' }, { path: '/health' });
       expect(result).toBe('/api/health');
     });
 
     it('should handle empty endpoint path', () => {
-      const result = computeRoutePath(
-        { basePath: '/api' },
-        { path: '/users' },
-        { path: '' },
-      );
+      const result = computeRoutePath({ basePath: '/api' }, { path: '/users' }, { path: '' });
       expect(result).toBe('/api/users');
     });
   });

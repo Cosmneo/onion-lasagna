@@ -219,7 +219,11 @@ describe('BaseAggregateRoot', () => {
   describe('equality (inherited from BaseEntity)', () => {
     it('should compare by id', () => {
       const aggregate1 = TestAggregate.create('same-id', 'Name 1');
-      const aggregate2 = TestAggregate.fromPersistence('same-id', { name: 'Name 2', status: 'inactive' }, 5);
+      const aggregate2 = TestAggregate.fromPersistence(
+        'same-id',
+        { name: 'Name 2', status: 'inactive' },
+        5,
+      );
 
       expect(aggregate1.equals(aggregate2)).toBe(true);
     });

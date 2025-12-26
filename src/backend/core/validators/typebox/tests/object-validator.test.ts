@@ -90,9 +90,7 @@ describe('TypeBoxObjectValidator', () => {
       it('should throw ObjectValidationError for invalid string length', () => {
         const schema = Type.String({ minLength: 5 });
 
-        expect(() => validator.validateObject(schema, 'hi')).toThrow(
-          ObjectValidationError,
-        );
+        expect(() => validator.validateObject(schema, 'hi')).toThrow(ObjectValidationError);
       });
 
       it('should throw ObjectValidationError for missing required fields', () => {

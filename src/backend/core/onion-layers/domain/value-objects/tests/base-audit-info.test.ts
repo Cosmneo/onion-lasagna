@@ -3,7 +3,10 @@ import { BaseAuditInfoVo } from '../base-audit-info.vo';
 import { BaseAuditByVo } from '../base-audit-by.vo';
 import { BaseAuditOnVo } from '../base-audit-on.vo';
 import { BaseUuidV4Vo } from '../base-uuid-v4.vo';
-import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../../classes/base-value-object.class';
+import {
+  BaseValueObject,
+  SKIP_VALUE_OBJECT_VALIDATION,
+} from '../../classes/base-value-object.class';
 
 // Concrete implementations for testing
 class TestUserId extends BaseUuidV4Vo {

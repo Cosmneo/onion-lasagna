@@ -10,15 +10,15 @@ npm install @cosmneo/onion-lasagna @nestjs/common @nestjs/core
 
 ## Exports
 
-| Export                           | Description                                                            |
-| -------------------------------- | ---------------------------------------------------------------------- |
-| `BaseNestController`             | Abstract base class with auto-wired filter and interceptor             |
-| `OnionLasagnaRequest`            | Parameter decorator that extracts `HttpRequest` from NestJS request    |
-| `OnionLasagnaExceptionFilter`    | Exception filter that maps onion-lasagna errors to HTTP responses      |
-| `OnionLasagnaResponseInterceptor`| Interceptor that transforms `HttpResponse` to NestJS response          |
-| `HttpController`                 | Type alias for `Controller<HttpRequest, HttpResponse>`                 |
-| `HttpRequest`                    | Request type with body, headers, queryParams, pathParams               |
-| `HttpResponse`                   | Response type with statusCode, body, headers                           |
+| Export                            | Description                                                         |
+| --------------------------------- | ------------------------------------------------------------------- |
+| `BaseNestController`              | Abstract base class with auto-wired filter and interceptor          |
+| `OnionLasagnaRequest`             | Parameter decorator that extracts `HttpRequest` from NestJS request |
+| `OnionLasagnaExceptionFilter`     | Exception filter that maps onion-lasagna errors to HTTP responses   |
+| `OnionLasagnaResponseInterceptor` | Interceptor that transforms `HttpResponse` to NestJS response       |
+| `HttpController`                  | Type alias for `Controller<HttpRequest, HttpResponse>`              |
+| `HttpRequest`                     | Request type with body, headers, queryParams, pathParams            |
+| `HttpResponse`                    | Response type with statusCode, body, headers                        |
 
 ## Usage
 
@@ -29,7 +29,10 @@ Extend `BaseNestController` to automatically apply the exception filter and resp
 ```typescript
 // users.controller.ts
 import { Controller, Get, Post, Delete, UseGuards } from '@nestjs/common';
-import { BaseNestController, OnionLasagnaRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import {
+  BaseNestController,
+  OnionLasagnaRequest,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
 import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { getUserController, createUserController, deleteUserController } from './controllers';
@@ -140,13 +143,13 @@ The `OnionLasagnaExceptionFilter` maps onion-lasagna errors to HTTP responses:
 
 ## Comparison with Hono Integration
 
-| Aspect             | Hono                           | NestJS                                                              |
-| ------------------ | ------------------------------ | ------------------------------------------------------------------- |
-| Route Registration | Dynamic (`registerHonoRoutes`) | Decorator-based (`@Get`, `@Post`)                                   |
-| Request Extraction | `extractRequest(context)`      | `@OnionLasagnaRequest()` decorator                                  |
-| Error Handling     | `app.onError(handler)`         | `@UseFilters(OnionLasagnaExceptionFilter)`                          |
-| Middleware/Guards  | `options.middlewares`          | NestJS `@UseGuards` (infra) + onion `AccessGuard` (business)        |
-| Response Transform | Automatic in handler           | Controller returns body directly                                    |
+| Aspect             | Hono                           | NestJS                                                       |
+| ------------------ | ------------------------------ | ------------------------------------------------------------ |
+| Route Registration | Dynamic (`registerHonoRoutes`) | Decorator-based (`@Get`, `@Post`)                            |
+| Request Extraction | `extractRequest(context)`      | `@OnionLasagnaRequest()` decorator                           |
+| Error Handling     | `app.onError(handler)`         | `@UseFilters(OnionLasagnaExceptionFilter)`                   |
+| Middleware/Guards  | `options.middlewares`          | NestJS `@UseGuards` (infra) + onion `AccessGuard` (business) |
+| Response Transform | Automatic in handler           | Controller returns body directly                             |
 
 ## Philosophy
 
