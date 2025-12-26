@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Controller, Get } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { EXCEPTION_FILTERS_METADATA, INTERCEPTORS_METADATA } from '@nestjs/common/constants';
 import { BaseNestController } from '../classes/base-nest-controller.class';
 import { OnionLasagnaExceptionFilter } from '../filters/onion-lasagna-exception.filter';
@@ -26,7 +26,6 @@ describe('BaseNestController', () => {
     it('should allow child classes to inherit decorators', () => {
       @Controller('users')
       class UsersController extends BaseNestController {
-        @Get()
         getUsers() {
           return [];
         }
@@ -42,12 +41,12 @@ describe('BaseNestController', () => {
       // The child class should be instantiable
       const controller = new UsersController();
       expect(controller).toBeInstanceOf(BaseNestController);
+      expect(controller.getUsers()).toEqual([]);
     });
 
     it('should allow child classes to add additional decorators', () => {
       @Controller('orders')
       class OrdersController extends BaseNestController {
-        @Get(':id')
         getOrder() {
           return { id: '123' };
         }
