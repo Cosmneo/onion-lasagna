@@ -26,8 +26,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
 
       - name: Build (as a test)
         run: bun run build
@@ -61,15 +59,13 @@ jobs:
 
       - name: Setup .npmrc
         run: |
-          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" > .npmrc
           echo "@cosmneo:registry=https://npm.pkg.github.com" >> .npmrc
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: bun install
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
 
       - name: Build package
         run: bun run build
@@ -127,5 +123,5 @@ jobs:
           # Using npm publish for the actual upload as it handles GPR perfectly with .npmrc
           npm publish --tag $TAG --registry=https://npm.pkg.github.com
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max-old-space-size=4096'
