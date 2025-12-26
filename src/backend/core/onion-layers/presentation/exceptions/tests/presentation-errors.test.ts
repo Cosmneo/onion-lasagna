@@ -130,7 +130,7 @@ describe('AccessDeniedError', () => {
 describe('InvalidRequestError', () => {
   describe('constructor', () => {
     it('should create with message, default code, and validation errors', () => {
-      const validationErrors = [{ path: 'email', message: 'Invalid email' }];
+      const validationErrors = [{ field: 'email', message: 'Invalid email' }];
       const error = new InvalidRequestError({
         message: 'Request validation failed',
         validationErrors,
@@ -165,9 +165,9 @@ describe('InvalidRequestError', () => {
 
     it('should store multiple validation errors', () => {
       const validationErrors = [
-        { path: 'email', message: 'Invalid format' },
-        { path: 'name', message: 'Required' },
-        { path: 'age', message: 'Must be positive' },
+        { field: 'email', message: 'Invalid format' },
+        { field: 'name', message: 'Required' },
+        { field: 'age', message: 'Must be positive' },
       ];
 
       const error = new InvalidRequestError({
@@ -223,30 +223,30 @@ describe('InvalidRequestError', () => {
   });
 
   describe('validation errors format', () => {
-    it('should support dot-notation paths', () => {
+    it('should support dot-notation fields', () => {
       const error = new InvalidRequestError({
         message: 'Nested validation failed',
         validationErrors: [
-          { path: 'user.email', message: 'Invalid email' },
-          { path: 'user.address.city', message: 'Required' },
+          { field: 'user.email', message: 'Invalid email' },
+          { field: 'user.address.city', message: 'Required' },
         ],
       });
 
-      expect(error.validationErrors[0]?.path).toBe('user.email');
-      expect(error.validationErrors[1]?.path).toBe('user.address.city');
+      expect(error.validationErrors[0]?.field).toBe('user.email');
+      expect(error.validationErrors[1]?.field).toBe('user.address.city');
     });
 
-    it('should support array index paths', () => {
+    it('should support array index fields', () => {
       const error = new InvalidRequestError({
         message: 'Array validation failed',
         validationErrors: [
-          { path: 'items.0.name', message: 'Required' },
-          { path: 'items.1.quantity', message: 'Must be positive' },
+          { field: 'items.0.name', message: 'Required' },
+          { field: 'items.1.quantity', message: 'Must be positive' },
         ],
       });
 
-      expect(error.validationErrors[0]?.path).toBe('items.0.name');
-      expect(error.validationErrors[1]?.path).toBe('items.1.quantity');
+      expect(error.validationErrors[0]?.field).toBe('items.0.name');
+      expect(error.validationErrors[1]?.field).toBe('items.1.quantity');
     });
   });
 });

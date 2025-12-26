@@ -7,6 +7,10 @@ import { DbError } from '../../exceptions/db.error';
 // This is needed because BaseOutboundAdapter uses prototype-level markers
 function createTestRepository() {
   class TestRepository extends BaseOutboundAdapter {
+    constructor() {
+      super();
+    }
+
     async findById(id: string): Promise<{ id: string; name: string } | null> {
       if (id === 'not-found') return null;
       return { id, name: 'Test Entity' };
@@ -33,6 +37,10 @@ function createTestRepository() {
 
 function createCustomErrorRepository() {
   class CustomErrorRepository extends BaseOutboundAdapter {
+    constructor() {
+      super();
+    }
+
     protected override createInfraError(error: unknown, methodName: string): InfraError {
       return new DbError({
         message: `Database error in ${methodName}`,
@@ -49,6 +57,10 @@ function createCustomErrorRepository() {
 
 function createRepositoryWithGetter() {
   class RepositoryWithGetter extends BaseOutboundAdapter {
+    constructor() {
+      super();
+    }
+
     private _data = 'initial';
 
     get data(): string {
@@ -185,6 +197,10 @@ describe('BaseOutboundAdapter', () => {
   describe('promise handling', () => {
     it('should handle rejected promises', async () => {
       class RejectingRepo extends BaseOutboundAdapter {
+        constructor() {
+          super();
+        }
+
         async rejectingMethod(): Promise<string> {
           return Promise.reject(new Error('Rejected'));
         }
@@ -197,6 +213,10 @@ describe('BaseOutboundAdapter', () => {
 
     it('should handle promise that resolves then throws', async () => {
       class DelayedErrorRepo extends BaseOutboundAdapter {
+        constructor() {
+          super();
+        }
+
         async delayedError(): Promise<string> {
           await new Promise((resolve) => setTimeout(resolve, 10));
           throw new Error('Delayed error');

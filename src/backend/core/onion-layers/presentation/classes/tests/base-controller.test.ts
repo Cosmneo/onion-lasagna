@@ -109,7 +109,7 @@ describe('BaseController', () => {
           requestMapper: () => {
             throw new ObjectValidationError({
               message: 'Validation failed',
-              validationErrors: [{ path: 'email', message: 'Invalid email' }],
+              validationErrors: [{ field: 'email', message: 'Invalid email' }],
             });
           },
           useCase: createMockUseCase(),
@@ -124,8 +124,8 @@ describe('BaseController', () => {
 
       it('should preserve validation errors on passthrough', async () => {
         const validationErrors = [
-          { path: 'email', message: 'Invalid format' },
-          { path: 'name', message: 'Required' },
+          { field: 'email', message: 'Invalid format' },
+          { field: 'name', message: 'Required' },
         ];
 
         const controller = BaseController.create({
@@ -245,7 +245,7 @@ describe('BaseController', () => {
           responseMapper: () => {
             throw new ObjectValidationError({
               message: 'Response validation failed',
-              validationErrors: [{ path: 'userId', message: 'Invalid' }],
+              validationErrors: [{ field: 'userId', message: 'Invalid' }],
             });
           },
         });
