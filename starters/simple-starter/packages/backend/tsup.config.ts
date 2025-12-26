@@ -18,9 +18,5 @@ export default defineConfig({
   target: 'es2022',
   minify: false,
   skipNodeModulesBundle: true,
-  external: [
-    '@cosmneo/onion-lasagna',
-    'zod',
-    'uuid',
-  ],
+  external: ['@cosmneo/onion-lasagna', 'zod', 'uuid'],
 });

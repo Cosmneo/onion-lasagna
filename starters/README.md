@@ -15,6 +15,7 @@ npx degit Cosmneo/onion-lasagna/starters/modules-starter my-project
 ## Starters
 
 ### simple-starter
+
 Flat structure for smaller systems, microservices, and simple APIs.
 
 ```
@@ -25,6 +26,7 @@ packages/backend/
 ```
 
 ### modules-starter
+
 Module-based structure for complex systems with multiple teams or domains.
 
 ```

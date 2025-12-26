@@ -21,10 +21,6 @@
     "noUnusedParameters": true,
     "noPropertyAccessFromIndexSignature": true
   },
-  "include": [
-    "bounded-contexts/**/*.ts",
-    "orchestrations/**/*.ts",
-    "shared/**/*.ts"
-  ],
+  "include": ["bounded-contexts/**/*.ts", "orchestrations/**/*.ts", "shared/**/*.ts"],
   "exclude": ["**/*.test.ts", "**/tests/**", "dist"]
 }
