@@ -4,7 +4,7 @@ export {
   type FastifyMiddleware,
   type RouteInputOrArray,
   type RegisterRoutesOptions,
-} from './create-fastify-router';
+} from './routing';
 export {
   mapErrorToResponse,
   type ErrorResponseBody,
