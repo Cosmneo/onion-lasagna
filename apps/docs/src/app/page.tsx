@@ -2,6 +2,7 @@ import { Link } from "@/lib/transition"
 import Image from "next/image"
 import { FaGithub, FaNpm } from "react-icons/fa"
 import { HiOutlineArrowRight } from "react-icons/hi"
+import { HiOutlineSparkles } from "react-icons/hi2"
 
 import { PageRoutes } from "@/lib/pageroutes"
 import { buttonVariants } from "@/components/ui/button"
@@ -79,27 +80,63 @@ function HeroSection() {
   )
 }
 
+// Custom SVG icons for features
+function LayersIcon() {
+  return (
+    <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function PlugIcon() {
+  return (
+    <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" strokeLinecap="round"/>
+      <path d="M12 6v2M12 16v2M6 12h2M16 12h2" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function ShieldIcon() {
+  return (
+    <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 function FeaturesSection() {
   const features = [
     {
       title: "Onion Architecture",
       description: "Clean separation of concerns with domain at the core. Dependencies flow inward, keeping your business logic pure.",
-      icon: "🧅",
+      icon: <LayersIcon />,
     },
     {
       title: "Framework Agnostic",
       description: "Works with Hono, Elysia, Fastify, or NestJS. Switch frameworks without rewriting your business logic.",
-      icon: "🔌",
+      icon: <PlugIcon />,
     },
     {
       title: "Validator Flexibility",
       description: "Choose your validation library: Zod, Valibot, ArkType, or TypeBox. Same patterns, your preferred tools.",
-      icon: "✅",
+      icon: <CheckIcon />,
     },
     {
       title: "Type-Safe by Design",
       description: "End-to-end TypeScript with strict types. Catch errors at compile time, not in production.",
-      icon: "🛡️",
+      icon: <ShieldIcon />,
     },
   ]
 
@@ -119,7 +156,7 @@ function FeaturesSection() {
               key={feature.title}
               className="group rounded-xl border border-border bg-card p-6 transition-all hover:border-[#7555A8]/50 hover:shadow-[0_0_30px_rgba(117,85,168,0.1)]"
             >
-              <div className="mb-4 text-4xl">{feature.icon}</div>
+              <div className="mb-4 text-[#7555A8]">{feature.icon}</div>
               <h3 className="mb-2 text-lg font-semibold">{feature.title}</h3>
               <p className="text-sm text-muted-foreground">{feature.description}</p>
             </div>
@@ -176,15 +213,15 @@ function ArchitectureSection() {
           </div>
 
           {/* Legend */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             {layers.map((layer) => (
               <div key={layer.name} className="flex items-center gap-4">
                 <div
-                  className="h-4 w-4 rounded-full border border-[#E5DEFF]/30"
+                  className="h-6 w-6 shrink-0 rounded-full border-2 border-[#E5DEFF]/40 shadow-lg"
                   style={{ backgroundColor: layer.color }}
                 />
                 <div>
-                  <div className="font-semibold">{layer.name}</div>
+                  <div className="font-semibold text-foreground">{layer.name}</div>
                   <div className="text-sm text-muted-foreground">{layer.description}</div>
                 </div>
               </div>
@@ -344,41 +381,6 @@ function CTASection() {
   )
 }
 
-function Footer() {
-  return (
-    <footer className="border-t border-border px-6 py-12">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
-        <div className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="Onion Lasagna" width={24} height={24} />
-          <span className="font-semibold">Onion Lasagna</span>
-        </div>
-        <div className="flex items-center gap-6 text-sm text-muted-foreground">
-          <Link href="/docs/philosophy" className="hover:text-foreground">
-            Docs
-          </Link>
-          <Link
-            href="https://github.com/Cosmneo/onion-lasagna"
-            target="_blank"
-            className="hover:text-foreground"
-          >
-            GitHub
-          </Link>
-          <Link
-            href="https://www.npmjs.com/package/@cosmneo/onion-lasagna"
-            target="_blank"
-            className="hover:text-foreground"
-          >
-            npm
-          </Link>
-        </div>
-        <div className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Cosmneo
-        </div>
-      </div>
-    </footer>
-  )
-}
-
 export default function Home() {
   return (
     <main className="min-h-screen">
@@ -388,7 +390,6 @@ export default function Home() {
       <CodeSection />
       <GetStartedSection />
       <CTASection />
-      <Footer />
     </main>
   )
 }
