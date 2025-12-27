@@ -22,6 +22,7 @@ interface CliArgs {
   packageManager?: PackageManager;
   install?: boolean;
   skipGit?: boolean;
+  vscode?: boolean;
   dryRun?: boolean;
   yes?: boolean;
   help?: boolean;
@@ -66,6 +67,10 @@ function parseArgs(args: string[]): CliArgs {
       result.install = false;
     } else if (arg === '--skip-git' || arg === '-g') {
       result.skipGit = true;
+    } else if (arg === '--vscode') {
+      result.vscode = true;
+    } else if (arg === '--no-vscode') {
+      result.vscode = false;
     } else if (arg === '--dry-run' || arg === '-d') {
       result.dryRun = true;
     } else if (arg === '--use-npm') {
@@ -119,6 +124,8 @@ ${pc.bold('Options:')}
 
   -g, --skip-git           Skip git initialization
   --no-install             Skip dependency installation
+  --vscode                 Add VS Code settings to hide artifacts (default: prompt)
+  --no-vscode              Skip VS Code settings
   -d, --dry-run            Show what would be created without making changes
   -y, --yes                Skip prompts and use defaults
 
@@ -170,6 +177,7 @@ function showDryRunOutput(options: {
   packageManager: PackageManager;
   install: boolean;
   skipGit: boolean;
+  vscode: boolean;
 }) {
   const targetDir = path.resolve(process.cwd(), options.name);
 
@@ -185,6 +193,7 @@ function showDryRunOutput(options: {
   console.log(`  ${pc.cyan('Package Manager:')} ${options.packageManager}`);
   console.log(`  ${pc.cyan('Install deps:')}   ${options.install ? 'yes' : 'no'}`);
   console.log(`  ${pc.cyan('Git init:')}       ${options.skipGit ? 'no' : 'yes'}`);
+  console.log(`  ${pc.cyan('VS Code config:')} ${options.vscode ? 'yes' : 'no'}`);
 
   console.log(`\n${pc.bold('Files that would be created:')}`);
   console.log(pc.dim('─'.repeat(50)));
@@ -197,6 +206,9 @@ function showDryRunOutput(options: {
   console.log(`  ${pc.green('+')} ${options.name}/packages/backend/.env.example`);
   if (!options.skipGit) {
     console.log(`  ${pc.green('+')} ${options.name}/.git/`);
+  }
+  if (options.vscode) {
+    console.log(`  ${pc.green('+')} ${options.name}/.vscode/settings.json`);
   }
 
   console.log(`\n${pc.bold('Actions that would be performed:')}`);
@@ -355,6 +367,7 @@ async function main() {
       packageManager,
       install: args.install !== false,
       skipGit: args.skipGit ?? false,
+      vscode: args.vscode ?? true, // Default to true in non-interactive mode
     };
 
     // Dry run mode
@@ -524,6 +537,12 @@ async function main() {
           message: 'Install dependencies?',
           initialValue: args.install !== false,
         }),
+
+      vscode: () =>
+        p.confirm({
+          message: 'Add VS Code settings to hide artifacts?',
+          initialValue: args.vscode !== false,
+        }),
     },
     {
       onCancel: () => {
@@ -543,6 +562,7 @@ async function main() {
     packageManager,
     install: project.install as boolean,
     skipGit: args.skipGit ?? false,
+    vscode: project.vscode as boolean,
   };
 
   // Dry run mode

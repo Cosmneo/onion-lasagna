@@ -154,6 +154,7 @@ interface ScaffoldOptions {
   packageManager: PackageManager;
   install: boolean;
   skipGit: boolean;
+  vscode: boolean;
 }
 
 const REPO = 'Cosmneo/onion-lasagna';
@@ -178,6 +179,31 @@ const INSTALL_COMMANDS: Record<PackageManager, string> = {
   bun: 'bun install',
 };
 
+const VSCODE_SETTINGS = {
+  'files.exclude': {
+    '**/node_modules': true,
+    '**/dist': true,
+    '**/.turbo': true,
+    '**/coverage': true,
+    '**/.nyc_output': true,
+    '**/*.tsbuildinfo': true,
+    '**/bun.lockb': true,
+    '**/package-lock.json': true,
+    '**/yarn.lock': true,
+    '**/pnpm-lock.yaml': true,
+  },
+  'search.exclude': {
+    '**/node_modules': true,
+    '**/dist': true,
+    '**/.turbo': true,
+    '**/coverage': true,
+    '**/bun.lockb': true,
+    '**/package-lock.json': true,
+    '**/yarn.lock': true,
+    '**/pnpm-lock.yaml': true,
+  },
+};
+
 function initGitRepository(targetDir: string): boolean {
   try {
     execSync('git init', { cwd: targetDir, stdio: 'ignore' });
@@ -194,8 +220,17 @@ function initGitRepository(targetDir: string): boolean {
 }
 
 export async function scaffold(options: ScaffoldOptions): Promise<void> {
-  const { name, structure, starter, validator, framework, packageManager, install, skipGit } =
-    options;
+  const {
+    name,
+    structure,
+    starter,
+    validator,
+    framework,
+    packageManager,
+    install,
+    skipGit,
+    vscode,
+  } = options;
   const targetDir = path.resolve(process.cwd(), name);
 
   // Check if directory exists
@@ -275,6 +310,16 @@ PORT=3000
     createdAt: new Date().toISOString(),
   };
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+  // Create/update VS Code settings if requested
+  if (vscode) {
+    const vscodeDir = path.join(targetDir, '.vscode');
+    if (!fs.existsSync(vscodeDir)) {
+      fs.mkdirSync(vscodeDir, { recursive: true });
+    }
+    const vscodeSettingsPath = path.join(vscodeDir, 'settings.json');
+    fs.writeFileSync(vscodeSettingsPath, JSON.stringify(VSCODE_SETTINGS, null, 2) + '\n');
+  }
 
   // Install dependencies if requested
   if (install) {
