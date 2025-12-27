@@ -1482,6 +1482,1293 @@ class CreateUserCommand {
 - ❌ Don't put business logic in repositories
 ---
 
+# Validators
+> Validator abstraction for schema validation. Supports Zod, ArkType, Valibot, and TypeBox.
+
+## Overview
+
+The library provides a validator abstraction layer that allows you to use your preferred validation library while maintaining consistent patterns across your codebase.
+
+Supported validators:
+- **Zod** - TypeScript-first schema validation
+- **ArkType** - TypeScript's 1:1 validator
+- **Valibot** - Modular, tree-shakeable validation
+- **TypeBox** - JSON Schema Type Builder
+
+---
+
+## ObjectValidatorPort
+
+The core abstraction is `ObjectValidatorPort`:
+
+```typescript
+interface ObjectValidatorPort {
+  validateObject: ValidateObject;
+  withSchema: (schema: TSchema) => BoundValidator;
+}
+
+interface BoundValidator {
+  validate: (value: unknown) => T;
+}
+```
+
+Each validator implementation converts validation errors to `ObjectValidationError` with structured field-level error messages.
+
+---
+
+## Factory Functions
+
+Each validator exports a factory function that creates a `BoundValidator`:
+
+```typescript
+// Zod
+
+
+
+const schema = z.object({ email: z.string().email() });
+const validator = createZodValidator(schema);
+
+// ArkType
+
+
+
+const schema = type({ email: 'string.email' });
+const validator = createArkTypeValidator(schema);
+
+// Valibot
+
+
+
+const schema = v.object({ email: v.pipe(v.string(), v.email()) });
+const validator = createValibotValidator(schema);
+
+// TypeBox
+
+
+
+const schema = Type.Object({ email: Type.String({ format: 'email' }) });
+const validator = createTypeBoxValidator(schema);
+```
+
+---
+
+## Using with BaseDto
+
+Inject validators into `BaseDto` constructors:
+
+```typescript
+
+
+
+class CreateUserDto extends BaseDto {
+  private constructor(data: CreateUserData) {
+    super(data, createZodValidator(createUserSchema));
+  }
+
+  static create(data: unknown): CreateUserDto {
+    return new CreateUserDto(data as CreateUserData);
+  }
+}
+```
+
+---
+
+## Using with BaseValueObject
+
+Inject validators into `BaseValueObject` constructors:
+
+```typescript
+
+
+
+class Email extends BaseValueObject {
+  private constructor(value: string) {
+    super(value, createZodValidator(z.string().email()));
+  }
+
+  static create(value: string): Email {
+    return new Email(value);
+  }
+}
+```
+
+---
+
+## Pre-built Value Objects
+
+Each validator exports ready-to-use value objects:
+
+```typescript
+
+  EmailVo,
+  UuidV4Vo,
+  UuidV7Vo,
+  ShortTextVo,
+  MediumTextVo,
+  LongTextVo,
+  PaginationVo,
+  AuditByVo,
+  AuditOnVo,
+  AuditInfoVo,
+} from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+
+// Usage
+const email = EmailVo.create('user@example.com');
+const id = UuidV4Vo.generate();
+const name = ShortTextVo.create('John Doe');
+```
+
+All four validators (Zod, ArkType, Valibot, TypeBox) provide these same value objects with identical APIs.
+
+---
+
+## Error Handling
+
+When validation fails, validators throw `ObjectValidationError`:
+
+```typescript
+
+
+try {
+  const dto = CreateUserDto.create({ email: 'invalid' });
+} catch (error) {
+  if (error instanceof ObjectValidationError) {
+    console.log(error.code);            // 'OBJECT_VALIDATION_ERROR'
+    console.log(error.validationErrors); // [{ field: 'email', message: 'Invalid email' }]
+  }
+}
+```
+
+The `validationErrors` array contains structured errors:
+
+```typescript
+interface ValidationError {
+  field: string;   // Dot-notation path: 'user.email', 'items[0].name'
+  message: string; // Human-readable error message
+}
+```
+
+---
+
+## Swapping Validators
+
+To switch validators, update your imports and schema definitions:
+
+```typescript
+// Before (Zod)
+
+
+const schema = z.object({ name: z.string() });
+const validator = createZodValidator(schema);
+
+// After (Valibot)
+
+
+const schema = v.object({ name: v.string() });
+const validator = createValibotValidator(schema);
+```
+
+The `BoundValidator` interface remains the same, so your `BaseDto` and `BaseValueObject` classes continue working without changes.
+
+---
+
+## Validator Comparison
+
+| Feature | Zod | ArkType | Valibot | TypeBox |
+|---------|-----|---------|---------|---------|
+| Bundle size | ~12kb | ~20kb | ~5kb | ~15kb |
+| Type inference | Excellent | Excellent | Excellent | Good |
+| Error messages | Detailed | Detailed | Customizable | Basic |
+| Performance | Fast | Very fast | Fast | Very fast |
+| Ecosystem | Large | Growing | Growing | Large |
+---
+
+# Error Handling
+> Typed error hierarchy with error codes for consistent error handling across layers.
+
+## Overview
+
+The library provides a comprehensive error hierarchy based on `CodedError`. Each error type has a unique code for programmatic handling and maps to appropriate HTTP status codes.
+
+---
+
+## CodedError Base Class
+
+All errors extend `CodedError`:
+
+```typescript
+
+
+abstract class CodedError extends Error {
+  public readonly code: string;
+
+  constructor(options: {
+    message: string;
+    code: string;
+    cause?: unknown;
+  });
+
+  static fromError(cause: unknown): CodedError;
+}
+```
+
+Key features:
+- `code` - Machine-readable identifier for error handling
+- `cause` - ES2022 error chaining support
+- `fromError()` - Factory method for wrapping unknown errors
+
+---
+
+## Error Hierarchy
+
+```
+CodedError (base)
+├── DomainError
+│   ├── InvariantViolationError
+│   └── PartialLoadError
+├── UseCaseError
+│   ├── NotFoundError
+│   ├── ConflictError
+│   └── UnprocessableError
+├── InfraError
+│   ├── DbError
+│   ├── NetworkError
+│   ├── TimeoutError
+│   └── ExternalServiceError
+├── ControllerError
+├── AccessDeniedError
+├── InvalidRequestError
+└── ObjectValidationError
+```
+
+---
+
+## Error Codes
+
+Each error has a predefined code:
+
+```typescript
+
+
+// Domain errors
+ErrorCodes.Domain.DOMAIN_ERROR           // 'DOMAIN_ERROR'
+ErrorCodes.Domain.INVARIANT_VIOLATION    // 'INVARIANT_VIOLATION'
+ErrorCodes.Domain.PARTIAL_LOAD           // 'PARTIAL_LOAD'
+
+// Use case errors
+ErrorCodes.App.USE_CASE_ERROR            // 'USE_CASE_ERROR'
+ErrorCodes.App.NOT_FOUND                 // 'NOT_FOUND'
+ErrorCodes.App.CONFLICT                  // 'CONFLICT'
+ErrorCodes.App.UNPROCESSABLE             // 'UNPROCESSABLE'
+
+// Infrastructure errors
+ErrorCodes.Infra.INFRA_ERROR             // 'INFRA_ERROR'
+ErrorCodes.Infra.DB_ERROR                // 'DB_ERROR'
+ErrorCodes.Infra.NETWORK_ERROR           // 'NETWORK_ERROR'
+ErrorCodes.Infra.TIMEOUT_ERROR           // 'TIMEOUT_ERROR'
+ErrorCodes.Infra.EXTERNAL_SERVICE_ERROR  // 'EXTERNAL_SERVICE_ERROR'
+
+// Presentation errors
+ErrorCodes.Presentation.CONTROLLER_ERROR // 'CONTROLLER_ERROR'
+ErrorCodes.Presentation.ACCESS_DENIED    // 'ACCESS_DENIED'
+ErrorCodes.Presentation.INVALID_REQUEST  // 'INVALID_REQUEST'
+
+// Global errors
+ErrorCodes.Global.OBJECT_VALIDATION_ERROR // 'OBJECT_VALIDATION_ERROR'
+```
+
+---
+
+## Domain Errors
+
+Use for business rule violations in the domain layer:
+
+```typescript
+
+
+class Order {
+  addItem(item: OrderItem): void {
+    if (this.status !== 'draft') {
+      throw new InvariantViolationError({
+        message: 'Cannot add items to a submitted order',
+        code: 'ORDER_NOT_DRAFT', // Custom code
+      });
+    }
+    // ...
+  }
+}
+```
+
+---
+
+## Use Case Errors
+
+Use for application-level failures:
+
+```typescript
+
+  NotFoundError,
+  ConflictError,
+  UnprocessableError,
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+class CreateUserCommand {
+  async execute(input: CreateUserInput): Promise {
+    const existing = await this.userRepo.findByEmail(input.email);
+    if (existing) {
+      throw new ConflictError({
+        message: `User with email ${input.email} already exists`,
+        code: 'USER_EMAIL_EXISTS', // Custom code
+      });
+    }
+    // ...
+  }
+}
+
+class GetUserQuery {
+  async execute(input: GetUserInput): Promise {
+    const user = await this.userRepo.findById(input.userId);
+    if (!user) {
+      throw new NotFoundError({
+        message: `User ${input.userId} not found`,
+        code: 'USER_NOT_FOUND', // Custom code
+      });
+    }
+    return this.toOutput(user);
+  }
+}
+```
+
+---
+
+## Infrastructure Errors
+
+Use for external system failures. `BaseOutboundAdapter` automatically wraps errors:
+
+```typescript
+
+
+
+class UserRepository extends BaseOutboundAdapter {
+  constructor(private readonly db: Database) {
+    super();
+  }
+
+  // Override to customize error type
+  protected createInfraError(error: unknown, methodName: string): InfraError {
+    return new DbError({
+      message: `Database error in ${methodName}`,
+      cause: error,
+    });
+  }
+
+  async findById(id: string): Promise {
+    // If this throws, it's automatically wrapped in DbError
+    return this.db.query('SELECT * FROM users WHERE id = ?', [id]);
+  }
+}
+```
+
+---
+
+## Presentation Errors
+
+Use for access control and request validation:
+
+```typescript
+
+  AccessDeniedError,
+  InvalidRequestError,
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+// Access guard
+class CanEditResourceGuard {
+  async guard(request: Request): Promise {
+    const canEdit = await this.checkPermission(request);
+    if (!canEdit) {
+      throw new AccessDeniedError({
+        message: 'You do not have permission to edit this resource',
+      });
+    }
+    return { isAllowed: true };
+  }
+}
+```
+
+---
+
+## Validation Errors
+
+`ObjectValidationError` includes structured field-level errors:
+
+```typescript
+
+
+// Thrown by validators when validation fails
+throw new ObjectValidationError({
+  message: 'Validation failed',
+  validationErrors: [
+    { field: 'email', message: 'Invalid email format' },
+    { field: 'password', message: 'Password must be at least 8 characters' },
+  ],
+});
+```
+
+---
+
+## HTTP Status Code Mapping
+
+Framework integrations map errors to HTTP status codes:
+
+| Error Type | HTTP Status | Response |
+|------------|-------------|----------|
+| `ObjectValidationError` | 400 Bad Request | Includes validation errors |
+| `InvalidRequestError` | 400 Bad Request | Includes validation errors |
+| `AccessDeniedError` | 403 Forbidden | Error message |
+| `NotFoundError` | 404 Not Found | Error message |
+| `ConflictError` | 409 Conflict | Error message |
+| `UnprocessableError` | 422 Unprocessable Entity | Error message |
+| `DomainError` | 500 Internal Server Error | Masked |
+| `InfraError` | 500 Internal Server Error | Masked |
+| `ControllerError` | 500 Internal Server Error | Masked |
+| Unknown Error | 500 Internal Server Error | Masked |
+
+Internal errors (Domain, Infra, Controller) are masked in responses to prevent leaking implementation details.
+
+---
+
+## Error Handling in Controllers
+
+`BaseController` automatically converts `ObjectValidationError` to `InvalidRequestError`:
+
+```typescript
+class MyController extends BaseController {
+  // If requestMapper throws ObjectValidationError,
+  // it's converted to InvalidRequestError automatically
+}
+```
+
+For custom error handling, override the `pipeline` method:
+
+```typescript
+class MyController extends BaseController {
+  protected async pipeline(input: Request): Promise {
+    try {
+      return await super.pipeline(input);
+    } catch (error) {
+      if (error instanceof CustomError) {
+        // Custom handling
+      }
+      throw error;
+    }
+  }
+}
+```
+
+---
+
+## Framework Error Handlers
+
+Each framework integration provides an error handler:
+
+```typescript
+// Hono
+
+app.onError(onionErrorHandler);
+
+// Elysia
+
+app.error(onionErrorHandler);
+
+// Fastify
+
+app.setErrorHandler(onionErrorHandler);
+
+// NestJS
+
+@UseFilters(OnionLasagnaExceptionFilter)
+
+```
+---
+
+# Hono Integration
+> Register routes and handle errors with Hono framework.
+
+## Installation
+
+```bash
+bun add hono
+```
+
+Import the Hono integration:
+
+```typescript
+
+  registerHonoRoutes,
+  onionErrorHandler,
+  mapErrorToHttpException,
+} from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+```
+
+---
+
+## Quick Start
+
+```typescript
+
+
+
+const app = new Hono();
+
+// Apply error handler
+app.onError(onionErrorHandler);
+
+// Register routes
+registerHonoRoutes(app, routes);
+
+
+```
+
+---
+
+## Registering Routes
+
+The `registerHonoRoutes` function registers your controllers with Hono:
+
+```typescript
+
+
+const routes: RouteInput[] = [
+  {
+    metadata: {
+      method: 'GET',
+      path: '/users/{userId}',  // {param} syntax converted to :param
+    },
+    controller: getUserController,
+    requestDtoFactory: GetUserRequestDto.create,
+  },
+  {
+    metadata: {
+      method: 'POST',
+      path: '/users',
+    },
+    controller: createUserController,
+    requestDtoFactory: CreateUserRequestDto.create,
+  },
+];
+
+registerHonoRoutes(app, routes);
+```
+
+### Path Parameter Conversion
+
+Paths use `{param}` syntax which is automatically converted to Hono's `:param` format:
+
+- `/users/{userId}` → `/users/:userId`
+- `/orders/{orderId}/items/{itemId}` → `/orders/:orderId/items/:itemId`
+
+---
+
+## Options
+
+```typescript
+interface RegisterRoutesOptions {
+  prefix?: string;              // Route prefix (e.g., '/api/v1')
+  middlewares?: HonoMiddleware[]; // Middlewares to apply to all routes
+}
+
+// With options
+registerHonoRoutes(app, routes, {
+  prefix: '/api/v1',
+  middlewares: [authMiddleware, loggingMiddleware],
+});
+```
+
+---
+
+## Error Handler
+
+The `onionErrorHandler` maps domain errors to HTTP responses:
+
+```typescript
+app.onError(onionErrorHandler);
+```
+
+### Error Mapping
+
+| Error Type | HTTP Status | Body |
+|------------|-------------|------|
+| `ObjectValidationError` | 400 | `{ code, message, errors }` |
+| `InvalidRequestError` | 400 | `{ code, message, errors }` |
+| `AccessDeniedError` | 403 | `{ code, message }` |
+| `NotFoundError` | 404 | `{ code, message }` |
+| `ConflictError` | 409 | `{ code, message }` |
+| `UnprocessableError` | 422 | `{ code, message }` |
+| `DomainError` | 500 | `{ message: 'Internal Server Error' }` |
+| `InfraError` | 500 | `{ message: 'Internal Server Error' }` |
+| Unknown | 500 | `{ message: 'Internal Server Error' }` |
+
+Internal errors (Domain, Infra, Controller) are masked to prevent leaking implementation details.
+
+---
+
+## Custom Error Handling
+
+Use `mapErrorToHttpException` for custom error handling:
+
+```typescript
+
+
+app.onError((error, c) => {
+  // Log all errors
+  console.error('Error:', error);
+
+  // Use standard mapping
+  const httpException = mapErrorToHttpException(error);
+  return httpException.getResponse();
+});
+```
+
+---
+
+## Controller Structure
+
+Controllers receive the raw Hono context and should return an `HttpResponse` wrapped in a DTO:
+
+```typescript
+
+
+class GetUserController extends BaseController,
+  GetUserInputDto,
+  GetUserOutputDto
+> {
+  static create(useCase: GetUserQueryInboundPort) {
+    return new GetUserController({
+      requestMapper: (dto) => GetUserInputDto.fromRequest(dto),
+      useCase,
+      responseMapper: (output) => HttpResponseDto.ok(output.data),
+    });
+  }
+}
+```
+
+---
+
+## Complete Example
+
+```typescript
+
+
+
+
+// Create app
+const app = new Hono();
+
+// Middleware
+app.use('*', cors());
+
+// Error handling
+app.onError(onionErrorHandler);
+
+// Health check
+app.get('/health', (c) => c.json({ status: 'ok' }));
+
+// API routes
+registerHonoRoutes(app, userRoutes, { prefix: '/api/v1' });
+registerHonoRoutes(app, orderRoutes, { prefix: '/api/v1' });
+
+
+```
+
+---
+
+## Cloudflare Workers
+
+```typescript
+// src/index.ts
+
+
+
+const app = new Hono();
+
+app.onError(onionErrorHandler);
+registerHonoRoutes(app, routes);
+
+
+```
+
+```toml
+# wrangler.toml
+name = "my-worker"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+```
+---
+
+# Elysia Integration
+> Register routes and handle errors with Elysia framework.
+
+## Installation
+
+```bash
+bun add elysia
+```
+
+Import the Elysia integration:
+
+```typescript
+
+  registerElysiaRoutes,
+  onionErrorHandler,
+  mapErrorToResponse,
+} from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+```
+
+---
+
+## Quick Start
+
+```typescript
+
+
+
+const app = new Elysia()
+  .error(onionErrorHandler)
+  .use(registerElysiaRoutes(routes));
+
+app.listen(3000);
+```
+
+---
+
+## Registering Routes
+
+The `registerElysiaRoutes` function returns an Elysia plugin:
+
+```typescript
+
+
+const routes: RouteInput[] = [
+  {
+    metadata: {
+      method: 'GET',
+      path: '/users/{userId}',
+    },
+    controller: getUserController,
+    requestDtoFactory: GetUserRequestDto.create,
+  },
+];
+
+const app = new Elysia()
+  .use(registerElysiaRoutes(routes));
+```
+
+### Path Parameter Conversion
+
+Paths use `{param}` syntax which is automatically converted to Elysia's `:param` format.
+
+---
+
+## Options
+
+```typescript
+interface RegisterRoutesOptions {
+  prefix?: string;
+  middlewares?: ElysiaMiddleware[];
+}
+
+const app = new Elysia()
+  .use(registerElysiaRoutes(routes, {
+    prefix: '/api/v1',
+    middlewares: [authMiddleware],
+  }));
+```
+
+---
+
+## Error Handler
+
+The `onionErrorHandler` is a function that handles errors:
+
+```typescript
+const app = new Elysia()
+  .error(onionErrorHandler);
+```
+
+### Error Mapping
+
+| Error Type | HTTP Status | Body |
+|------------|-------------|------|
+| `ObjectValidationError` | 400 | `{ code, message, errors }` |
+| `InvalidRequestError` | 400 | `{ code, message, errors }` |
+| `AccessDeniedError` | 403 | `{ code, message }` |
+| `NotFoundError` | 404 | `{ code, message }` |
+| `ConflictError` | 409 | `{ code, message }` |
+| `UnprocessableError` | 422 | `{ code, message }` |
+| Internal errors | 500 | `{ message: 'Internal Server Error' }` |
+
+---
+
+## Custom Error Handling
+
+Use `mapErrorToResponse` for custom handling:
+
+```typescript
+
+
+const app = new Elysia()
+  .error(({ error }) => {
+    console.error('Error:', error);
+
+    const { statusCode, body } = mapErrorToResponse(error);
+    return new Response(JSON.stringify(body), {
+      status: statusCode,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  });
+```
+
+---
+
+## Complete Example
+
+```typescript
+
+
+
+
+const app = new Elysia()
+  .use(cors())
+  .error(onionErrorHandler)
+  .get('/health', () => ({ status: 'ok' }))
+  .use(registerElysiaRoutes(userRoutes, { prefix: '/api/v1' }))
+  .use(registerElysiaRoutes(orderRoutes, { prefix: '/api/v1' }));
+
+app.listen(3000);
+
+console.log(`Server running at http://localhost:3000`);
+```
+---
+
+# Fastify Integration
+> Register routes and handle errors with Fastify framework.
+
+## Installation
+
+```bash
+bun add fastify
+```
+
+Import the Fastify integration:
+
+```typescript
+
+  registerFastifyRoutes,
+  onionErrorHandler,
+  mapErrorToResponse,
+} from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
+```
+
+---
+
+## Quick Start
+
+```typescript
+
+
+
+const app = Fastify();
+
+// Apply error handler
+app.setErrorHandler(onionErrorHandler);
+
+// Register routes
+registerFastifyRoutes(app, routes);
+
+app.listen({ port: 3000 });
+```
+
+---
+
+## Registering Routes
+
+The `registerFastifyRoutes` function registers your controllers with Fastify:
+
+```typescript
+
+
+const routes: RouteInput[] = [
+  {
+    metadata: {
+      method: 'GET',
+      path: '/users/{userId}',
+    },
+    controller: getUserController,
+    requestDtoFactory: GetUserRequestDto.create,
+  },
+];
+
+registerFastifyRoutes(app, routes);
+```
+
+### Path Parameter Conversion
+
+Paths use `{param}` syntax which is automatically converted to Fastify's `:param` format.
+
+---
+
+## Options
+
+```typescript
+interface RegisterRoutesOptions {
+  prefix?: string;
+  middlewares?: FastifyMiddleware[];
+}
+
+registerFastifyRoutes(app, routes, {
+  prefix: '/api/v1',
+  middlewares: [authMiddleware],
+});
+```
+
+---
+
+## Error Handler
+
+The `onionErrorHandler` maps domain errors to HTTP responses:
+
+```typescript
+app.setErrorHandler(onionErrorHandler);
+```
+
+### Error Mapping
+
+| Error Type | HTTP Status | Body |
+|------------|-------------|------|
+| `ObjectValidationError` | 400 | `{ code, message, errors }` |
+| `InvalidRequestError` | 400 | `{ code, message, errors }` |
+| `AccessDeniedError` | 403 | `{ code, message }` |
+| `NotFoundError` | 404 | `{ code, message }` |
+| `ConflictError` | 409 | `{ code, message }` |
+| `UnprocessableError` | 422 | `{ code, message }` |
+| Internal errors | 500 | `{ message: 'Internal Server Error' }` |
+
+---
+
+## Custom Error Handling
+
+Use `mapErrorToResponse` for custom handling:
+
+```typescript
+
+
+app.setErrorHandler((error, request, reply) => {
+  console.error('Error:', error);
+
+  const { statusCode, body } = mapErrorToResponse(error);
+  reply.status(statusCode).send(body);
+});
+```
+
+---
+
+## Complete Example
+
+```typescript
+
+
+
+
+const app = Fastify({ logger: true });
+
+// Plugins
+await app.register(cors);
+
+// Error handling
+app.setErrorHandler(onionErrorHandler);
+
+// Health check
+app.get('/health', () => ({ status: 'ok' }));
+
+// API routes
+registerFastifyRoutes(app, userRoutes, { prefix: '/api/v1' });
+registerFastifyRoutes(app, orderRoutes, { prefix: '/api/v1' });
+
+// Start
+try {
+  await app.listen({ port: 3000 });
+  console.log('Server running at http://localhost:3000');
+} catch (err) {
+  app.log.error(err);
+  process.exit(1);
+}
+```
+
+---
+
+## Type Providers
+
+Fastify's type system works with the integration:
+
+```typescript
+
+
+
+const app = Fastify().withTypeProvider();
+```
+---
+
+# NestJS Integration
+> Use onion-lasagna patterns with NestJS framework.
+
+## Installation
+
+```bash
+bun add @nestjs/core @nestjs/common @nestjs/platform-express
+```
+
+Import the NestJS integration:
+
+```typescript
+
+  OnionLasagnaRequest,
+  OnionLasagnaExceptionFilter,
+  OnionLasagnaResponseInterceptor,
+  BaseNestController,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+```
+
+---
+
+## Quick Start
+
+```typescript
+
+
+  OnionLasagnaRequest,
+  OnionLasagnaExceptionFilter,
+  OnionLasagnaResponseInterceptor,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+
+@Controller('users')
+@UseFilters(OnionLasagnaExceptionFilter)
+@UseInterceptors(OnionLasagnaResponseInterceptor)
+
+  constructor(private readonly getUserQuery: GetUserQueryInboundPort) {}
+
+  @Get(':userId')
+  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
+    const dto = GetUserRequestDto.create(request);
+    return this.getUserQuery.execute(dto);
+  }
+}
+```
+
+---
+
+## @OnionLasagnaRequest Decorator
+
+Extracts an `HttpRequest` object from the NestJS request:
+
+```typescript
+
+
+
+@Get(':id')
+async getItem(@OnionLasagnaRequest() request: HttpRequest) {
+  // request contains: pathParams, queryParams, body, headers
+}
+```
+
+The `HttpRequest` structure:
+
+```typescript
+interface HttpRequest {
+  pathParams: Record;
+  queryParams: Record;
+  body: unknown;
+  headers: Record;
+  rawRequest?: unknown;  // Original NestJS request
+}
+```
+
+---
+
+## OnionLasagnaExceptionFilter
+
+Maps domain errors to HTTP responses:
+
+```typescript
+
+
+
+// Apply to controller
+@Controller('users')
+@UseFilters(OnionLasagnaExceptionFilter)
+
+
+// Or apply globally in main.ts
+app.useGlobalFilters(new OnionLasagnaExceptionFilter());
+```
+
+### Error Mapping
+
+| Error Type | HTTP Status |
+|------------|-------------|
+| `ObjectValidationError` | 400 |
+| `InvalidRequestError` | 400 |
+| `AccessDeniedError` | 403 |
+| `NotFoundError` | 404 |
+| `ConflictError` | 409 |
+| `UnprocessableError` | 422 |
+| Internal errors | 500 |
+
+---
+
+## OnionLasagnaResponseInterceptor
+
+Extracts `HttpResponse` data from controller returns:
+
+```typescript
+
+
+
+@Controller('users')
+@UseInterceptors(OnionLasagnaResponseInterceptor)
+
+
+// Or apply globally
+app.useGlobalInterceptors(new OnionLasagnaResponseInterceptor());
+```
+
+This allows controllers to return `HttpResponse` objects and have them automatically unwrapped.
+
+---
+
+## BaseNestController
+
+A base class for NestJS controllers using onion patterns:
+
+```typescript
+
+
+@Controller('users')
+
+  constructor(
+    private readonly getUserQuery: GetUserQueryInboundPort,
+    private readonly createUserCommand: CreateUserCommandInboundPort,
+  ) {
+    super();
+  }
+
+  @Get(':userId')
+  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
+    return this.execute(request, GetUserRequestDto, this.getUserQuery);
+  }
+
+  @Post()
+  async createUser(@OnionLasagnaRequest() request: HttpRequest) {
+    return this.execute(request, CreateUserRequestDto, this.createUserCommand);
+  }
+}
+```
+
+---
+
+## Module Setup
+
+```typescript
+
+
+
+
+
+@Module({
+  controllers: [UsersController],
+  providers: [
+    {
+      provide: 'GetUserQueryInboundPort',
+      useClass: GetUserQuery,
+    },
+    {
+      provide: 'UserRepository',
+      useClass: UserRepository,
+    },
+  ],
+})
+
+```
+
+---
+
+## Global Setup
+
+Configure filters and interceptors globally in `main.ts`:
+
+```typescript
+
+
+  OnionLasagnaExceptionFilter,
+  OnionLasagnaResponseInterceptor,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // Global exception filter
+  app.useGlobalFilters(new OnionLasagnaExceptionFilter());
+
+  // Global response interceptor
+  app.useGlobalInterceptors(new OnionLasagnaResponseInterceptor());
+
+  await app.listen(3000);
+}
+
+bootstrap();
+```
+
+---
+
+## Complete Example
+
+```typescript
+// users.controller.ts
+
+
+  OnionLasagnaRequest,
+  OnionLasagnaExceptionFilter,
+  OnionLasagnaResponseInterceptor,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+
+@Controller('users')
+@UseFilters(OnionLasagnaExceptionFilter)
+@UseInterceptors(OnionLasagnaResponseInterceptor)
+
+  constructor(
+    private readonly getUserQuery: GetUserQueryInboundPort,
+    private readonly createUserCommand: CreateUserCommandInboundPort,
+  ) {}
+
+  @Get(':userId')
+  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
+    const dto = GetUserRequestDto.create(request);
+    const result = await this.getUserQuery.execute(dto);
+    return HttpResponse.ok(result.data);
+  }
+
+  @Post()
+  async createUser(@OnionLasagnaRequest() request: HttpRequest) {
+    const dto = CreateUserRequestDto.create(request);
+    const result = await this.createUserCommand.execute(dto);
+    return HttpResponse.created(result.data);
+  }
+}
+```
+---
+
 # New Endpoint
 > Step-by-step guide to creating a new HTTP endpoint
 
