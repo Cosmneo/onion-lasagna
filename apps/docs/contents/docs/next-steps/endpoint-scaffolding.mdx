@@ -1,0 +1,43 @@
+---
+title: "Endpoint Scaffolding"
+description: "CLI command to generate all files for a new endpoint"
+icon: "file-code"
+---
+
+## Command
+
+```bash
+onion-cli generate endpoint users/get-user --method GET --path /users/:userId
+```
+
+---
+
+## Generated Files
+
+```
+presentation/http/users/get-user/
+├── endpoint.metadata.ts
+├── request.dto.ts
+├── response.dto.ts
+├── access-guard.ts
+├── to-use-case.mapper.ts
+└── to-response.mapper.ts
+```
+
+Plus stubs in the BC:
+
+```
+app/ports/inbound/get-user.query.inbound.ts
+app/use-cases/queries/get-user.query.ts
+```
+
+---
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--method` | HTTP method (GET, POST, etc.) |
+| `--path` | URL path with params |
+| `--bc` | Target bounded context |
+| `--orchestration` | Create as composition/workflow instead |

@@ -1,0 +1,52 @@
+---
+title: "Controller Wiring"
+description: "Auto-generate controllers that wire all endpoint components"
+icon: "plug"
+---
+
+## Current Manual Approach
+
+```typescript
+// bootstrap/user.bootstrap.ts
+const userPersistence = new UserPersistence(db);
+const userRepo = new UserRepository(userPersistence);
+const getUserQuery = new GetUserQuery(userRepo);
+const getUserAccessGuard = new GetUserAccessGuard();
+
+// Controller manually wires everything
+class GetUserController {
+  static async execute(event: APIGatewayEvent) {
+    const request = parseRequest(event);
+
+    // 1. Validate
+    const validated = getUserRequestSchema.parse(request);
+
+    // 2. Check access
+    const guardResult = await getUserAccessGuard.guard(validated);
+    if (!guardResult.allowed) throw new ForbiddenError();
+
+    // 3. Map to input
+    const input = toGetUserInput(validated);
+
+    // 4. Execute
+    const output = await getUserQuery.execute(input);
+
+    // 5. Map to response
+    return toGetUserResponse(output);
+  }
+}
+```
+
+---
+
+## Future Generated Approach
+
+```bash
+onion-cli generate controller get-user
+```
+
+Generates a controller that:
+- Reads endpoint metadata
+- Wires validation, guard, mappers, use case
+- Handles exception mapping
+- Outputs framework-specific handler

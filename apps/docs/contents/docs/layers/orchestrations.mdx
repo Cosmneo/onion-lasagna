@@ -1,0 +1,120 @@
+---
+title: "Orchestrations"
+description: "Coordinate operations across multiple Bounded Contexts"
+icon: "arrows-split-up-and-left"
+---
+
+
+Coordinates operations across multiple Bounded Contexts.
+
+---
+
+## When to Use
+
+| Scenario | Approach |
+|----------|----------|
+| Single BC, self-contained | Direct BC call |
+| Multiple BCs needed | Orchestration |
+
+---
+
+## Three Types
+
+| Type | Purpose | Example |
+|------|---------|---------|
+| **Composition** | Read-only, multi-BC query | GET order with customer + products |
+| **Workflow** | Write, multi-BC command | Checkout: order + inventory + payment |
+| **Projection** | Denormalized read store | Dashboard aggregating multiple BCs |
+
+---
+
+## Structure
+
+```
+orchestrations/
+├── compositions/
+│   ├── ports/
+│   └── use-cases/
+├── workflows/
+│   ├── ports/
+│   └── use-cases/
+└── projections/
+    ├── ports/
+    ├── use-cases/
+    └── infra/              ← Projection's own infrastructure
+```
+
+---
+
+## Composition
+
+```typescript
+// compositions/use-cases/get-order-details.composition.ts
+class GetOrderDetailsComposition implements GetOrderDetailsCompositionInboundPort {
+  constructor(
+    orderQueryRepo: OrderQueryRepositoryOutboundPort,
+    customerQueryRepo: CustomerQueryRepositoryOutboundPort,
+  ) {
+    this.findOrderQuery = new FindOrderByIdQuery(orderQueryRepo);
+    this.findCustomerQuery = new FindCustomerByIdQuery(customerQueryRepo);
+  }
+
+  async execute(input: GetOrderDetailsInput): Promise<GetOrderDetailsOutput> {
+    const order = await this.findOrderQuery.execute({ orderId: input.orderId });
+    const customer = await this.findCustomerQuery.execute({ customerId: order.customerId });
+    return { order, customer };
+  }
+}
+```
+
+---
+
+## Workflow
+
+```typescript
+// workflows/use-cases/process-checkout.workflow.ts
+class ProcessCheckoutWorkflow implements ProcessCheckoutWorkflowInboundPort {
+  async execute(input: ProcessCheckoutInput): Promise<ProcessCheckoutOutput> {
+    const order = await this.createOrderCommand.execute({ ... });
+    
+    try {
+      await this.reserveInventoryCommand.execute({ orderId: order.id });
+      await this.processPaymentCommand.execute({ orderId: order.id });
+      return { orderId: order.id, status: 'COMPLETED' };
+    } catch (error) {
+      await this.cancelOrderCommand.execute({ orderId: order.id });
+      throw error;
+    }
+  }
+}
+```
+
+---
+
+## Projection
+
+Projections have their own infrastructure layer for denormalized storage.
+
+**Rules:**
+- CAN read from shared database
+- CAN write only to its own denormalized storage
+- For simple systems with shared DB, may not need separate storage
+
+```typescript
+// projections/use-cases/user-dashboard.projection.ts
+class UserDashboardProjection implements UserDashboardProjectionInboundPort {
+  async execute(input: UserDashboardInput): Promise<UserDashboardOutput> {
+    // Reads from multiple BCs, returns aggregated view
+  }
+}
+```
+
+---
+
+## Naming
+
+| Type | Interface | File |
+|------|-----------|------|
+| Composition | `{Name}CompositionInboundPort` | `.composition.ts` |
+| Workflow | `{Name}WorkflowInboundPort` | `.workflow.ts` |
+| Projection | `{Name}ProjectionInboundPort` | `.projection.ts` |

@@ -1,0 +1,106 @@
+---
+title: "Repositories"
+description: "Povide access to aggregates and read models. Three types aligned with CQRS."
+icon: "warehouse"
+---
+
+## Types
+
+| Type | Returns | Used In |
+|------|---------|---------|
+| **Query Repository** | Read Models | Queries (display) |
+| **Read Repository** | Aggregates | Commands (before mutation) |
+| **Write Repository** | void / ID | Commands (persist) |
+
+---
+
+## Port Definition (Outbound)
+
+```typescript
+// ports/outbound/user.repository.outbound.ts
+
+interface UserQueryRepositoryOutboundPort {
+  findPaginated(options: PaginationOptions): Promise<PaginatedResult<UserReadModel>>;
+}
+
+interface UserReadRepositoryOutboundPort {
+  findById(id: UserId): Promise<UserAggregate | null>;
+  findByEmail(email: Email): Promise<UserAggregate | null>;
+}
+
+interface UserWriteRepositoryOutboundPort {
+  save(user: UserAggregate): Promise<void>;
+  delete(id: UserId): Promise<void>;
+}
+```
+
+---
+
+## Implementation
+
+```typescript
+// infra/implementations/user/user.repository.ts
+
+class UserRepository implements 
+  UserQueryRepositoryOutboundPort,
+  UserReadRepositoryOutboundPort,
+  UserWriteRepositoryOutboundPort 
+{
+  constructor(private readonly persistence: UserPersistence) {}
+
+  async findById(id: UserId): Promise<UserAggregate | null> {
+    const row = await this.persistence.findById(id.value);
+    if (!row) return null;
+    return UserAggregate.reconstitute(row);
+  }
+
+  async save(user: UserAggregate): Promise<void> {
+    await this.persistence.upsert({
+      id: user.id.value,
+      email: user.email.value,
+      name: user.name,
+    });
+  }
+}
+```
+
+---
+
+## Usage in Use Cases
+
+```typescript
+// Query use case
+class FindUsersQuery {
+  constructor(private readonly queryRepo: UserQueryRepositoryOutboundPort) {}
+
+  async execute(input: FindUsersInput): Promise<FindUsersOutput> {
+    return this.queryRepo.findPaginated(input.pagination);
+  }
+}
+
+// Command use case
+class CreateUserCommand {
+  constructor(
+    private readonly readRepo: UserReadRepositoryOutboundPort,
+    private readonly writeRepo: UserWriteRepositoryOutboundPort,
+  ) {}
+
+  async execute(input: CreateUserInput): Promise<void> {
+    const existing = await this.readRepo.findByEmail(Email.create(input.email));
+    if (existing) throw new EmailAlreadyExistsError(input.email);
+
+    const user = UserAggregate.create(input);
+    await this.writeRepo.save(user);
+  }
+}
+```
+
+---
+
+## Rules
+
+- ✅ Define ports in BC, implement in infrastructure
+- ✅ Return Aggregates from Read Repository
+- ✅ Return Read Models from Query Repository
+- ✅ Hydrate aggregates in repository (not caller)
+- ❌ Don't put business logic in repositories

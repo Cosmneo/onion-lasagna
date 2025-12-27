@@ -1,0 +1,102 @@
+---
+title: "Overview"
+description: "Layer structure, dependencies, and request flow"
+icon: "layer-group"
+---
+
+
+## Layer Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      PRESENTATION                           │
+│  HTTP handlers, controllers, access guards, mappers         │
+│  CAN import: All inner layers                               │
+├─────────────────────────────────────────────────────────────┤
+│                      INFRASTRUCTURE                         │
+│  Implementations, Persistence, External                     │
+│  CAN import: BC ports, domain (VOs, aggregates), shared     │
+├─────────────────────────────────────────────────────────────┤
+│                      ORCHESTRATIONS                         │
+│  Compositions, Workflows, Projections                       │
+│  CAN import: BC ports + use cases                           │
+├─────────────────────────────────────────────────────────────┤
+│                    BOUNDED CONTEXTS                         │
+│  Domain + Use Cases + Ports                                 │
+│  CAN import: Shared only (NO frameworks, NO env vars)       │
+├─────────────────────────────────────────────────────────────┤
+│                         SHARED                              │
+│  Read Models, Enums, Generated Clients                      │
+└─────────────────────────────────────────────────────────────┘
+                   Dependencies flow INWARD →
+```
+
+---
+
+## Dependency Rules
+
+| Layer | Can Import |
+|-------|------------|
+| **Presentation** | Infrastructure, Orchestrations, Bounded Contexts, Shared |
+| **Infrastructure** | BC ports, domain (VOs, aggregates), Shared |
+| **Orchestrations** | BC ports + use cases, Shared |
+| **Bounded Contexts** | Shared only |
+| **Shared** | Nothing (leaf layer) |
+
+---
+
+## Request Flow
+
+```
+HTTP Request
+    │
+    ▼
+Handler ─────────────────► Extracts event, generates ExecutionContext
+    │
+    ▼
+Controller ──────────────► Validates, authorizes, maps
+    │
+    ▼
+Use Case / Orchestration ► Business logic
+    │
+    ▼
+Outbound Port Implementation
+    │
+    ▼
+Persistence / External ──► Database or API call
+    │
+    ▼
+Response bubbles back up
+```
+
+---
+
+## Folder Structure
+
+### Module-Based
+
+```
+packages/backend/
+├── modules/{module}/
+│   ├── bounded-contexts/{bc}/
+│   │   ├── app/
+│   │   │   ├── ports/inbound/
+│   │   │   ├── ports/outbound/
+│   │   │   └── use-cases/
+│   │   ├── domain/
+│   │   └── infra/
+│   ├── orchestrations/
+│   ├── presentation/
+│   └── shared-infra/
+└── shared-infra/
+```
+
+### Simple
+
+```
+packages/backend/
+├── bounded-contexts/{bc}/
+├── orchestrations/
+├── presentation/
+└── shared-infra/
+```

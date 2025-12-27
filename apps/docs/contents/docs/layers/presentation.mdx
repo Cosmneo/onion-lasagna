@@ -1,0 +1,133 @@
+---
+title: "Presentation"
+description: "HTTP handlers, controllers, access guards, and mappers"
+icon: "globe"
+---
+
+
+HTTP layer: handlers, controllers, access guards, mappers.
+
+---
+
+## Structure
+
+```
+presentation/
+└── http/
+    ├── service.metadata.ts
+    └── {resource}/
+        ├── route.metadata.ts
+        └── {endpoint}/
+            ├── endpoint.metadata.ts
+            ├── request.dto.ts         ← Source of truth
+            ├── response.dto.ts        ← Source of truth
+            ├── access-guard.ts
+            ├── to-use-case.mapper.ts
+            └── to-response.mapper.ts
+```
+
+---
+
+## Request/Response DTOs
+
+These are the **source of truth** for API contracts.
+
+```typescript
+// request.dto.ts
+const findUserByIdRequestSchema = z.object({
+  pathParams: z.object({
+    userId: z.string().uuid(),
+  }),
+});
+
+type FindUserByIdRequest = z.infer<typeof findUserByIdRequestSchema>;
+```
+
+```typescript
+// response.dto.ts
+const findUserByIdResponseSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string(),
+  name: z.string(),
+});
+
+type FindUserByIdResponse = z.infer<typeof findUserByIdResponseSchema>;
+```
+
+---
+
+## Access Guards
+
+Stateless gate-keepers. Receive use cases via DI.
+
+**Rules:**
+- ✅ Receive use cases via dependency injection
+- ✅ Delegate authorization logic to use cases
+- ❌ Cannot implement custom business logic
+
+```typescript
+// access-guard.ts
+class CanManageResourceGuard {
+  constructor(
+    private readonly canManageResourceQuery: CanManageResourceQueryInboundPort,
+  ) {}
+
+  async guard(request: Request): Promise<GuardResult> {
+    const result = await this.canManageResourceQuery.execute({
+      userId: request.executionContext.userId,
+      resourceId: request.pathParams.resourceId,
+    });
+    return { allowed: result.allowed, reason: result.reason };
+  }
+}
+```
+
+---
+
+## Mappers
+
+Pure functions transforming between HTTP and use case shapes.
+
+```typescript
+// to-use-case.mapper.ts
+function toFindUserByIdInput(request: FindUserByIdRequest): FindUserByIdInput {
+  return { userId: request.pathParams.userId };
+}
+
+// to-response.mapper.ts
+function toFindUserByIdResponse(output: FindUserByIdOutput): FindUserByIdResponse {
+  return { id: output.id, email: output.email, name: output.name };
+}
+```
+
+---
+
+## Execution Context
+
+Generated at controller level. **Never a frontend concern.**
+
+```typescript
+// Inside controller/handler
+const executionContext = {
+  userId: extractUserIdFromToken(request),
+  roles: extractRolesFromToken(request),
+};
+```
+
+---
+
+## Exception Handling
+
+Controllers catch domain exceptions and map to HTTP status codes.
+
+```typescript
+// Framework-specific exception handler
+try {
+  const result = await useCase.execute(input);
+  return response(200, result);
+} catch (error) {
+  if (error instanceof UserNotFoundError) return response(404, error.message);
+  if (error instanceof ValidationError) return response(400, error.message);
+  throw error;
+}
+```
