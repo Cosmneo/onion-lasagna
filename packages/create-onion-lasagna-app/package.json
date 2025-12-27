@@ -10,12 +10,20 @@
     "url": "git+https://github.com/Cosmneo/onion-lasagna.git",
     "directory": "packages/create-onion-lasagna-app"
   },
+  "homepage": "https://github.com/Cosmneo/onion-lasagna/tree/main/packages/create-onion-lasagna-app#readme",
+  "bugs": {
+    "url": "https://github.com/Cosmneo/onion-lasagna/issues"
+  },
   "keywords": [
     "cli",
     "scaffold",
     "onion-architecture",
     "hexagonal-architecture",
-    "create-app"
+    "ddd",
+    "create-app",
+    "boilerplate",
+    "starter",
+    "typescript"
   ],
   "bin": {
     "create-onion-lasagna-app": "./dist/index.js"
@@ -40,6 +48,6 @@
     "typescript": "^5.8.3"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com/"
+    "access": "public"
   }
 }
