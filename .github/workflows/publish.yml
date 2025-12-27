@@ -59,8 +59,8 @@ jobs:
 
       - name: Setup .npmrc
         run: |
-          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" > .npmrc
-          echo "@cosmneo:registry=https://npm.pkg.github.com" >> .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" > packages/onion-lasagna/.npmrc
+          echo "@cosmneo:registry=https://npm.pkg.github.com" >> packages/onion-lasagna/.npmrc
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -75,8 +75,8 @@ jobs:
       - name: Check for manual version changes (Beta only)
         if: github.ref == 'refs/heads/beta'
         run: |
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          git show HEAD~1:package.json > previous_package.json 2>/dev/null || echo '{"version":"0.0.0"}' > previous_package.json
+          CURRENT_VERSION=$(node -p "require('./packages/onion-lasagna/package.json').version")
+          git show HEAD~1:packages/onion-lasagna/package.json > previous_package.json 2>/dev/null || echo '{"version":"0.0.0"}' > previous_package.json
           PREVIOUS_VERSION=$(node -p "require('./previous_package.json').version")
           if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
             echo "SHOULD_BUMP_PATCH=false" >> $GITHUB_ENV
@@ -90,10 +90,12 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          cd packages/onion-lasagna
           npm version patch --no-git-tag-version
           NEW_VERSION=$(node -p "require('./package.json').version")
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          git add package.json
+          cd ../..
+          git add packages/onion-lasagna/package.json
           git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
           git push origin beta
 
@@ -101,14 +103,16 @@ jobs:
         if: github.ref == 'refs/heads/beta'
         run: |
           VERSION_TO_USE=${NEW_VERSION:-$CURRENT_VERSION}
+          cd packages/onion-lasagna
           npm version "${VERSION_TO_USE}-beta" --no-git-tag-version
 
       - name: Set Version for Feature Branch
         if: github.ref != 'refs/heads/main' && github.ref != 'refs/heads/beta' && !startsWith(github.ref, 'refs/tags/')
         run: |
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          CURRENT_VERSION=$(node -p "require('./packages/onion-lasagna/package.json').version")
           BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/} | sed 's/[^a-zA-Z0-9]/-/g')
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          cd packages/onion-lasagna
           npm version "${CURRENT_VERSION}-feat.${BRANCH_NAME}.${TIMESTAMP}" --no-git-tag-version
 
       - name: Publish to GitHub Packages
@@ -120,7 +124,7 @@ jobs:
             TAG="feat"
           fi
 
-          # Using npm publish for the actual upload as it handles GPR perfectly with .npmrc
+          cd packages/onion-lasagna
           npm publish --tag $TAG --registry=https://npm.pkg.github.com
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
