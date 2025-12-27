@@ -1,0 +1,51 @@
+---
+title: "HTTP Client Generation"
+description: "Generate TypeScript-safe HTTP clients from schemas"
+icon: "code"
+---
+
+## Goal
+
+Frontend developers get auto-completed, type-safe API calls.
+
+---
+
+## Source of Truth
+
+- `presentation/http/{resource}/{endpoint}/request.dto.ts`
+- `presentation/http/{resource}/{endpoint}/response.dto.ts`
+
+---
+
+## Generated Output
+
+```typescript
+// packages/shared/clients/http/user.client.ts
+
+class UserClient {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly auth: AuthConfig,
+  ) {}
+
+  async getUser(userId: string): Promise<GetUserResponse> {
+    const response = await fetch(`${this.baseUrl}/users/${userId}`, {
+      headers: this.auth.headers(),
+    });
+    return getUserResponseSchema.parse(await response.json());
+  }
+
+  async createUser(data: CreateUserRequest['body']): Promise<CreateUserResponse> {
+    // ...
+  }
+}
+```
+
+---
+
+## Usage
+
+```typescript
+const userClient = new UserClient('https://api.example.com', authConfig);
+const user = await userClient.getUser('123');  // Fully typed!
+```

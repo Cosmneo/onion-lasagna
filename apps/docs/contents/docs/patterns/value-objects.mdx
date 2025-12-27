@@ -1,0 +1,95 @@
+---
+title: "Value Objects"
+description: "Immutable objects defined by their attributes, not identity. Used for type safety and validation."
+icon: "diamond"
+---
+
+## Structure
+
+```typescript
+class UserId {
+  private constructor(private readonly _value: string) {}
+
+  static create(value: string): UserId {
+    if (!isValidUUID(value)) {
+      throw new InvalidUserIdError(`Invalid user ID: ${value}`);
+    }
+    return new UserId(value);
+  }
+
+  static generate(): UserId {
+    return new UserId(crypto.randomUUID());
+  }
+
+  get value(): string {
+    return this._value;
+  }
+
+  equals(other: UserId): boolean {
+    return this._value === other._value;
+  }
+}
+```
+
+---
+
+## Common Value Objects
+
+### ID Value Objects
+
+```typescript
+class UserId { ... }
+class OrderId { ... }
+class ProductId { ... }
+```
+
+### Email
+
+```typescript
+class Email {
+  private constructor(private readonly _value: string) {}
+
+  static create(value: string): Email {
+    const normalized = value.toLowerCase().trim();
+    if (!isValidEmail(normalized)) throw new InvalidEmailError(value);
+    return new Email(normalized);
+  }
+
+  get value(): string { return this._value; }
+  get domain(): string { return this._value.split('@')[1]; }
+}
+```
+
+### Money
+
+```typescript
+class Money {
+  private constructor(
+    private readonly _cents: number,
+    private readonly _currency: Currency,
+  ) {}
+
+  static create(amount: number, currency: Currency): Money {
+    if (amount < 0) throw new InvalidMoneyError('Amount cannot be negative');
+    return new Money(Math.round(amount * 100), currency);
+  }
+
+  get amount(): number { return this._cents / 100; }
+  get currency(): Currency { return this._currency; }
+
+  add(other: Money): Money {
+    if (this._currency !== other._currency) throw new CurrencyMismatchError();
+    return new Money(this._cents + other._cents, this._currency);
+  }
+}
+```
+
+---
+
+## Rules
+
+- ✅ Make immutable (no setters)
+- ✅ Use factory methods for validation
+- ✅ Implement `equals()` for comparisons
+- ✅ Throw domain exceptions on invalid data
+- ❌ Don't use for complex objects (use Entities/Aggregates)

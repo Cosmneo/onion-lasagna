@@ -1,0 +1,121 @@
+---
+title: "New Endpoint"
+description: "Step-by-step guide to creating a new HTTP endpoint"
+icon: "route"
+---
+
+## Decision: Direct BC vs Orchestration
+
+| Scenario | Approach |
+|----------|----------|
+| Single BC, self-contained | Direct BC call |
+| Multiple BCs needed | Orchestration |
+
+---
+
+## Steps
+
+### 1. Create Request/Response DTOs
+
+```typescript
+// presentation/http/users/get-user/request.dto.ts
+const getUserRequestSchema = z.object({
+  pathParams: z.object({
+    userId: z.string().uuid(),
+  }),
+});
+type GetUserRequest = z.infer<typeof getUserRequestSchema>;
+
+// presentation/http/users/get-user/response.dto.ts
+const getUserResponseSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string(),
+  name: z.string(),
+});
+type GetUserResponse = z.infer<typeof getUserResponseSchema>;
+```
+
+### 2. Create Endpoint Metadata
+
+```typescript
+// presentation/http/users/get-user/endpoint.metadata.ts
+export const getUserMetadata = {
+  method: 'GET' as const,
+  path: '/users/:userId',
+};
+```
+
+### 3. Define Inbound Port (in BC)
+
+```typescript
+// app/ports/inbound/get-user.query.inbound.ts
+interface GetUserQueryInboundPort {
+  execute(input: GetUserInput): Promise<GetUserOutput>;
+}
+```
+
+### 4. Implement Use Case
+
+```typescript
+// app/use-cases/queries/get-user.query.ts
+class GetUserQuery implements GetUserQueryInboundPort {
+  constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {}
+
+  async execute(input: GetUserInput): Promise<GetUserOutput> {
+    const user = await this.userRepo.findById(UserId.create(input.userId));
+    if (!user) throw new UserNotFoundError(input.userId);
+    return { id: user.id.value, email: user.email, name: user.name };
+  }
+}
+```
+
+### 5. Create Mappers
+
+```typescript
+// presentation/http/users/get-user/to-use-case.mapper.ts
+function toGetUserInput(request: GetUserRequest): GetUserInput {
+  return { userId: request.pathParams.userId };
+}
+
+// presentation/http/users/get-user/to-response.mapper.ts
+function toGetUserResponse(output: GetUserOutput): GetUserResponse {
+  return { id: output.id, email: output.email, name: output.name };
+}
+```
+
+### 6. Create Access Guard (if needed)
+
+```typescript
+// presentation/http/users/get-user/access-guard.ts
+class GetUserAccessGuard {
+  async guard(request: GetUserRequest): Promise<GuardResult> {
+    // Allow any authenticated user
+    return { allowed: true };
+  }
+}
+```
+
+### 7. Wire in Bootstrap
+
+```typescript
+// bootstrap/user.bootstrap.ts
+const userReadRepo = new UserRepository(new UserPersistence());
+const getUserQuery = new GetUserQuery(userReadRepo);
+```
+
+### 8. Create Controller (CLI-generated in future)
+
+Wire together: validate → guard → map → execute → map response.
+
+---
+
+## Checklist
+
+- [ ] Request/Response DTOs created
+- [ ] Endpoint metadata created
+- [ ] Inbound port defined
+- [ ] Use case implemented
+- [ ] Mappers created
+- [ ] Access guard created (if needed)
+- [ ] Bootstrap wired
+- [ ] Controller created (or generated)

@@ -1,0 +1,129 @@
+---
+title: "New Bounded Context"
+description: "Step-by-step guide to creating a new Bounded Context"
+icon: "cubes"
+---
+
+## Structure
+
+```
+bounded-contexts/{bc-name}/
+├── app/
+│   ├── ports/
+│   │   ├── inbound/
+│   │   └── outbound/
+│   └── use-cases/
+│       ├── queries/
+│       └── commands/
+├── domain/
+│   ├── aggregates/
+│   ├── entities/
+│   ├── value-objects/
+│   └── exceptions/
+└── infra/
+```
+
+---
+
+## Steps
+
+### 1. Create Folder Structure
+
+Create all directories under `bounded-contexts/{bc-name}/`.
+
+### 2. Define Domain Model
+
+Start with aggregates and value objects:
+
+```typescript
+// domain/value-objects/user-id.vo.ts
+class UserId {
+  private constructor(private readonly _value: string) {}
+  static create(value: string): UserId { ... }
+  static generate(): UserId { ... }
+  get value(): string { return this._value; }
+}
+
+// domain/aggregates/user.aggregate.ts
+class UserAggregate {
+  static create(data: CreateUserData): UserAggregate { ... }
+  static reconstitute(data: UserData): UserAggregate { ... }
+}
+```
+
+### 3. Define Exceptions
+
+```typescript
+// domain/exceptions/user-not-found.error.ts
+class UserNotFoundError extends Error {
+  constructor(userId: string) {
+    super(`User not found: ${userId}`);
+  }
+}
+```
+
+### 4. Define Outbound Ports
+
+```typescript
+// app/ports/outbound/user.repository.outbound.ts
+interface UserReadRepositoryOutboundPort {
+  findById(id: UserId): Promise<UserAggregate | null>;
+}
+
+interface UserWriteRepositoryOutboundPort {
+  save(user: UserAggregate): Promise<void>;
+}
+```
+
+### 5. Define Inbound Ports
+
+```typescript
+// app/ports/inbound/create-user.command.inbound.ts
+interface CreateUserCommandInboundPort {
+  execute(input: CreateUserInput): Promise<CreateUserOutput>;
+}
+```
+
+### 6. Implement Use Cases
+
+```typescript
+// app/use-cases/commands/create-user.command.ts
+class CreateUserCommand implements CreateUserCommandInboundPort {
+  constructor(
+    private readonly readRepo: UserReadRepositoryOutboundPort,
+    private readonly writeRepo: UserWriteRepositoryOutboundPort,
+  ) {}
+
+  async execute(input: CreateUserInput): Promise<CreateUserOutput> {
+    const user = UserAggregate.create(input);
+    await this.writeRepo.save(user);
+    return { id: user.id.value };
+  }
+}
+```
+
+### 7. Implement Infrastructure (if BC-scoped)
+
+```typescript
+// infra/implementations/user/user.repository.ts
+class UserRepository implements 
+  UserReadRepositoryOutboundPort, 
+  UserWriteRepositoryOutboundPort 
+{
+  constructor(private readonly persistence: UserPersistence) {}
+  // ...
+}
+```
+
+---
+
+## Checklist
+
+- [ ] Folder structure created
+- [ ] Value objects defined
+- [ ] Aggregates defined
+- [ ] Domain exceptions created
+- [ ] Outbound ports defined
+- [ ] Inbound ports defined
+- [ ] Use cases implemented
+- [ ] Infrastructure implemented (if BC-scoped)

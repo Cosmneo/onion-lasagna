@@ -1,0 +1,34 @@
+---
+title: "CLI Overview"
+description: "Planned tooling to automate common tasks"
+icon: "terminal"
+---
+
+## Current State vs Future
+
+| Task | Current | Future |
+|------|---------|--------|
+| Controller wiring | Manual in bootstrap | CLI generated |
+| HTTP client | Manual | CLI generated |
+| New endpoint | 6+ files created manually | CLI scaffolded |
+| Dependency rules | Developer discipline | Linter enforced |
+
+---
+
+## Planned Tools
+
+| Tool | Purpose |
+|------|---------|
+| **Controller Generator** | Auto-wire validate → guard → map → execute → respond |
+| **HTTP Client Generator** | TypeScript-safe clients from request/response schemas |
+| **Endpoint Scaffold** | Generate all files for a new endpoint |
+| **Linter Rules** | Enforce one-way module deps, layer import rules |
+
+---
+
+## See Also
+
+- [Controller Wiring](controller-wiring.md)
+- [HTTP Client Generation](http-client-generation.md)
+- [Endpoint Scaffolding](endpoint-scaffolding.md)
+- [Linter Rules](linter-rules.md)

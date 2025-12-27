@@ -1,0 +1,54 @@
+---
+title: "Linter Rules"
+description: "ESLint rules to enforce architecture constraints"
+icon: "shield-check"
+---
+
+## Rules
+
+### One-Way Module Dependencies
+
+Modules can import from each other, but only one direction.
+
+```typescript
+// ✅ OK: Module A imports from Module B
+import { OrderReadModel } from '@modules/orders/shared';
+
+// ❌ ERROR: Module B also imports from Module A (creates cycle)
+import { UserReadModel } from '@modules/users/shared';
+```
+
+### Layer Import Restrictions
+
+| From | Can Import |
+|------|------------|
+| BC | Shared only |
+| Infrastructure | BC ports, domain, shared |
+| Orchestrations | BC ports + use cases, shared |
+| Presentation | All inner layers |
+
+```typescript
+// In bounded-contexts/user/
+// ❌ ERROR: Cannot import from infrastructure
+import { DrizzleUserRepository } from '@infra/repositories';
+```
+
+### No `implements` in Persistence/External
+
+```typescript
+// ❌ ERROR: Only implementations/ can use `implements`
+class UserPersistence implements UserRepositoryOutboundPort { ... }
+```
+
+---
+
+## Configuration
+
+```javascript
+// eslint.config.js
+import { onionLasagnaPlugin } from '@onion-lasagna/eslint-plugin';
+
+export default [
+  onionLasagnaPlugin.configs.recommended,
+];
+```

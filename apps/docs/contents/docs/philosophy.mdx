@@ -1,0 +1,61 @@
+---
+title: "Philosophy"
+description: "Why this architecture and when to use it"
+icon: "lightbulb"
+---
+
+## Core Principles
+
+### 1. Business Logic is Framework-Free
+
+Domain code never knows about:
+- HTTP frameworks (Express, Fastify, etc.)
+- Database clients (Drizzle, Prisma, etc.)
+- Cloud providers
+- Environment variables
+
+**Why?** Frameworks change. Your business rules shouldn't.
+
+### 2. Dependencies Flow Inward
+
+```
+Presentation → Infrastructure → Orchestrations → Bounded Contexts
+```
+
+Inner layers never import from outer layers.
+
+### 3. Contracts are the Source of Truth
+
+- **Read Models** define shared data shapes
+- **Request/Response DTOs** define API contracts
+- Frontend and backend share the same schemas
+
+---
+
+## When to Use
+
+### Good Fit ✅
+- Medium to large applications
+- Multiple bounded contexts
+- Complex business rules
+- Long-term maintainability matters
+
+### Not a Good Fit ❌
+- Simple CRUD apps
+- Prototypes / MVPs
+- Minimal business logic
+
+---
+
+## Tradeoffs
+
+### What You Gain
+- **Testability** — Pure domain logic, easy mocking
+- **Flexibility** — Swap databases, frameworks
+- **Clarity** — Each layer has one job
+- **Scalability** — BCs can become services
+
+### What You Pay
+- **More files** — Ports, DTOs, mappers
+- **Learning curve** — New developers need onboarding
+- **Indirection** — Request flows through layers

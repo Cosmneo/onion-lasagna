@@ -1,0 +1,101 @@
+---
+title: "Infrastructure"
+description: "Implement outbound ports with persistence and external services"
+icon: "database"
+---
+
+
+Implements outbound ports. Three-tier structure.
+
+---
+
+## Structure
+
+```
+infra/ (or shared-infra/)
+├── implementations/           ← Outbound port implementations (uses `implements`)
+│   └── {resource}/
+│       └── {resource}.repository.ts
+├── persistence/               ← Raw database access (NO `implements`)
+│   └── drizzle/
+│       └── {resource}/
+└── external/                  ← Raw API adapters (NO `implements`)
+    └── {service-name}/
+```
+
+---
+
+## Key Rule
+
+**Only `implementations/` uses the `implements` keyword.**
+
+Persistence and external are plain classes that the implementations orchestrate.
+
+---
+
+## Example
+
+### Persistence (Raw Database)
+
+```typescript
+// persistence/drizzle/user/user.persistence.ts
+class UserPersistence {
+  async findById(id: string): Promise<UserRow | null> {
+    return db.select().from(users).where(eq(users.id, id)).limit(1)[0];
+  }
+
+  async insert(data: UserRow): Promise<void> {
+    await db.insert(users).values(data);
+  }
+}
+```
+
+### Implementation (Outbound Port)
+
+```typescript
+// implementations/user/user.repository.ts
+class UserRepository implements UserRepositoryOutboundPort {
+  constructor(private readonly persistence: UserPersistence) {}
+
+  async findById(id: UserId): Promise<UserAggregate | null> {
+    const row = await this.persistence.findById(id.value);
+    if (!row) return null;
+    return UserAggregate.reconstitute(row);  // Hydrates aggregate
+  }
+
+  async save(user: UserAggregate): Promise<void> {
+    await this.persistence.insert({
+      id: user.id.value,
+      email: user.email,
+      name: user.name,
+    });
+  }
+}
+```
+
+---
+
+## Shared-Infra Scoping
+
+| Scope | Location | Use When |
+|-------|----------|----------|
+| Global | `/packages/backend/shared-infra/` | Shared across all modules |
+| Module | `/modules/{module}/shared-infra/` | Shared across BCs in one module |
+| BC | `/bounded-contexts/{bc}/infra/` | Scoped to single BC |
+
+Simple systems can share a single database + ORM via shared-infra.
+
+---
+
+## Aggregate Hydration
+
+Repositories are responsible for hydrating aggregates using `Aggregate.reconstitute()`.
+
+**Prefer partial loading** over full loading when possible.
+
+---
+
+## Environment Variables
+
+- ❌ **Prohibited** in Bounded Contexts
+- ✅ **Allowed** in Infrastructure (persistence, external, implementations)
