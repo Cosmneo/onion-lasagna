@@ -227,14 +227,37 @@ packages/backend/
 │   ├── bounded-contexts/{bc}/
 │   │   ├── app/
 │   │   │   ├── ports/inbound/
+│   │   │   │   ├── queries/
+│   │   │   │   └── commands/
 │   │   │   ├── ports/outbound/
 │   │   │   └── use-cases/
+│   │   │       ├── queries/
+│   │   │       └── commands/
 │   │   ├── domain/
-│   │   └── infra/
-│   ├── orchestrations/
-│   ├── presentation/
-│   └── shared-infra/
-└── shared-infra/
+│   │   │   ├── aggregates/
+│   │   │   ├── events/
+│   │   │   └── services/
+│   │   ├── infra/
+│   │   │   ├── outbound-adapters/
+│   │   │   ├── persistence/
+│   │   │   ├── external-systems/
+│   │   │   ├── schemas/
+│   │   │   └── config/
+│   │   └── presentation/
+│   │       ├── bootstrap/
+│   │       └── http/
+│   ├── orchestrations/{orchestration}/
+│   │   ├── app/
+│   │   ├── infra/
+│   │   └── presentation/
+│   └── shared/
+│       ├── infra/
+│       ├── app/
+│       └── domain/
+└── shared/
+    ├── infra/
+    ├── app/
+    └── domain/
 ```
 
 ### Simple
@@ -242,9 +265,18 @@ packages/backend/
 ```
 packages/backend/
 ├── bounded-contexts/{bc}/
-├── orchestrations/
-├── presentation/
-└── shared-infra/
+│   ├── app/
+│   ├── domain/
+│   ├── infra/
+│   └── presentation/
+├── orchestrations/{orchestration}/
+│   ├── app/
+│   ├── infra/
+│   └── presentation/
+└── shared/
+    ├── infra/
+    ├── app/
+    └── domain/
 ```
 ---
 
@@ -302,28 +334,49 @@ type FindUserByIdResponse = z.infer;
 
 ## Access Guards
 
-Stateless gate-keepers. Receive use cases via DI.
+Access guards are **functions** (not classes) that determine if a request is allowed.
 
-**Rules:**
-- ✅ Receive use cases via dependency injection
-- ✅ Delegate authorization logic to use cases
-- ❌ Cannot implement custom business logic
+**Type Definition:**
 
-```typescript:access-guard.ts
-class CanManageResourceGuard {
-  constructor(
-    private readonly canManageResourceQuery: CanManageResourceQueryInboundPort,
-  ) {}
+```typescript
+type AccessGuard = (
+  request: T,
+) => AccessGuardResult | Promise;
 
-  async guard(request: Request): Promise {
-    const result = await this.canManageResourceQuery.execute({
-      userId: request.executionContext.userId,
-      resourceId: request.pathParams.resourceId,
-    });
-    return { isAllowed: result.allowed, reason: result.reason };
-  }
+interface AccessGuardResult {
+  isAllowed: boolean;
+  reason?: string;
 }
 ```
+
+**Example:**
+
+```typescript:access-guard.ts
+
+
+// Simple guard
+const requireAdmin: AccessGuard = (request) => ({
+  isAllowed: request.data.role === 'admin',
+  reason: 'Admin access required',
+});
+
+// Guard using a use case (via closure)
+const createCanManageResourceGuard = (
+  canManageQuery: CanManageResourceQueryInboundPort,
+): AccessGuard => async (request) => {
+  const result = await canManageQuery.execute({
+    userId: request.data.userId,
+    resourceId: request.data.resourceId,
+  });
+  return { isAllowed: result.allowed, reason: result.reason };
+};
+```
+
+**Rules:**
+- ✅ Functions, not classes
+- ✅ Can use closures for dependency injection
+- ✅ Delegate authorization logic to use cases
+- ❌ Cannot implement custom business logic
 
 ---
 
@@ -358,20 +411,79 @@ const executionContext = {
 
 ---
 
-## Exception Handling
+## Controllers
 
-Controllers catch domain exceptions and map to HTTP status codes.
+The library provides `BaseController` and `GuardedController` for building type-safe controller pipelines.
+
+### BaseController
+
+Simple pipeline: validate request → map to use case input → execute → map response.
 
 ```typescript
-// Framework-specific exception handler
-try {
-  const result = await useCase.execute(input);
-  return response(200, result);
-} catch (error) {
-  if (error instanceof NotFoundError) return response(404, error.message);
-  if (error instanceof InvalidRequestError) return response(400, error.message);
-  throw error;
-}
+
+
+const getUserController = BaseController.create({
+  requestMapper: (req: GetUserRequestDto) =>
+    GetUserInputDto.create({ userId: req.data.userId }),
+  useCase: getUserQuery,
+  responseMapper: (output: GetUserOutputDto) =>
+    GetUserResponseDto.create(output.data),
+});
+
+// Execute
+const response = await getUserController.execute(requestDto);
+```
+
+### GuardedController
+
+Extends `BaseController` with an access guard.
+
+```typescript
+
+
+const updateUserController = GuardedController.create({
+  requestMapper: (req) => UpdateUserInputDto.create(req.data),
+  useCase: updateUserCommand,
+  responseMapper: (output) => UpdateUserResponseDto.create(output.data),
+  accessGuard: async (req) => ({
+    isAllowed: req.data.role === 'admin',
+    reason: 'Admin access required',
+  }),
+});
+```
+
+### Generic Type Parameters
+
+Both controllers use 4 generic type parameters, all extending `BaseDto`:
+
+```typescript
+class BaseController,  // HTTP request DTO
+  TResponseDto extends BaseDto, // HTTP response DTO
+  TInDto extends BaseDto,       // Use case input DTO
+  TOutDto extends BaseDto,      // Use case output DTO
+>
+```
+
+---
+
+## Exception Handling
+
+Controllers automatically convert `ObjectValidationError` to `InvalidRequestError`.
+
+For framework-specific exception handling, use the error handlers from framework integrations:
+
+```typescript
+// Hono
+
+app.onError(onionErrorHandler);
+
+// Elysia
+
+app.error(onionErrorHandler);
+
+// Fastify
+
+app.setErrorHandler(onionErrorHandler);
 ```
 ---
 
@@ -385,24 +497,31 @@ Implements outbound ports. Three-tier structure.
 ## Structure
 
 ```
-infra/ (or shared-infra/)
-├── implementations/           ← Outbound port implementations (uses `implements`)
+infra/
+├── outbound-adapters/         ← Outbound port implementations (uses `implements`)
 │   └── {resource}/
 │       └── {resource}.repository.ts
 ├── persistence/               ← Raw database access (NO `implements`)
 │   └── drizzle/
 │       └── {resource}/
-└── external/                  ← Raw API adapters (NO `implements`)
-    └── {service-name}/
+├── external-systems/          ← Raw API adapters (NO `implements`)
+│   └── {service-name}/
+├── schemas/                   ← Validation schemas
+│   ├── use-cases/
+│   │   ├── queries/{query}/
+│   │   └── commands/{command}/
+│   └── http/
+│       └── {resource}/{endpoint}/
+└── config/                    ← Configuration and environment
 ```
 
 ---
 
 ## Key Rule
 
-**Only `implementations/` uses the `implements` keyword.**
+**Only `outbound-adapters/` uses the `implements` keyword.**
 
-Persistence and external are plain classes that the implementations orchestrate.
+Persistence and external-systems are plain classes that the adapters orchestrate.
 
 ---
 
@@ -422,11 +541,18 @@ class UserPersistence {
 }
 ```
 
-### Implementation (Outbound Port)
+### Outbound Adapter (Port Implementation)
 
-```typescript:implementations/user/user.repository.ts
-class UserRepository implements UserRepositoryOutboundPort {
-  constructor(private readonly persistence: UserPersistence) {}
+```typescript:outbound-adapters/user/user.repository.ts
+
+
+class UserRepository
+  extends BaseOutboundAdapter
+  implements UserRepositoryOutboundPort
+{
+  constructor(private readonly persistence: UserPersistence) {
+    super();
+  }
 
   async findById(id: UserId): Promise {
     const row = await this.persistence.findById(id.value);
@@ -444,17 +570,19 @@ class UserRepository implements UserRepositoryOutboundPort {
 }
 ```
 
+**Note:** Extending `BaseOutboundAdapter` automatically wraps all methods with error handling, converting any thrown errors to `InfraError`.
+
 ---
 
-## Shared-Infra Scoping
+## Shared Infrastructure Scoping
 
 | Scope | Location | Use When |
 |-------|----------|----------|
-| Global | `/packages/backend/shared-infra/` | Shared across all modules |
-| Module | `/modules/{module}/shared-infra/` | Shared across BCs in one module |
+| Global | `/packages/backend/shared/infra/` | Shared across all modules |
+| Module | `/modules/{module}/shared/infra/` | Shared across BCs in one module |
 | BC | `/bounded-contexts/{bc}/infra/` | Scoped to single BC |
 
-Simple systems can share a single database + ORM via shared-infra.
+Simple systems can share a single database + ORM via `shared/infra/`.
 
 ---
 
@@ -500,19 +628,29 @@ Coordinates operations across multiple Bounded Contexts.
 
 ## Structure
 
+Each orchestration is self-contained with its own layers:
+
 ```
-orchestrations/
-├── compositions/
-│   ├── ports/
-│   └── use-cases/
-├── workflows/
-│   ├── ports/
-│   └── use-cases/
-└── projections/
-    ├── ports/
-    ├── use-cases/
-    └── infra/              ← Projection's own infrastructure
+orchestrations/{orchestration-name}/
+├── app/
+│   ├── inbound/
+│   │   ├── compositions/
+│   │   │   └── {composition}/
+│   │   ├── workflows/
+│   │   │   └── {workflow}/
+│   │   └── projections/
+│   │       └── {projection}/
+│   └── outbound/
+├── infra/
+│   ├── outbound-adapters/
+│   ├── persistence/
+│   └── schemas/
+└── presentation/
+    ├── bootstrap/
+    └── http/
 ```
+
+**Note:** Each orchestration has its own presentation layer for HTTP endpoints specific to that orchestration.
 
 ---
 
@@ -600,17 +738,34 @@ Pure domain logic, completely framework-free.
 bounded-contexts/{bc-name}/
 ├── app/
 │   ├── ports/
-│   │   ├── inbound/           ← Use case interfaces
+│   │   ├── inbound/
+│   │   │   ├── queries/       ← Query port interfaces
+│   │   │   └── commands/      ← Command port interfaces
 │   │   └── outbound/          ← Repository interfaces
 │   └── use-cases/
-│       ├── queries/
-│       └── commands/
+│       ├── queries/           ← Query implementations
+│       └── commands/          ← Command implementations
 ├── domain/
 │   ├── aggregates/
+│   │   └── {aggregate}/
+│   │       └── policies/
 │   ├── entities/
 │   ├── value-objects/
+│   ├── events/                ← Domain events
+│   ├── services/              ← Domain services
 │   └── exceptions/
-└── infra/                      ← BC-scoped implementations
+├── infra/
+│   ├── outbound-adapters/     ← Port implementations
+│   ├── persistence/
+│   ├── external-systems/
+│   ├── schemas/
+│   └── config/
+└── presentation/              ← BC-specific HTTP layer
+    ├── bootstrap/
+    │   ├── controller.bootstrap.ts
+    │   └── dto.bootstrap.ts
+    └── http/
+        └── {resource}/{endpoint}/
 ```
 
 ---
@@ -628,9 +783,9 @@ bounded-contexts/{bc-name}/
 
 Interfaces for use cases. Implemented by queries and commands.
 
-```typescript:ports/inbound/find-user-by-id.query.inbound.ts
+```typescript:ports/inbound/queries/find-user-by-id.port.ts
 interface FindUserByIdQueryInboundPort {
-  execute(input: FindUserByIdInput): Promise;
+  execute(input: FindUserByIdInputDto): Promise;
 }
 ```
 
@@ -638,8 +793,8 @@ interface FindUserByIdQueryInboundPort {
 
 | Type | Interface | File |
 |------|-----------|------|
-| Query | `{Name}QueryInboundPort` | `.query.inbound.ts` |
-| Command | `{Name}CommandInboundPort` | `.command.inbound.ts` |
+| Query | `{Name}QueryInboundPort` | `queries/{name}.port.ts` |
+| Command | `{Name}CommandInboundPort` | `commands/{name}.port.ts` |
 
 ---
 
@@ -658,21 +813,34 @@ interface UserRepositoryOutboundPort {
 
 ## Use Cases
 
-Implement inbound ports.
+Implement inbound ports using `BaseInboundAdapter` for automatic error handling.
 
-```typescript:use-cases/queries/find-user-by-id.query.ts
-class FindUserByIdQuery implements FindUserByIdQueryInboundPort {
-  constructor(
-    private readonly userRepo: UserRepositoryOutboundPort,
-  ) {}
+```typescript:use-cases/queries/find-user-by-id.use-case.ts
 
-  async execute(input: FindUserByIdInput): Promise {
-    const user = await this.userRepo.findById(UserId.create(input.userId));
-    if (!user) throw new UserNotFoundError(input.userId);
-    return { id: user.id.value, email: user.email, name: user.name };
+
+class FindUserByIdQuery
+  extends BaseInboundAdapter
+  implements FindUserByIdQueryInboundPort
+{
+  constructor(private readonly userRepo: UserRepositoryOutboundPort) {
+    super();
+  }
+
+  protected async handle(input: FindUserByIdInputDto): Promise {
+    const user = await this.userRepo.findById(UserId.create(input.data.userId));
+    if (!user) {
+      throw new NotFoundError({ message: `User ${input.data.userId} not found` });
+    }
+    return FindUserByIdOutputDto.create({
+      id: user.id.value,
+      email: user.email,
+      name: user.name,
+    });
   }
 }
 ```
+
+**Note:** Implement `handle()` (protected) instead of `execute()`. The `BaseInboundAdapter` provides `execute()` with automatic error wrapping.
 
 ---
 
@@ -1415,14 +1583,21 @@ interface UserWriteRepositoryOutboundPort {
 
 ## Implementation
 
-```typescript:infra/implementations/user/user.repository.ts
+Extend `BaseOutboundAdapter` for automatic error wrapping:
 
-class UserRepository implements 
-  UserQueryRepositoryOutboundPort,
-  UserReadRepositoryOutboundPort,
-  UserWriteRepositoryOutboundPort 
+```typescript:infra/outbound-adapters/user/user.repository.ts
+
+
+class UserRepository
+  extends BaseOutboundAdapter
+  implements
+    UserQueryRepositoryOutboundPort,
+    UserReadRepositoryOutboundPort,
+    UserWriteRepositoryOutboundPort
 {
-  constructor(private readonly persistence: UserPersistence) {}
+  constructor(private readonly persistence: UserPersistence) {
+    super();
+  }
 
   async findById(id: UserId): Promise {
     const row = await this.persistence.findById(id.value);
@@ -1439,6 +1614,8 @@ class UserRepository implements
   }
 }
 ```
+
+**Note:** `BaseOutboundAdapter` automatically wraps all methods with error handling, converting any thrown errors to `InfraError`.
 
 ---
 
@@ -1569,6 +1746,37 @@ class CreateUserDto extends BaseDto {
     return new CreateUserDto(data as CreateUserData);
   }
 }
+```
+
+---
+
+## Dto Wrapper Classes
+
+Each validator exports a convenience `Dto` class as a simpler alternative to extending `BaseDto`:
+
+```typescript
+
+
+
+const userSchema = z.object({
+  name: z.string(),
+  email: z.string().email(),
+});
+
+type User = z.infer;
+
+// Create a validated DTO directly
+const userDto = new Dto(userSchema, { name: 'John', email: 'john@example.com' });
+console.log(userDto.data); // { name: 'John', email: 'john@example.com' }
+```
+
+Available in all validators:
+
+```typescript
+
+
+
+
 ```
 
 ---
@@ -2821,17 +3029,32 @@ interface GetUserQueryInboundPort {
 
 ### 4. Implement Use Case
 
-```typescript:app/use-cases/queries/get-user.query.ts
-class GetUserQuery implements GetUserQueryInboundPort {
-  constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {}
+```typescript:app/use-cases/queries/get-user.use-case.ts
 
-  async execute(input: GetUserInput): Promise {
-    const user = await this.userRepo.findById(UserId.create(input.userId));
-    if (!user) throw new UserNotFoundError(input.userId);
-    return { id: user.id.value, email: user.email, name: user.name };
+
+class GetUserQuery
+  extends BaseInboundAdapter
+  implements GetUserQueryInboundPort
+{
+  constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {
+    super();
+  }
+
+  protected async handle(input: GetUserInputDto): Promise {
+    const user = await this.userRepo.findById(UserId.create(input.data.userId));
+    if (!user) {
+      throw new NotFoundError({ message: `User ${input.data.userId} not found` });
+    }
+    return GetUserOutputDto.create({
+      id: user.id.value,
+      email: user.email,
+      name: user.name,
+    });
   }
 }
 ```
+
+**Note:** Extend `BaseInboundAdapter` and implement `handle()` for automatic error wrapping. The inherited `execute()` method handles error boundaries.
 
 ### 5. Create Mappers
 
@@ -2848,13 +3071,24 @@ function toGetUserResponse(output: GetUserOutput): GetUserResponse {
 
 ### 6. Create Access Guard (if needed)
 
+Access guards are **functions**, not classes:
+
 ```typescript:presentation/http/users/get-user/access-guard.ts
-class GetUserAccessGuard {
-  async guard(request: GetUserRequest): Promise {
-    // Allow any authenticated user
-    return { isAllowed: true };
-  }
-}
+
+
+// Simple guard - allow any authenticated user
+const getUserAccessGuard: AccessGuard = (request) => ({
+  isAllowed: true,
+});
+
+// Guard with authorization check
+const getUserAccessGuardWithAuth: AccessGuard = async (request) => {
+  const isOwner = request.data.pathParams.userId === request.data.currentUserId;
+  return {
+    isAllowed: isOwner,
+    reason: isOwner ? undefined : 'You can only view your own profile',
+  };
+};
 ```
 
 ### 7. Wire in Bootstrap
@@ -2864,9 +3098,32 @@ const userReadRepo = new UserRepository(new UserPersistence());
 const getUserQuery = new GetUserQuery(userReadRepo);
 ```
 
-### 8. Create Controller (CLI-generated in future)
+### 8. Create Controller
 
-Wire together: validate → guard → map → execute → map response.
+Use `BaseController` or `GuardedController` to wire the pipeline:
+
+```typescript:presentation/http/users/get-user/controller.ts
+
+
+// Without access guard
+const getUserController = BaseController.create({
+  requestMapper: (req: GetUserRequestDto) =>
+    GetUserInputDto.create({ userId: req.data.pathParams.userId }),
+  useCase: getUserQuery,
+  responseMapper: (output: GetUserOutputDto) =>
+    GetUserResponseDto.create(output.data),
+});
+
+// With access guard
+const getUserControllerGuarded = GuardedController.create({
+  requestMapper: (req: GetUserRequestDto) =>
+    GetUserInputDto.create({ userId: req.data.pathParams.userId }),
+  useCase: getUserQuery,
+  responseMapper: (output: GetUserOutputDto) =>
+    GetUserResponseDto.create(output.data),
+  accessGuard: getUserAccessGuard,
+});
+```
 
 ---
 

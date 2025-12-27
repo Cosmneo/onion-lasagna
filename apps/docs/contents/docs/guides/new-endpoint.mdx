@@ -53,17 +53,32 @@ interface GetUserQueryInboundPort {
 
 ### 4. Implement Use Case
 
-```typescript:app/use-cases/queries/get-user.query.ts
-class GetUserQuery implements GetUserQueryInboundPort {
-  constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {}
+```typescript:app/use-cases/queries/get-user.use-case.ts
+import { BaseInboundAdapter, NotFoundError } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
 
-  async execute(input: GetUserInput): Promise<GetUserOutput> {
-    const user = await this.userRepo.findById(UserId.create(input.userId));
-    if (!user) throw new UserNotFoundError(input.userId);
-    return { id: user.id.value, email: user.email, name: user.name };
+class GetUserQuery
+  extends BaseInboundAdapter<GetUserInputDto, GetUserOutputDto>
+  implements GetUserQueryInboundPort
+{
+  constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {
+    super();
+  }
+
+  protected async handle(input: GetUserInputDto): Promise<GetUserOutputDto> {
+    const user = await this.userRepo.findById(UserId.create(input.data.userId));
+    if (!user) {
+      throw new NotFoundError({ message: `User ${input.data.userId} not found` });
+    }
+    return GetUserOutputDto.create({
+      id: user.id.value,
+      email: user.email,
+      name: user.name,
+    });
   }
 }
 ```
+
+**Note:** Extend `BaseInboundAdapter` and implement `handle()` for automatic error wrapping. The inherited `execute()` method handles error boundaries.
 
 ### 5. Create Mappers
 
@@ -80,13 +95,24 @@ function toGetUserResponse(output: GetUserOutput): GetUserResponse {
 
 ### 6. Create Access Guard (if needed)
 
+Access guards are **functions**, not classes:
+
 ```typescript:presentation/http/users/get-user/access-guard.ts
-class GetUserAccessGuard {
-  async guard(request: GetUserRequest): Promise<AccessGuardResult> {
-    // Allow any authenticated user
-    return { isAllowed: true };
-  }
-}
+import type { AccessGuard } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+// Simple guard - allow any authenticated user
+const getUserAccessGuard: AccessGuard<GetUserRequestDto> = (request) => ({
+  isAllowed: true,
+});
+
+// Guard with authorization check
+const getUserAccessGuardWithAuth: AccessGuard<GetUserRequestDto> = async (request) => {
+  const isOwner = request.data.pathParams.userId === request.data.currentUserId;
+  return {
+    isAllowed: isOwner,
+    reason: isOwner ? undefined : 'You can only view your own profile',
+  };
+};
 ```
 
 ### 7. Wire in Bootstrap
@@ -96,9 +122,32 @@ const userReadRepo = new UserRepository(new UserPersistence());
 const getUserQuery = new GetUserQuery(userReadRepo);
 ```
 
-### 8. Create Controller (CLI-generated in future)
+### 8. Create Controller
 
-Wire together: validate → guard → map → execute → map response.
+Use `BaseController` or `GuardedController` to wire the pipeline:
+
+```typescript:presentation/http/users/get-user/controller.ts
+import { BaseController, GuardedController } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+// Without access guard
+const getUserController = BaseController.create({
+  requestMapper: (req: GetUserRequestDto) =>
+    GetUserInputDto.create({ userId: req.data.pathParams.userId }),
+  useCase: getUserQuery,
+  responseMapper: (output: GetUserOutputDto) =>
+    GetUserResponseDto.create(output.data),
+});
+
+// With access guard
+const getUserControllerGuarded = GuardedController.create({
+  requestMapper: (req: GetUserRequestDto) =>
+    GetUserInputDto.create({ userId: req.data.pathParams.userId }),
+  useCase: getUserQuery,
+  responseMapper: (output: GetUserOutputDto) =>
+    GetUserResponseDto.create(output.data),
+  accessGuard: getUserAccessGuard,
+});
+```
 
 ---
 
