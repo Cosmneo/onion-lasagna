@@ -1,0 +1,105 @@
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import degit from 'degit';
+
+interface ScaffoldOptions {
+  name: string;
+  starter: 'simple' | 'modules';
+  validator: 'zod' | 'valibot' | 'arktype' | 'typebox';
+  framework: 'hono' | 'elysia' | 'fastify';
+  install: boolean;
+}
+
+const REPO = 'Cosmneo/onion-lasagna';
+
+const VALIDATOR_PACKAGES: Record<string, string> = {
+  zod: 'zod',
+  valibot: 'valibot',
+  arktype: 'arktype',
+  typebox: '@sinclair/typebox',
+};
+
+const FRAMEWORK_PACKAGES: Record<string, string[]> = {
+  hono: ['hono'],
+  elysia: ['elysia'],
+  fastify: ['fastify'],
+};
+
+export async function scaffold(options: ScaffoldOptions): Promise<void> {
+  const { name, starter, validator, framework, install } = options;
+  const targetDir = path.resolve(process.cwd(), name);
+
+  // Check if directory exists
+  if (fs.existsSync(targetDir)) {
+    const files = fs.readdirSync(targetDir);
+    if (files.length > 0) {
+      throw new Error(`Directory "${name}" is not empty`);
+    }
+  }
+
+  // Clone starter template
+  const starterPath = `${REPO}/starters/${starter}-starter`;
+  const emitter = degit(starterPath, {
+    cache: false,
+    force: true,
+    verbose: false,
+  });
+
+  await emitter.clone(targetDir);
+
+  // Update root package.json
+  const rootPackageJsonPath = path.join(targetDir, 'package.json');
+  const rootPackageJson = JSON.parse(fs.readFileSync(rootPackageJsonPath, 'utf-8'));
+  rootPackageJson.name = name;
+  fs.writeFileSync(rootPackageJsonPath, JSON.stringify(rootPackageJson, null, 2) + '\n');
+
+  // Update backend package.json
+  const backendPackageJsonPath = path.join(targetDir, 'packages', 'backend', 'package.json');
+  if (fs.existsSync(backendPackageJsonPath)) {
+    const backendPackageJson = JSON.parse(fs.readFileSync(backendPackageJsonPath, 'utf-8'));
+
+    // Update dependencies based on selections
+    backendPackageJson.dependencies = backendPackageJson.dependencies || {};
+
+    // Add selected validator
+    backendPackageJson.dependencies[VALIDATOR_PACKAGES[validator]!] = 'latest';
+
+    // Add selected framework
+    for (const pkg of FRAMEWORK_PACKAGES[framework]!) {
+      backendPackageJson.dependencies[pkg] = 'latest';
+    }
+
+    fs.writeFileSync(backendPackageJsonPath, JSON.stringify(backendPackageJson, null, 2) + '\n');
+  }
+
+  // Create a .env.example file
+  const envExamplePath = path.join(targetDir, 'packages', 'backend', '.env.example');
+  const envContent = `# Environment variables
+NODE_ENV=development
+PORT=3000
+`;
+  fs.writeFileSync(envExamplePath, envContent);
+
+  // Copy .env.example to .env
+  const envPath = path.join(targetDir, 'packages', 'backend', '.env');
+  fs.writeFileSync(envPath, envContent);
+
+  // Create a basic configuration comment file to indicate selections
+  const configPath = path.join(targetDir, '.onion-lasagna.json');
+  const config = {
+    starter,
+    validator,
+    framework,
+    createdAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+  // Install dependencies if requested
+  if (install) {
+    execSync('bun install', {
+      cwd: targetDir,
+      stdio: 'ignore',
+    });
+  }
+}
