@@ -32,8 +32,7 @@ presentation/
 
 These are the **source of truth** for API contracts.
 
-```typescript
-// request.dto.ts
+```typescript:request.dto.ts
 const findUserByIdRequestSchema = z.object({
   pathParams: z.object({
     userId: z.string().uuid(),
@@ -43,8 +42,7 @@ const findUserByIdRequestSchema = z.object({
 type FindUserByIdRequest = z.infer<typeof findUserByIdRequestSchema>;
 ```
 
-```typescript
-// response.dto.ts
+```typescript:response.dto.ts
 const findUserByIdResponseSchema = z.object({
   id: z.string().uuid(),
   email: z.string(),
@@ -65,8 +63,7 @@ Stateless gate-keepers. Receive use cases via DI.
 - ✅ Delegate authorization logic to use cases
 - ❌ Cannot implement custom business logic
 
-```typescript
-// access-guard.ts
+```typescript:access-guard.ts
 class CanManageResourceGuard {
   constructor(
     private readonly canManageResourceQuery: CanManageResourceQueryInboundPort,
@@ -88,8 +85,7 @@ class CanManageResourceGuard {
 
 Pure functions transforming between HTTP and use case shapes.
 
-```typescript
-// to-use-case.mapper.ts
+```typescript:to-use-case.mapper.ts
 function toFindUserByIdInput(request: FindUserByIdRequest): FindUserByIdInput {
   return { userId: request.pathParams.userId };
 }

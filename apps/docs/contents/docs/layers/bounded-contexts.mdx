@@ -43,8 +43,7 @@ bounded-contexts/{bc-name}/
 
 Interfaces for use cases. Implemented by queries and commands.
 
-```typescript
-// ports/inbound/find-user-by-id.query.inbound.ts
+```typescript:ports/inbound/find-user-by-id.query.inbound.ts
 interface FindUserByIdQueryInboundPort {
   execute(input: FindUserByIdInput): Promise<FindUserByIdOutput>;
 }
@@ -63,8 +62,7 @@ interface FindUserByIdQueryInboundPort {
 
 Interfaces for external dependencies. Implemented by infrastructure.
 
-```typescript
-// ports/outbound/user.repository.outbound.ts
+```typescript:ports/outbound/user.repository.outbound.ts
 interface UserRepositoryOutboundPort {
   findById(id: UserId): Promise<User | null>;
   save(user: User): Promise<void>;
@@ -77,8 +75,7 @@ interface UserRepositoryOutboundPort {
 
 Implement inbound ports.
 
-```typescript
-// use-cases/queries/find-user-by-id.query.ts
+```typescript:use-cases/queries/find-user-by-id.query.ts
 class FindUserByIdQuery implements FindUserByIdQueryInboundPort {
   constructor(
     private readonly userRepo: UserRepositoryOutboundPort,

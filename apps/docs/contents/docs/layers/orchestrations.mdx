@@ -48,8 +48,7 @@ orchestrations/
 
 ## Composition
 
-```typescript
-// compositions/use-cases/get-order-details.composition.ts
+```typescript:compositions/use-cases/get-order-details.composition.ts
 class GetOrderDetailsComposition implements GetOrderDetailsCompositionInboundPort {
   constructor(
     orderQueryRepo: OrderQueryRepositoryOutboundPort,
@@ -71,8 +70,7 @@ class GetOrderDetailsComposition implements GetOrderDetailsCompositionInboundPor
 
 ## Workflow
 
-```typescript
-// workflows/use-cases/process-checkout.workflow.ts
+```typescript:workflows/use-cases/process-checkout.workflow.ts
 class ProcessCheckoutWorkflow implements ProcessCheckoutWorkflowInboundPort {
   async execute(input: ProcessCheckoutInput): Promise<ProcessCheckoutOutput> {
     const order = await this.createOrderCommand.execute({ ... });
@@ -100,8 +98,7 @@ Projections have their own infrastructure layer for denormalized storage.
 - CAN write only to its own denormalized storage
 - For simple systems with shared DB, may not need separate storage
 
-```typescript
-// projections/use-cases/user-dashboard.projection.ts
+```typescript:projections/use-cases/user-dashboard.projection.ts
 class UserDashboardProjection implements UserDashboardProjectionInboundPort {
   async execute(input: UserDashboardInput): Promise<UserDashboardOutput> {
     // Reads from multiple BCs, returns aggregated view

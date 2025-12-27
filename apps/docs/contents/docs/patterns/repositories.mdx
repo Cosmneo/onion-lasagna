@@ -16,8 +16,7 @@ icon: "warehouse"
 
 ## Port Definition (Outbound)
 
-```typescript
-// ports/outbound/user.repository.outbound.ts
+```typescript:ports/outbound/user.repository.outbound.ts
 
 interface UserQueryRepositoryOutboundPort {
   findPaginated(options: PaginationOptions): Promise<PaginatedResult<UserReadModel>>;
@@ -38,8 +37,7 @@ interface UserWriteRepositoryOutboundPort {
 
 ## Implementation
 
-```typescript
-// infra/implementations/user/user.repository.ts
+```typescript:infra/implementations/user/user.repository.ts
 
 class UserRepository implements 
   UserQueryRepositoryOutboundPort,

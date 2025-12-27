@@ -6,8 +6,7 @@ icon: "plug"
 
 ## Current Manual Approach
 
-```typescript
-// bootstrap/user.bootstrap.ts
+```typescript:bootstrap/user.bootstrap.ts
 const userPersistence = new UserPersistence(db);
 const userRepo = new UserRepository(userPersistence);
 const getUserQuery = new GetUserQuery(userRepo);

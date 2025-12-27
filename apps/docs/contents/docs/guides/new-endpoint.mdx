@@ -17,8 +17,7 @@ icon: "route"
 
 ### 1. Create Request/Response DTOs
 
-```typescript
-// presentation/http/users/get-user/request.dto.ts
+```typescript:presentation/http/users/get-user/request.dto.ts
 const getUserRequestSchema = z.object({
   pathParams: z.object({
     userId: z.string().uuid(),
@@ -37,8 +36,7 @@ type GetUserResponse = z.infer<typeof getUserResponseSchema>;
 
 ### 2. Create Endpoint Metadata
 
-```typescript
-// presentation/http/users/get-user/endpoint.metadata.ts
+```typescript:presentation/http/users/get-user/endpoint.metadata.ts
 export const getUserMetadata = {
   method: 'GET' as const,
   path: '/users/:userId',
@@ -47,8 +45,7 @@ export const getUserMetadata = {
 
 ### 3. Define Inbound Port (in BC)
 
-```typescript
-// app/ports/inbound/get-user.query.inbound.ts
+```typescript:app/ports/inbound/get-user.query.inbound.ts
 interface GetUserQueryInboundPort {
   execute(input: GetUserInput): Promise<GetUserOutput>;
 }
@@ -56,8 +53,7 @@ interface GetUserQueryInboundPort {
 
 ### 4. Implement Use Case
 
-```typescript
-// app/use-cases/queries/get-user.query.ts
+```typescript:app/use-cases/queries/get-user.query.ts
 class GetUserQuery implements GetUserQueryInboundPort {
   constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {}
 
@@ -71,8 +67,7 @@ class GetUserQuery implements GetUserQueryInboundPort {
 
 ### 5. Create Mappers
 
-```typescript
-// presentation/http/users/get-user/to-use-case.mapper.ts
+```typescript:presentation/http/users/get-user/to-use-case.mapper.ts
 function toGetUserInput(request: GetUserRequest): GetUserInput {
   return { userId: request.pathParams.userId };
 }
@@ -85,8 +80,7 @@ function toGetUserResponse(output: GetUserOutput): GetUserResponse {
 
 ### 6. Create Access Guard (if needed)
 
-```typescript
-// presentation/http/users/get-user/access-guard.ts
+```typescript:presentation/http/users/get-user/access-guard.ts
 class GetUserAccessGuard {
   async guard(request: GetUserRequest): Promise<GuardResult> {
     // Allow any authenticated user
@@ -97,8 +91,7 @@ class GetUserAccessGuard {
 
 ### 7. Wire in Bootstrap
 
-```typescript
-// bootstrap/user.bootstrap.ts
+```typescript:bootstrap/user.bootstrap.ts
 const userReadRepo = new UserRepository(new UserPersistence());
 const getUserQuery = new GetUserQuery(userReadRepo);
 ```
