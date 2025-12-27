@@ -56,28 +56,49 @@ type FindUserByIdResponse = z.infer<typeof findUserByIdResponseSchema>;
 
 ## Access Guards
 
-Stateless gate-keepers. Receive use cases via DI.
+Access guards are **functions** (not classes) that determine if a request is allowed.
 
-**Rules:**
-- ✅ Receive use cases via dependency injection
-- ✅ Delegate authorization logic to use cases
-- ❌ Cannot implement custom business logic
+**Type Definition:**
 
-```typescript:access-guard.ts
-class CanManageResourceGuard {
-  constructor(
-    private readonly canManageResourceQuery: CanManageResourceQueryInboundPort,
-  ) {}
+```typescript
+type AccessGuard<T = unknown> = (
+  request: T,
+) => AccessGuardResult | Promise<AccessGuardResult>;
 
-  async guard(request: Request): Promise<AccessGuardResult> {
-    const result = await this.canManageResourceQuery.execute({
-      userId: request.executionContext.userId,
-      resourceId: request.pathParams.resourceId,
-    });
-    return { isAllowed: result.allowed, reason: result.reason };
-  }
+interface AccessGuardResult {
+  isAllowed: boolean;
+  reason?: string;
 }
 ```
+
+**Example:**
+
+```typescript:access-guard.ts
+import type { AccessGuard, AccessGuardResult } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+// Simple guard
+const requireAdmin: AccessGuard<MyRequest> = (request) => ({
+  isAllowed: request.data.role === 'admin',
+  reason: 'Admin access required',
+});
+
+// Guard using a use case (via closure)
+const createCanManageResourceGuard = (
+  canManageQuery: CanManageResourceQueryInboundPort,
+): AccessGuard<MyRequest> => async (request) => {
+  const result = await canManageQuery.execute({
+    userId: request.data.userId,
+    resourceId: request.data.resourceId,
+  });
+  return { isAllowed: result.allowed, reason: result.reason };
+};
+```
+
+**Rules:**
+- ✅ Functions, not classes
+- ✅ Can use closures for dependency injection
+- ✅ Delegate authorization logic to use cases
+- ❌ Cannot implement custom business logic
 
 ---
 
@@ -112,18 +133,78 @@ const executionContext = {
 
 ---
 
-## Exception Handling
+## Controllers
 
-Controllers catch domain exceptions and map to HTTP status codes.
+The library provides `BaseController` and `GuardedController` for building type-safe controller pipelines.
+
+### BaseController
+
+Simple pipeline: validate request → map to use case input → execute → map response.
 
 ```typescript
-// Framework-specific exception handler
-try {
-  const result = await useCase.execute(input);
-  return response(200, result);
-} catch (error) {
-  if (error instanceof NotFoundError) return response(404, error.message);
-  if (error instanceof InvalidRequestError) return response(400, error.message);
-  throw error;
-}
+import { BaseController } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+const getUserController = BaseController.create({
+  requestMapper: (req: GetUserRequestDto) =>
+    GetUserInputDto.create({ userId: req.data.userId }),
+  useCase: getUserQuery,
+  responseMapper: (output: GetUserOutputDto) =>
+    GetUserResponseDto.create(output.data),
+});
+
+// Execute
+const response = await getUserController.execute(requestDto);
+```
+
+### GuardedController
+
+Extends `BaseController` with an access guard.
+
+```typescript
+import { GuardedController } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+const updateUserController = GuardedController.create({
+  requestMapper: (req) => UpdateUserInputDto.create(req.data),
+  useCase: updateUserCommand,
+  responseMapper: (output) => UpdateUserResponseDto.create(output.data),
+  accessGuard: async (req) => ({
+    isAllowed: req.data.role === 'admin',
+    reason: 'Admin access required',
+  }),
+});
+```
+
+### Generic Type Parameters
+
+Both controllers use 4 generic type parameters, all extending `BaseDto<unknown>`:
+
+```typescript
+class BaseController<
+  TRequestDto extends BaseDto<unknown>,  // HTTP request DTO
+  TResponseDto extends BaseDto<unknown>, // HTTP response DTO
+  TInDto extends BaseDto<unknown>,       // Use case input DTO
+  TOutDto extends BaseDto<unknown>,      // Use case output DTO
+>
+```
+
+---
+
+## Exception Handling
+
+Controllers automatically convert `ObjectValidationError` to `InvalidRequestError`.
+
+For framework-specific exception handling, use the error handlers from framework integrations:
+
+```typescript
+// Hono
+import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+app.onError(onionErrorHandler);
+
+// Elysia
+import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+app.error(onionErrorHandler);
+
+// Fastify
+import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
+app.setErrorHandler(onionErrorHandler);
 ```

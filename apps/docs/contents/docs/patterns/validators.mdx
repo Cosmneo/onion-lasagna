@@ -92,6 +92,37 @@ class CreateUserDto extends BaseDto<CreateUserData> {
 
 ---
 
+## Dto Wrapper Classes
+
+Each validator exports a convenience `Dto<T>` class as a simpler alternative to extending `BaseDto`:
+
+```typescript
+import { Dto } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+import { z } from 'zod';
+
+const userSchema = z.object({
+  name: z.string(),
+  email: z.string().email(),
+});
+
+type User = z.infer<typeof userSchema>;
+
+// Create a validated DTO directly
+const userDto = new Dto<User>(userSchema, { name: 'John', email: 'john@example.com' });
+console.log(userDto.data); // { name: 'John', email: 'john@example.com' }
+```
+
+Available in all validators:
+
+```typescript
+import { Dto } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+import { Dto } from '@cosmneo/onion-lasagna/backend/core/validators/arktype';
+import { Dto } from '@cosmneo/onion-lasagna/backend/core/validators/valibot';
+import { Dto } from '@cosmneo/onion-lasagna/backend/core/validators/typebox';
+```
+
+---
+
 ## Using with BaseValueObject
 
 Inject validators into `BaseValueObject` constructors:

@@ -16,8 +16,8 @@ onion-lasagna/
 ├── apps/
 │   └── docs/              # Next.js documentation site
 ├── starters/              # Project templates (not in workspaces)
-│   ├── simple-starter/
-│   └── modules-starter/
+│   ├── simple-clean-starter/
+│   └── modules-clean-starter/
 ├── package.json           # Workspace root (private)
 ├── turbo.json
 └── eslint.config.mjs
@@ -97,7 +97,9 @@ CodedError (base with code + cause)
 │   └── PartialLoadError
 ├── UseCaseError (Conflict, NotFound, Unprocessable)
 ├── InfraError (DbError, NetworkError, TimeoutError, ExternalServiceError)
-├── ControllerError (AccessDenied, InvalidRequest)
+├── ControllerError
+├── AccessDeniedError
+├── InvalidRequestError
 └── ObjectValidationError
 ```
 

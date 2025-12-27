@@ -15,17 +15,34 @@ Pure domain logic, completely framework-free.
 bounded-contexts/{bc-name}/
 ├── app/
 │   ├── ports/
-│   │   ├── inbound/           ← Use case interfaces
+│   │   ├── inbound/
+│   │   │   ├── queries/       ← Query port interfaces
+│   │   │   └── commands/      ← Command port interfaces
 │   │   └── outbound/          ← Repository interfaces
 │   └── use-cases/
-│       ├── queries/
-│       └── commands/
+│       ├── queries/           ← Query implementations
+│       └── commands/          ← Command implementations
 ├── domain/
 │   ├── aggregates/
+│   │   └── {aggregate}/
+│   │       └── policies/
 │   ├── entities/
 │   ├── value-objects/
+│   ├── events/                ← Domain events
+│   ├── services/              ← Domain services
 │   └── exceptions/
-└── infra/                      ← BC-scoped implementations
+├── infra/
+│   ├── outbound-adapters/     ← Port implementations
+│   ├── persistence/
+│   ├── external-systems/
+│   ├── schemas/
+│   └── config/
+└── presentation/              ← BC-specific HTTP layer
+    ├── bootstrap/
+    │   ├── controller.bootstrap.ts
+    │   └── dto.bootstrap.ts
+    └── http/
+        └── {resource}/{endpoint}/
 ```
 
 ---
@@ -43,9 +60,9 @@ bounded-contexts/{bc-name}/
 
 Interfaces for use cases. Implemented by queries and commands.
 
-```typescript:ports/inbound/find-user-by-id.query.inbound.ts
+```typescript:ports/inbound/queries/find-user-by-id.port.ts
 interface FindUserByIdQueryInboundPort {
-  execute(input: FindUserByIdInput): Promise<FindUserByIdOutput>;
+  execute(input: FindUserByIdInputDto): Promise<FindUserByIdOutputDto>;
 }
 ```
 
@@ -53,8 +70,8 @@ interface FindUserByIdQueryInboundPort {
 
 | Type | Interface | File |
 |------|-----------|------|
-| Query | `{Name}QueryInboundPort` | `.query.inbound.ts` |
-| Command | `{Name}CommandInboundPort` | `.command.inbound.ts` |
+| Query | `{Name}QueryInboundPort` | `queries/{name}.port.ts` |
+| Command | `{Name}CommandInboundPort` | `commands/{name}.port.ts` |
 
 ---
 
@@ -73,21 +90,34 @@ interface UserRepositoryOutboundPort {
 
 ## Use Cases
 
-Implement inbound ports.
+Implement inbound ports using `BaseInboundAdapter` for automatic error handling.
 
-```typescript:use-cases/queries/find-user-by-id.query.ts
-class FindUserByIdQuery implements FindUserByIdQueryInboundPort {
-  constructor(
-    private readonly userRepo: UserRepositoryOutboundPort,
-  ) {}
+```typescript:use-cases/queries/find-user-by-id.use-case.ts
+import { BaseInboundAdapter, NotFoundError } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
 
-  async execute(input: FindUserByIdInput): Promise<FindUserByIdOutput> {
-    const user = await this.userRepo.findById(UserId.create(input.userId));
-    if (!user) throw new UserNotFoundError(input.userId);
-    return { id: user.id.value, email: user.email, name: user.name };
+class FindUserByIdQuery
+  extends BaseInboundAdapter<FindUserByIdInputDto, FindUserByIdOutputDto>
+  implements FindUserByIdQueryInboundPort
+{
+  constructor(private readonly userRepo: UserRepositoryOutboundPort) {
+    super();
+  }
+
+  protected async handle(input: FindUserByIdInputDto): Promise<FindUserByIdOutputDto> {
+    const user = await this.userRepo.findById(UserId.create(input.data.userId));
+    if (!user) {
+      throw new NotFoundError({ message: `User ${input.data.userId} not found` });
+    }
+    return FindUserByIdOutputDto.create({
+      id: user.id.value,
+      email: user.email,
+      name: user.name,
+    });
   }
 }
 ```
+
+**Note:** Implement `handle()` (protected) instead of `execute()`. The `BaseInboundAdapter` provides `execute()` with automatic error wrapping.
 
 ---
 

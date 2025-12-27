@@ -37,14 +37,21 @@ interface UserWriteRepositoryOutboundPort {
 
 ## Implementation
 
-```typescript:infra/implementations/user/user.repository.ts
+Extend `BaseOutboundAdapter` for automatic error wrapping:
 
-class UserRepository implements 
-  UserQueryRepositoryOutboundPort,
-  UserReadRepositoryOutboundPort,
-  UserWriteRepositoryOutboundPort 
+```typescript:infra/outbound-adapters/user/user.repository.ts
+import { BaseOutboundAdapter } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+class UserRepository
+  extends BaseOutboundAdapter
+  implements
+    UserQueryRepositoryOutboundPort,
+    UserReadRepositoryOutboundPort,
+    UserWriteRepositoryOutboundPort
 {
-  constructor(private readonly persistence: UserPersistence) {}
+  constructor(private readonly persistence: UserPersistence) {
+    super();
+  }
 
   async findById(id: UserId): Promise<UserAggregate | null> {
     const row = await this.persistence.findById(id.value);
@@ -61,6 +68,8 @@ class UserRepository implements
   }
 }
 ```
+
+**Note:** `BaseOutboundAdapter` automatically wraps all methods with error handling, converting any thrown errors to `InfraError`.
 
 ---
 

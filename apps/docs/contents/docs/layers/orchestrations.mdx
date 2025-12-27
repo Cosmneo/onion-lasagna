@@ -30,19 +30,29 @@ Coordinates operations across multiple Bounded Contexts.
 
 ## Structure
 
+Each orchestration is self-contained with its own layers:
+
 ```
-orchestrations/
-├── compositions/
-│   ├── ports/
-│   └── use-cases/
-├── workflows/
-│   ├── ports/
-│   └── use-cases/
-└── projections/
-    ├── ports/
-    ├── use-cases/
-    └── infra/              ← Projection's own infrastructure
+orchestrations/{orchestration-name}/
+├── app/
+│   ├── inbound/
+│   │   ├── compositions/
+│   │   │   └── {composition}/
+│   │   ├── workflows/
+│   │   │   └── {workflow}/
+│   │   └── projections/
+│   │       └── {projection}/
+│   └── outbound/
+├── infra/
+│   ├── outbound-adapters/
+│   ├── persistence/
+│   └── schemas/
+└── presentation/
+    ├── bootstrap/
+    └── http/
 ```
+
+**Note:** Each orchestration has its own presentation layer for HTTP endpoints specific to that orchestration.
 
 ---
 
