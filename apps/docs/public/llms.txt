@@ -320,7 +320,7 @@ class CanManageResourceGuard {
       userId: request.executionContext.userId,
       resourceId: request.pathParams.resourceId,
     });
-    return { allowed: result.allowed, reason: result.reason };
+    return { isAllowed: result.allowed, reason: result.reason };
   }
 }
 ```
@@ -368,8 +368,8 @@ try {
   const result = await useCase.execute(input);
   return response(200, result);
 } catch (error) {
-  if (error instanceof UserNotFoundError) return response(404, error.message);
-  if (error instanceof ValidationError) return response(400, error.message);
+  if (error instanceof NotFoundError) return response(404, error.message);
+  if (error instanceof InvalidRequestError) return response(400, error.message);
   throw error;
 }
 ```
@@ -721,14 +721,19 @@ See [Aggregates](../patterns/aggregates.md) and [Value Objects](../patterns/valu
 
 ---
 
-## Pattern
+## BaseDto Class
 
-Use Zod for schema definition and type inference.
+All DTOs extend `BaseDto` which provides:
+- Immutable data access via `.data` getter
+- Automatic validation at construction
+- Support for skipping validation when reconstituting from trusted sources
 
 ```typescript
-// Request DTO
 
 
+
+
+// Define your schema
 const createUserRequestSchema = z.object({
   body: z.object({
     email: z.string().email(),
@@ -737,32 +742,127 @@ const createUserRequestSchema = z.object({
   }),
 });
 
-type CreateUserRequest = z.infer;
-```
+type CreateUserRequestData = z.infer;
 
-```typescript
-// Use case input
-const createUserInputSchema = z.object({
-  email: z.string().email(),
-  name: z.string(),
-  password: z.string(),
-});
+// Create a DTO class extending BaseDto
+class CreateUserRequestDto extends BaseDto {
+  private constructor(data: CreateUserRequestData) {
+    super(data, createZodValidator(createUserRequestSchema));
+  }
 
-type CreateUserInput = z.infer;
+  static create(data: unknown): CreateUserRequestDto {
+    // Validates and throws ObjectValidationError if invalid
+    return new CreateUserRequestDto(data as CreateUserRequestData);
+  }
+
+  // Convenience getters
+  get email(): string {
+    return this.data.body.email;
+  }
+
+  get name(): string {
+    return this.data.body.name;
+  }
+}
 ```
 
 ---
 
-## Validation
+## Use Case DTOs
 
-Validate at the boundary:
-- **Request DTOs** validated at controller level
-- **Input DTOs** validated when created from mapper
+Input and output DTOs follow the same pattern:
 
 ```typescript
-// In controller
-const validated = createUserRequestSchema.parse(request);
+const createUserInputSchema = z.object({
+  email: z.string().email(),
+  name: z.string(),
+  hashedPassword: z.string(),
+});
+
+type CreateUserInputData = z.infer;
+
+class CreateUserInputDto extends BaseDto {
+  private constructor(data: CreateUserInputData) {
+    super(data, createZodValidator(createUserInputSchema));
+  }
+
+  static create(data: unknown): CreateUserInputDto {
+    return new CreateUserInputDto(data as CreateUserInputData);
+  }
+}
 ```
+
+---
+
+## Skipping Validation
+
+Use `SKIP_DTO_VALIDATION` when reconstituting from trusted sources (e.g., database, internal mapping):
+
+```typescript
+class UserOutputDto extends BaseDto {
+  private constructor(data: UserOutputData, skipValidation = false) {
+    super(data, skipValidation ? SKIP_DTO_VALIDATION : createZodValidator(schema));
+  }
+
+  static create(data: unknown): UserOutputDto {
+    return new UserOutputDto(data as UserOutputData);
+  }
+
+  // For internal use when data is already validated
+  static fromTrusted(data: UserOutputData): UserOutputDto {
+    return new UserOutputDto(data, true);
+  }
+}
+```
+
+---
+
+## Other Validators
+
+The library supports multiple validators. Replace the Zod validator with your preferred choice:
+
+```typescript
+// ArkType
+
+
+
+const schema = type({ email: 'string.email', name: 'string' });
+super(data, createArkTypeValidator(schema));
+
+// Valibot
+
+
+
+const schema = v.object({ email: v.pipe(v.string(), v.email()), name: v.string() });
+super(data, createValibotValidator(schema));
+
+// TypeBox
+
+
+
+const schema = Type.Object({ email: Type.String({ format: 'email' }), name: Type.String() });
+super(data, createTypeBoxValidator(schema));
+```
+
+---
+
+## Validation Errors
+
+When validation fails, an `ObjectValidationError` is thrown with structured field-level errors:
+
+```typescript
+try {
+  const dto = CreateUserRequestDto.create(invalidData);
+} catch (error) {
+  if (error instanceof ObjectValidationError) {
+    // error.validationErrors is an array of { field: string; message: string }
+    console.log(error.validationErrors);
+    // [{ field: 'body.email', message: 'Invalid email format' }]
+  }
+}
+```
+
+Controllers automatically convert `ObjectValidationError` to `InvalidRequestError` with a 400 status code.
 
 ---
 
@@ -772,163 +872,477 @@ const validated = createUserRequestSchema.parse(request);
 |--------|-----|--------------|
 | **Purpose** | Transfer data | Represent domain concept |
 | **Location** | Presentation / App layer | Domain layer |
-| **Behavior** | None (data only) | May have methods |
+| **Behavior** | Minimal (data access) | May have methods |
 | **Identity** | None | Compared by value |
+| **Base Class** | `BaseDto` | `BaseValueObject` |
 ---
 
 # Value Objects
 > Immutable objects defined by their attributes, not identity. Used for type safety and validation.
 
-## Structure
+## BaseValueObject
+
+All value objects extend `BaseValueObject`:
 
 ```typescript
-class UserId {
-  private constructor(private readonly _value: string) {}
 
+
+
+
+class Email extends BaseValueObject {
+  private constructor(value: string, skipValidation = false) {
+    super(
+      value,
+      skipValidation ? SKIP_VALUE_OBJECT_VALIDATION : createZodValidator(z.string().email()),
+    );
+  }
+
+  static create(value: string): Email {
+    return new Email(value);
+  }
+
+  // For reconstitution from trusted sources (e.g., database)
+  static fromPersistence(value: string): Email {
+    return new Email(value, true);
+  }
+
+  get domain(): string {
+    return this.value.split('@')[1];
+  }
+}
+```
+
+Key features:
+- **Immutable**: Value is set at construction and cannot be changed
+- **Validated**: Validator runs at construction (unless skipped)
+- **Comparable**: Built-in `equals()` method with deep equality
+
+---
+
+## Built-in Value Objects
+
+The library provides base value objects you can extend:
+
+### Text Types
+
+```typescript
+
+  BaseShortTextVo,   // Suggested: 1-100 characters
+  BaseMediumTextVo,  // Suggested: 1-500 characters
+  BaseLongTextVo,    // Suggested: 1-2000 characters
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+```
+
+### Identifiers
+
+```typescript
+
+  BaseUuidV4Vo,  // UUID v4 format
+  BaseUuidV7Vo,  // UUID v7 format (time-ordered)
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+```
+
+### Contact
+
+```typescript
+
+```
+
+### Pagination
+
+```typescript
+
+
+// Properties: page, pageSize
+```
+
+### Auditing
+
+```typescript
+
+  BaseAuditInfoVo,  // Combines by + on
+  BaseAuditByVo,    // createdBy, updatedBy (optional UUIDs)
+  BaseAuditOnVo,    // createdAt, updatedAt (with invariant check)
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+```
+
+**Note**: `BaseAuditOnVo` enforces that `updatedAt` cannot be before `createdAt`.
+
+---
+
+## Ready-to-Use Value Objects
+
+Each validator provides ready-to-use value objects:
+
+```typescript
+// Zod (same exports for arktype, valibot, typebox)
+
+  EmailVo,
+  UuidV4Vo,
+  UuidV7Vo,
+  ShortTextVo,
+  MediumTextVo,
+  LongTextVo,
+  PaginationVo,
+  AuditByVo,
+  AuditOnVo,
+  AuditInfoVo,
+} from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+
+// Usage
+const email = EmailVo.create('user@example.com');
+const id = UuidV4Vo.generate();          // Generate new UUID
+const existingId = UuidV4Vo.create(str); // Validate existing
+const name = ShortTextVo.create('John Doe');
+const page = PaginationVo.create({ page: 1, pageSize: 20 });
+```
+
+---
+
+## Creating Custom Value Objects
+
+### Simple Value Object
+
+```typescript
+class UserId extends BaseUuidV4Vo {
   static create(value: string): UserId {
-    if (!isValidUUID(value)) {
-      throw new InvalidUserIdError(`Invalid user ID: ${value}`);
-    }
     return new UserId(value);
   }
 
   static generate(): UserId {
-    return new UserId(crypto.randomUUID());
+    return UserId.create(crypto.randomUUID());
+  }
+}
+```
+
+### Value Object with Custom Validation
+
+```typescript
+const phoneSchema = z.string().regex(/^\+[1-9]\d{1,14}$/);
+
+class PhoneNumber extends BaseValueObject {
+  private constructor(value: string) {
+    super(value, createZodValidator(phoneSchema));
   }
 
-  get value(): string {
-    return this._value;
+  static create(value: string): PhoneNumber {
+    return new PhoneNumber(value);
   }
 
-  equals(other: UserId): boolean {
-    return this._value === other._value;
+  get countryCode(): string {
+    return this.value.slice(1, 3);
+  }
+}
+```
+
+### Composite Value Object
+
+```typescript
+interface AddressData {
+  street: string;
+  city: string;
+  postalCode: string;
+  country: string;
+}
+
+const addressSchema = z.object({
+  street: z.string().min(1),
+  city: z.string().min(1),
+  postalCode: z.string().min(1),
+  country: z.string().length(2),
+});
+
+class Address extends BaseValueObject {
+  private constructor(data: AddressData) {
+    super(data, createZodValidator(addressSchema));
+  }
+
+  static create(data: AddressData): Address {
+    return new Address(data);
+  }
+
+  get street(): string { return this.value.street; }
+  get city(): string { return this.value.city; }
+  get fullAddress(): string {
+    return `${this.value.street}, ${this.value.city}, ${this.value.country}`;
   }
 }
 ```
 
 ---
 
-## Common Value Objects
+## Equality Comparison
 
-### ID Value Objects
-
-```typescript
-class UserId { ... }
-class OrderId { ... }
-class ProductId { ... }
-```
-
-### Email
+`BaseValueObject` provides deep equality via `equals()`:
 
 ```typescript
-class Email {
-  private constructor(private readonly _value: string) {}
+const email1 = EmailVo.create('user@example.com');
+const email2 = EmailVo.create('user@example.com');
+const email3 = EmailVo.create('other@example.com');
 
-  static create(value: string): Email {
-    const normalized = value.toLowerCase().trim();
-    if (!isValidEmail(normalized)) throw new InvalidEmailError(value);
-    return new Email(normalized);
-  }
-
-  get value(): string { return this._value; }
-  get domain(): string { return this._value.split('@')[1]; }
-}
+email1.equals(email2); // true (same value)
+email1.equals(email3); // false (different value)
 ```
 
-### Money
-
-```typescript
-class Money {
-  private constructor(
-    private readonly _cents: number,
-    private readonly _currency: Currency,
-  ) {}
-
-  static create(amount: number, currency: Currency): Money {
-    if (amount < 0) throw new InvalidMoneyError('Amount cannot be negative');
-    return new Money(Math.round(amount * 100), currency);
-  }
-
-  get amount(): number { return this._cents / 100; }
-  get currency(): Currency { return this._currency; }
-
-  add(other: Money): Money {
-    if (this._currency !== other._currency) throw new CurrencyMismatchError();
-    return new Money(this._cents + other._cents, this._currency);
-  }
-}
-```
+The comparison handles:
+- Primitive values
+- Nested objects
+- Arrays
+- Date objects
 
 ---
 
 ## Rules
 
-- ✅ Make immutable (no setters)
-- ✅ Use factory methods for validation
-- ✅ Implement `equals()` for comparisons
-- ✅ Throw domain exceptions on invalid data
+- ✅ Extend `BaseValueObject` for consistency
+- ✅ Use factory methods (`create`, `generate`)
+- ✅ Use `SKIP_VALUE_OBJECT_VALIDATION` for trusted sources
+- ✅ Add convenience getters for derived values
+- ✅ Throw `ObjectValidationError` on invalid data (automatic with validators)
+- ❌ Don't mutate after construction
 - ❌ Don't use for complex objects (use Entities/Aggregates)
 ---
 
 # Aggregates
-> Entity clusters treated as a single unit. Enforce business invariants.
+> Entity clusters treated as a single unit. Enforce business invariants and emit domain events.
 
-## Structure
+## BaseEntity and BaseAggregateRoot
+
+The library provides base classes for entities and aggregates:
 
 ```typescript
-class OrderAggregate {
-  private constructor(
-    private readonly _id: OrderId,
-    private readonly _customerId: CustomerId,
-    private _items: OrderItem[],
-    private _status: OrderStatus,
-    private readonly _createdAt: Date,
-  ) {}
+
+  BaseEntity,
+  BaseAggregateRoot,
+  BaseDomainEvent,
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+```
+
+---
+
+## BaseEntity
+
+Entities have identity and can be compared by ID:
+
+```typescript
+abstract class BaseEntity,
+  TProps extends object,
+> {
+  protected readonly _id: TId;
+  protected _version: number;
+  protected readonly _props: TProps;
+
+  get id(): TId;
+  get version(): number;
+  get props(): TProps;
+
+  equals(other: BaseEntity): boolean;
+  nextVersion(): number;
+}
+```
+
+---
+
+## BaseAggregateRoot
+
+Aggregates extend `BaseEntity` with domain event support:
+
+```typescript
+abstract class BaseAggregateRoot,
+  TProps extends object,
+> extends BaseEntity {
+  // Add a domain event to be published
+  protected addDomainEvent(event: BaseDomainEvent): void;
+
+  // Get and clear all domain events (for publishing)
+  public pullDomainEvents(): BaseDomainEvent[];
+
+  // Peek at events without clearing
+  public peekDomainEvents(): readonly BaseDomainEvent[];
+
+  // Check if there are pending events
+  public get hasDomainEvents(): boolean;
+
+  // Clear all events (called after publishing)
+  protected clearDomainEvents(): void;
+}
+```
+
+---
+
+## Creating an Aggregate
+
+```typescript
+
+  BaseAggregateRoot,
+  BaseDomainEvent,
+  InvariantViolationError,
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+interface OrderProps {
+  customerId: CustomerId;
+  items: OrderItem[];
+  status: OrderStatus;
+  createdAt: Date;
+}
+
+class OrderAggregate extends BaseAggregateRoot {
+  private constructor(id: OrderId, props: OrderProps, version = 0) {
+    super(id, props, version);
+  }
 
   // Factory for NEW instances
   static create(data: CreateOrderData): OrderAggregate {
-    return new OrderAggregate(
+    const order = new OrderAggregate(
       OrderId.generate(),
-      CustomerId.create(data.customerId),
-      [],
-      OrderStatus.DRAFT,
-      new Date(),
+      {
+        customerId: CustomerId.create(data.customerId),
+        items: [],
+        status: OrderStatus.DRAFT,
+        createdAt: new Date(),
+      },
     );
+
+    // Emit creation event
+    order.addDomainEvent(new OrderCreatedEvent(order.id.value, data.customerId));
+
+    return order;
   }
 
   // Factory for EXISTING instances (from DB)
-  static reconstitute(data: OrderData): OrderAggregate {
+  static reconstitute(data: OrderData, version: number): OrderAggregate {
     return new OrderAggregate(
       OrderId.create(data.id),
-      CustomerId.create(data.customerId),
-      data.items.map(OrderItem.reconstitute),
-      data.status,
-      data.createdAt,
+      {
+        customerId: CustomerId.create(data.customerId),
+        items: data.items.map(OrderItem.reconstitute),
+        status: data.status,
+        createdAt: data.createdAt,
+      },
+      version,
     );
   }
 
   // Domain methods (enforce invariants)
   addItem(item: AddItemData): void {
-    if (this._status !== OrderStatus.DRAFT) {
-      throw new OrderNotEditableError('Cannot add items to non-draft order');
+    if (this._props.status !== OrderStatus.DRAFT) {
+      throw new InvariantViolationError({
+        message: 'Cannot add items to non-draft order',
+        code: 'ORDER_NOT_EDITABLE',
+      });
     }
-    if (this._items.length >= 50) {
-      throw new OrderLimitExceededError('Maximum 50 items per order');
+    if (this._props.items.length >= 50) {
+      throw new InvariantViolationError({
+        message: 'Maximum 50 items per order',
+        code: 'ORDER_LIMIT_EXCEEDED',
+      });
     }
-    this._items.push(OrderItem.create(item));
+
+    this._props.items.push(OrderItem.create(item));
+    this.addDomainEvent(new OrderItemAddedEvent(this.id.value, item));
   }
 
   submit(): void {
-    if (this._items.length === 0) {
-      throw new EmptyOrderError('Cannot submit empty order');
+    if (this._props.items.length === 0) {
+      throw new InvariantViolationError({
+        message: 'Cannot submit empty order',
+        code: 'EMPTY_ORDER',
+      });
     }
-    this._status = OrderStatus.PENDING;
+
+    this._props.status = OrderStatus.PENDING;
+    this.addDomainEvent(new OrderSubmittedEvent(this.id.value));
   }
 
-  // Getters (read-only access)
-  get id(): OrderId { return this._id; }
-  get status(): OrderStatus { return this._status; }
-  get items(): readonly OrderItem[] { return [...this._items]; }
+  // Getters
+  get customerId(): CustomerId { return this._props.customerId; }
+  get status(): OrderStatus { return this._props.status; }
+  get items(): readonly OrderItem[] { return [...this._props.items]; }
+}
+```
+
+---
+
+## Domain Events
+
+Create domain events by extending `BaseDomainEvent`:
+
+```typescript
+
+
+interface OrderCreatedPayload {
+  customerId: string;
+}
+
+class OrderCreatedEvent extends BaseDomainEvent {
+  constructor(aggregateId: string, customerId: string) {
+    super('OrderCreated', aggregateId, { customerId });
+  }
+}
+
+interface OrderSubmittedPayload {
+  submittedAt: Date;
+}
+
+class OrderSubmittedEvent extends BaseDomainEvent {
+  constructor(aggregateId: string) {
+    super('OrderSubmitted', aggregateId, { submittedAt: new Date() });
+  }
+}
+```
+
+`BaseDomainEvent` provides:
+- `eventId` - Unique ID for the event
+- `eventName` - Name of the event
+- `aggregateId` - ID of the aggregate that emitted it
+- `occurredOn` - Timestamp when the event occurred
+- `payload` - Event-specific data
+- `toJSON()` - Serialize for storage/transport
+
+---
+
+## Publishing Domain Events
+
+Use `pullDomainEvents()` to get and clear events after persisting:
+
+```typescript
+class CreateOrderCommand {
+  constructor(
+    private readonly orderRepo: OrderWriteRepositoryOutboundPort,
+    private readonly eventPublisher: EventPublisherOutboundPort,
+  ) {}
+
+  async execute(input: CreateOrderInput): Promise {
+    const order = OrderAggregate.create(input);
+
+    // Persist first
+    await this.orderRepo.save(order);
+
+    // Then publish events (get and clear)
+    const events = order.pullDomainEvents();
+    await this.eventPublisher.publishAll(events);
+  }
+}
+```
+
+---
+
+## Optimistic Locking
+
+Use `version` and `nextVersion()` for optimistic concurrency:
+
+```typescript
+class OrderRepository {
+  async save(order: OrderAggregate): Promise {
+    const affectedRows = await this.db.query(
+      `UPDATE orders SET ..., version = ? WHERE id = ? AND version = ?`,
+      [order.nextVersion(), order.id.value, order.version],
+    );
+
+    if (affectedRows === 0) {
+      throw new ConcurrencyError('Order was modified by another process');
+    }
+  }
 }
 ```
 
@@ -936,13 +1350,17 @@ class OrderAggregate {
 
 ## Rules
 
+- ✅ Extend `BaseAggregateRoot` for event-sourced aggregates
 - ✅ Use factory methods (`create`, `reconstitute`)
 - ✅ Enforce all invariants in domain methods
+- ✅ Use `InvariantViolationError` for business rule violations
+- ✅ Emit domain events for state changes
 - ✅ Return copies of collections from getters
 - ✅ Reference other aggregates by ID only
-- ✅ **Prefer partial loading** over full loading
+- ✅ Use `version` for optimistic locking
 - ❌ Never create with `new` directly
 - ❌ Never reference other aggregates directly
+- ❌ Never publish events before persisting
 
 ---
 
@@ -951,17 +1369,18 @@ class OrderAggregate {
 Repositories are responsible for hydrating aggregates:
 
 ```typescript
-// In repository
-async findById(id: OrderId): Promise {
-  const row = await this.persistence.findById(id.value);
-  if (!row) return null;
-  return OrderAggregate.reconstitute(row);
+class OrderRepository extends BaseOutboundAdapter {
+  async findById(id: OrderId): Promise {
+    const row = await this.persistence.findById(id.value);
+    if (!row) return null;
+    return OrderAggregate.reconstitute(row, row.version);
+  }
 }
 ```
 ---
 
 # Repositories
-> Povide access to aggregates and read models. Three types aligned with CQRS.
+> Provide access to aggregates and read models. Three types aligned with CQRS.
 
 ## Types
 
@@ -1146,7 +1565,7 @@ function toGetUserResponse(output: GetUserOutput): GetUserResponse {
 class GetUserAccessGuard {
   async guard(request: GetUserRequest): Promise {
     // Allow any authenticated user
-    return { allowed: true };
+    return { isAllowed: true };
   }
 }
 ```

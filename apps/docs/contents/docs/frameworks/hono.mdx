@@ -1,0 +1,217 @@
+---
+title: "Hono Integration"
+description: "Register routes and handle errors with Hono framework."
+icon: "bolt"
+---
+
+## Installation
+
+```bash
+bun add hono
+```
+
+Import the Hono integration:
+
+```typescript
+import {
+  registerHonoRoutes,
+  onionErrorHandler,
+  mapErrorToHttpException,
+} from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { Hono } from 'hono';
+import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+
+const app = new Hono();
+
+// Apply error handler
+app.onError(onionErrorHandler);
+
+// Register routes
+registerHonoRoutes(app, routes);
+
+export default app;
+```
+
+---
+
+## Registering Routes
+
+The `registerHonoRoutes` function registers your controllers with Hono:
+
+```typescript
+import type { RouteInput } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+const routes: RouteInput[] = [
+  {
+    metadata: {
+      method: 'GET',
+      path: '/users/{userId}',  // {param} syntax converted to :param
+    },
+    controller: getUserController,
+    requestDtoFactory: GetUserRequestDto.create,
+  },
+  {
+    metadata: {
+      method: 'POST',
+      path: '/users',
+    },
+    controller: createUserController,
+    requestDtoFactory: CreateUserRequestDto.create,
+  },
+];
+
+registerHonoRoutes(app, routes);
+```
+
+### Path Parameter Conversion
+
+Paths use `{param}` syntax which is automatically converted to Hono's `:param` format:
+
+- `/users/{userId}` → `/users/:userId`
+- `/orders/{orderId}/items/{itemId}` → `/orders/:orderId/items/:itemId`
+
+---
+
+## Options
+
+```typescript
+interface RegisterRoutesOptions {
+  prefix?: string;              // Route prefix (e.g., '/api/v1')
+  middlewares?: HonoMiddleware[]; // Middlewares to apply to all routes
+}
+
+// With options
+registerHonoRoutes(app, routes, {
+  prefix: '/api/v1',
+  middlewares: [authMiddleware, loggingMiddleware],
+});
+```
+
+---
+
+## Error Handler
+
+The `onionErrorHandler` maps domain errors to HTTP responses:
+
+```typescript
+app.onError(onionErrorHandler);
+```
+
+### Error Mapping
+
+| Error Type | HTTP Status | Body |
+|------------|-------------|------|
+| `ObjectValidationError` | 400 | `{ code, message, errors }` |
+| `InvalidRequestError` | 400 | `{ code, message, errors }` |
+| `AccessDeniedError` | 403 | `{ code, message }` |
+| `NotFoundError` | 404 | `{ code, message }` |
+| `ConflictError` | 409 | `{ code, message }` |
+| `UnprocessableError` | 422 | `{ code, message }` |
+| `DomainError` | 500 | `{ message: 'Internal Server Error' }` |
+| `InfraError` | 500 | `{ message: 'Internal Server Error' }` |
+| Unknown | 500 | `{ message: 'Internal Server Error' }` |
+
+Internal errors (Domain, Infra, Controller) are masked to prevent leaking implementation details.
+
+---
+
+## Custom Error Handling
+
+Use `mapErrorToHttpException` for custom error handling:
+
+```typescript
+import { mapErrorToHttpException } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+
+app.onError((error, c) => {
+  // Log all errors
+  console.error('Error:', error);
+
+  // Use standard mapping
+  const httpException = mapErrorToHttpException(error);
+  return httpException.getResponse();
+});
+```
+
+---
+
+## Controller Structure
+
+Controllers receive the raw Hono context and should return an `HttpResponse` wrapped in a DTO:
+
+```typescript
+import type { HttpResponse } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+class GetUserController extends BaseController<
+  GetUserRequestDto,
+  HttpResponseDto<GetUserResponse>,
+  GetUserInputDto,
+  GetUserOutputDto
+> {
+  static create(useCase: GetUserQueryInboundPort) {
+    return new GetUserController({
+      requestMapper: (dto) => GetUserInputDto.fromRequest(dto),
+      useCase,
+      responseMapper: (output) => HttpResponseDto.ok(output.data),
+    });
+  }
+}
+```
+
+---
+
+## Complete Example
+
+```typescript
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+
+// Create app
+const app = new Hono();
+
+// Middleware
+app.use('*', cors());
+
+// Error handling
+app.onError(onionErrorHandler);
+
+// Health check
+app.get('/health', (c) => c.json({ status: 'ok' }));
+
+// API routes
+registerHonoRoutes(app, userRoutes, { prefix: '/api/v1' });
+registerHonoRoutes(app, orderRoutes, { prefix: '/api/v1' });
+
+export default app;
+```
+
+---
+
+## Cloudflare Workers
+
+```typescript
+// src/index.ts
+import { Hono } from 'hono';
+import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+
+const app = new Hono();
+
+app.onError(onionErrorHandler);
+registerHonoRoutes(app, routes);
+
+export default app;
+```
+
+```toml
+# wrangler.toml
+name = "my-worker"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+```

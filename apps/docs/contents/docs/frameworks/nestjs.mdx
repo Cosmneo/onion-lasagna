@@ -1,0 +1,252 @@
+---
+title: "NestJS Integration"
+description: "Use onion-lasagna patterns with NestJS framework."
+icon: "cat"
+---
+
+## Installation
+
+```bash
+bun add @nestjs/core @nestjs/common @nestjs/platform-express
+```
+
+Import the NestJS integration:
+
+```typescript
+import {
+  OnionLasagnaRequest,
+  OnionLasagnaExceptionFilter,
+  OnionLasagnaResponseInterceptor,
+  BaseNestController,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { Module, Controller, Get, UseFilters, UseInterceptors } from '@nestjs/common';
+import {
+  OnionLasagnaRequest,
+  OnionLasagnaExceptionFilter,
+  OnionLasagnaResponseInterceptor,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+@Controller('users')
+@UseFilters(OnionLasagnaExceptionFilter)
+@UseInterceptors(OnionLasagnaResponseInterceptor)
+export class UsersController {
+  constructor(private readonly getUserQuery: GetUserQueryInboundPort) {}
+
+  @Get(':userId')
+  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
+    const dto = GetUserRequestDto.create(request);
+    return this.getUserQuery.execute(dto);
+  }
+}
+```
+
+---
+
+## @OnionLasagnaRequest Decorator
+
+Extracts an `HttpRequest` object from the NestJS request:
+
+```typescript
+import { OnionLasagnaRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+@Get(':id')
+async getItem(@OnionLasagnaRequest() request: HttpRequest) {
+  // request contains: pathParams, queryParams, body, headers
+}
+```
+
+The `HttpRequest` structure:
+
+```typescript
+interface HttpRequest {
+  pathParams: Record<string, string>;
+  queryParams: Record<string, string | string[]>;
+  body: unknown;
+  headers: Record<string, string>;
+  rawRequest?: unknown;  // Original NestJS request
+}
+```
+
+---
+
+## OnionLasagnaExceptionFilter
+
+Maps domain errors to HTTP responses:
+
+```typescript
+import { UseFilters } from '@nestjs/common';
+import { OnionLasagnaExceptionFilter } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+// Apply to controller
+@Controller('users')
+@UseFilters(OnionLasagnaExceptionFilter)
+export class UsersController {}
+
+// Or apply globally in main.ts
+app.useGlobalFilters(new OnionLasagnaExceptionFilter());
+```
+
+### Error Mapping
+
+| Error Type | HTTP Status |
+|------------|-------------|
+| `ObjectValidationError` | 400 |
+| `InvalidRequestError` | 400 |
+| `AccessDeniedError` | 403 |
+| `NotFoundError` | 404 |
+| `ConflictError` | 409 |
+| `UnprocessableError` | 422 |
+| Internal errors | 500 |
+
+---
+
+## OnionLasagnaResponseInterceptor
+
+Extracts `HttpResponse` data from controller returns:
+
+```typescript
+import { UseInterceptors } from '@nestjs/common';
+import { OnionLasagnaResponseInterceptor } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+@Controller('users')
+@UseInterceptors(OnionLasagnaResponseInterceptor)
+export class UsersController {}
+
+// Or apply globally
+app.useGlobalInterceptors(new OnionLasagnaResponseInterceptor());
+```
+
+This allows controllers to return `HttpResponse` objects and have them automatically unwrapped.
+
+---
+
+## BaseNestController
+
+A base class for NestJS controllers using onion patterns:
+
+```typescript
+import { BaseNestController } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+@Controller('users')
+export class UsersController extends BaseNestController {
+  constructor(
+    private readonly getUserQuery: GetUserQueryInboundPort,
+    private readonly createUserCommand: CreateUserCommandInboundPort,
+  ) {
+    super();
+  }
+
+  @Get(':userId')
+  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
+    return this.execute(request, GetUserRequestDto, this.getUserQuery);
+  }
+
+  @Post()
+  async createUser(@OnionLasagnaRequest() request: HttpRequest) {
+    return this.execute(request, CreateUserRequestDto, this.createUserCommand);
+  }
+}
+```
+
+---
+
+## Module Setup
+
+```typescript
+import { Module } from '@nestjs/common';
+import { UsersController } from './users.controller';
+import { GetUserQuery } from './use-cases/get-user.query';
+import { UserRepository } from './repositories/user.repository';
+
+@Module({
+  controllers: [UsersController],
+  providers: [
+    {
+      provide: 'GetUserQueryInboundPort',
+      useClass: GetUserQuery,
+    },
+    {
+      provide: 'UserRepository',
+      useClass: UserRepository,
+    },
+  ],
+})
+export class UsersModule {}
+```
+
+---
+
+## Global Setup
+
+Configure filters and interceptors globally in `main.ts`:
+
+```typescript
+import { NestFactory } from '@nestjs/core';
+import {
+  OnionLasagnaExceptionFilter,
+  OnionLasagnaResponseInterceptor,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // Global exception filter
+  app.useGlobalFilters(new OnionLasagnaExceptionFilter());
+
+  // Global response interceptor
+  app.useGlobalInterceptors(new OnionLasagnaResponseInterceptor());
+
+  await app.listen(3000);
+}
+
+bootstrap();
+```
+
+---
+
+## Complete Example
+
+```typescript
+// users.controller.ts
+import { Controller, Get, Post, UseFilters, UseInterceptors } from '@nestjs/common';
+import {
+  OnionLasagnaRequest,
+  OnionLasagnaExceptionFilter,
+  OnionLasagnaResponseInterceptor,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+@Controller('users')
+@UseFilters(OnionLasagnaExceptionFilter)
+@UseInterceptors(OnionLasagnaResponseInterceptor)
+export class UsersController {
+  constructor(
+    private readonly getUserQuery: GetUserQueryInboundPort,
+    private readonly createUserCommand: CreateUserCommandInboundPort,
+  ) {}
+
+  @Get(':userId')
+  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
+    const dto = GetUserRequestDto.create(request);
+    const result = await this.getUserQuery.execute(dto);
+    return HttpResponse.ok(result.data);
+  }
+
+  @Post()
+  async createUser(@OnionLasagnaRequest() request: HttpRequest) {
+    const dto = CreateUserRequestDto.create(request);
+    const result = await this.createUserCommand.execute(dto);
+    return HttpResponse.created(result.data);
+  }
+}
+```
