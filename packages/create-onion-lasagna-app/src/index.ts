@@ -225,7 +225,9 @@ function showRichPostInstall(options: {
   const { name, packageManager, install, skipGit } = options;
   const run = getRunCommand(packageManager);
 
-  console.log(`\n${pc.green('Success!')} Created ${pc.bold(name)} at ${pc.dim(path.resolve(process.cwd(), name))}`);
+  console.log(
+    `\n${pc.green('Success!')} Created ${pc.bold(name)} at ${pc.dim(path.resolve(process.cwd(), name))}`,
+  );
   console.log(`\n${pc.bold('Inside that directory, you can run:')}`);
   console.log(pc.dim('─'.repeat(50)));
 
@@ -312,7 +314,10 @@ async function main() {
   const detectedPm = detectPackageManager();
 
   // Non-interactive mode with --yes flag
-  if (args.yes || (args.name && args.structure && args.starter && args.validator && args.framework)) {
+  if (
+    args.yes ||
+    (args.name && args.structure && args.starter && args.validator && args.framework)
+  ) {
     const structure = args.structure || 'simple';
     const starter = args.starter || getDefaultStarterForStructure(structure);
     const packageManager = args.packageManager || detectedPm;
@@ -330,11 +335,13 @@ async function main() {
     // Validate starter matches structure
     const starterConfig = STARTERS[starter];
     if (starterConfig && starterConfig.structure !== structure) {
+      console.error(pc.red(`Starter "${starter}" is not compatible with structure "${structure}"`));
       console.error(
-        pc.red(`Starter "${starter}" is not compatible with structure "${structure}"`)
-      );
-      console.error(
-        pc.dim(`Available starters for ${structure}: ${getStartersForStructure(structure).map((s) => s.value).join(', ')}`)
+        pc.dim(
+          `Available starters for ${structure}: ${getStartersForStructure(structure)
+            .map((s) => s.value)
+            .join(', ')}`,
+        ),
       );
       process.exit(1);
     }
@@ -430,7 +437,9 @@ async function main() {
             if (!value) return 'Project name is required';
             const validation = validateProjectName(value);
             if (!validation.valid) {
-              return validation.error + (validation.suggestion ? ` (try: ${validation.suggestion})` : '');
+              return (
+                validation.error + (validation.suggestion ? ` (try: ${validation.suggestion})` : '')
+              );
             }
             // Check if directory exists
             const targetDir = path.resolve(process.cwd(), value);

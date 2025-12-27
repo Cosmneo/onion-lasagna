@@ -41,12 +41,12 @@ graph TD
     E -->|Creates| EO[Entity Class]
 ```
 
-| Command | Alias | Description |
-|---------|-------|-------------|
+| Command                           | Alias  | Description                  |
+| --------------------------------- | ------ | ---------------------------- |
 | `generate bounded-context <name>` | `g bc` | Create a new bounded context |
-| `generate use-case <name>` | `g uc` | Create a command or query |
-| `generate value-object <name>` | `g vo` | Create a value object |
-| `generate entity <name>` | `g e` | Create an entity |
+| `generate use-case <name>`        | `g uc` | Create a command or query    |
+| `generate value-object <name>`    | `g vo` | Create a value object        |
+| `generate entity <name>`          | `g e`  | Create an entity             |
 
 ## Generators
 
@@ -351,11 +351,11 @@ sequenceDiagram
 
 ## Options
 
-| Flag | Alias | Description |
-|------|-------|-------------|
-| `--type` | `-t` | Use case type: `command` or `query` |
-| `--path` | `-p` | Custom generation path |
-| `--help` | `-h` | Show help |
+| Flag     | Alias | Description                         |
+| -------- | ----- | ----------------------------------- |
+| `--type` | `-t`  | Use case type: `command` or `query` |
+| `--path` | `-p`  | Custom generation path              |
+| `--help` | `-h`  | Show help                           |
 
 ## Interactive Mode
 
@@ -431,20 +431,20 @@ graph TB
     end
 ```
 
-| Layer | Contains | Generator |
-|-------|----------|-----------|
-| **Domain** | Entities, Value Objects, Aggregates, Domain Events | `g vo`, `g e` |
-| **Application** | Use Cases, Ports | `g uc` |
-| **Infrastructure** | Adapters, Repositories, External Services | - |
-| **Presentation** | Controllers, Routes | - |
+| Layer              | Contains                                           | Generator     |
+| ------------------ | -------------------------------------------------- | ------------- |
+| **Domain**         | Entities, Value Objects, Aggregates, Domain Events | `g vo`, `g e` |
+| **Application**    | Use Cases, Ports                                   | `g uc`        |
+| **Infrastructure** | Adapters, Repositories, External Services          | -             |
+| **Presentation**   | Controllers, Routes                                | -             |
 
 ## Naming Conventions
 
-| Input | Class Name | File Name |
-|-------|------------|-----------|
+| Input             | Class Name       | File Name          |
+| ----------------- | ---------------- | ------------------ |
 | `user-management` | `UserManagement` | `user-management/` |
-| `create-user` | `CreateUser` | `create-user/` |
-| `email` | `Email` | `email.vo.ts` |
-| `order` | `Order` | `order.entity.ts` |
+| `create-user`     | `CreateUser`     | `create-user/`     |
+| `email`           | `Email`          | `email.vo.ts`      |
+| `order`           | `Order`          | `order.entity.ts`  |
 
 All names should be provided in `kebab-case`. The CLI automatically converts to `PascalCase` for class names.

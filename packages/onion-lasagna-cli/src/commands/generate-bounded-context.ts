@@ -7,7 +7,9 @@ import { findProjectRoot, loadConfig, getBackendPath, writeFileWithDir } from '.
 export async function generateBoundedContext(name?: string): Promise<void> {
   const projectRoot = findProjectRoot();
   if (!projectRoot) {
-    p.log.error(pc.red('Not in an onion-lasagna project. Run this command from your project root.'));
+    p.log.error(
+      pc.red('Not in an onion-lasagna project. Run this command from your project root.'),
+    );
     process.exit(1);
   }
 
@@ -49,108 +51,111 @@ export async function generateBoundedContext(name?: string): Promise<void> {
   // Domain layer
   writeFileWithDir(
     path.join(bcPath, 'domain', 'value-objects', 'index.ts'),
-    `// ${pascalName} Value Objects\nexport {};\n`
+    `// ${pascalName} Value Objects\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'domain', 'entities', 'index.ts'),
-    `// ${pascalName} Entities\nexport {};\n`
+    `// ${pascalName} Entities\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'domain', 'aggregates', 'index.ts'),
-    `// ${pascalName} Aggregates\nexport {};\n`
+    `// ${pascalName} Aggregates\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'domain', 'exceptions', 'index.ts'),
-    `// ${pascalName} Domain Exceptions\nexport {};\n`
+    `// ${pascalName} Domain Exceptions\nexport {};\n`,
   );
 
-  writeFileWithDir(path.join(bcPath, 'domain', 'index.ts'), `export * from './value-objects/index.js';\nexport * from './entities/index.js';\nexport * from './aggregates/index.js';\nexport * from './exceptions/index.js';\n`);
+  writeFileWithDir(
+    path.join(bcPath, 'domain', 'index.ts'),
+    `export * from './value-objects/index.js';\nexport * from './entities/index.js';\nexport * from './aggregates/index.js';\nexport * from './exceptions/index.js';\n`,
+  );
 
   // Application layer
   writeFileWithDir(
     path.join(bcPath, 'app', 'ports', 'inbound', 'commands', 'index.ts'),
-    `// ${pascalName} Command Ports\nexport {};\n`
+    `// ${pascalName} Command Ports\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'app', 'ports', 'inbound', 'queries', 'index.ts'),
-    `// ${pascalName} Query Ports\nexport {};\n`
+    `// ${pascalName} Query Ports\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'app', 'ports', 'inbound', 'index.ts'),
-    `export * from './commands/index.js';\nexport * from './queries/index.js';\n`
+    `export * from './commands/index.js';\nexport * from './queries/index.js';\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'app', 'ports', 'outbound', 'index.ts'),
-    `// ${pascalName} Outbound Ports\nexport {};\n`
+    `// ${pascalName} Outbound Ports\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'app', 'ports', 'index.ts'),
-    `export * from './inbound/index.js';\nexport * from './outbound/index.js';\n`
+    `export * from './inbound/index.js';\nexport * from './outbound/index.js';\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'app', 'use-cases', 'commands', 'index.ts'),
-    `// ${pascalName} Command Use Cases\nexport {};\n`
+    `// ${pascalName} Command Use Cases\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'app', 'use-cases', 'queries', 'index.ts'),
-    `// ${pascalName} Query Use Cases\nexport {};\n`
+    `// ${pascalName} Query Use Cases\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'app', 'use-cases', 'index.ts'),
-    `export * from './commands/index.js';\nexport * from './queries/index.js';\n`
+    `export * from './commands/index.js';\nexport * from './queries/index.js';\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'app', 'index.ts'),
-    `export * from './ports/index.js';\nexport * from './use-cases/index.js';\n`
+    `export * from './ports/index.js';\nexport * from './use-cases/index.js';\n`,
   );
 
   // Infrastructure layer
   writeFileWithDir(
     path.join(bcPath, 'infra', 'outbound-adapters', 'index.ts'),
-    `// ${pascalName} Outbound Adapters\nexport {};\n`
+    `// ${pascalName} Outbound Adapters\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'infra', 'validators', 'index.ts'),
-    `// ${pascalName} Validators\nexport {};\n`
+    `// ${pascalName} Validators\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'infra', 'schemas', 'index.ts'),
-    `// ${pascalName} Schemas\nexport {};\n`
+    `// ${pascalName} Schemas\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'infra', 'index.ts'),
-    `export * from './outbound-adapters/index.js';\nexport * from './validators/index.js';\nexport * from './schemas/index.js';\n`
+    `export * from './outbound-adapters/index.js';\nexport * from './validators/index.js';\nexport * from './schemas/index.js';\n`,
   );
 
   // Presentation layer
   writeFileWithDir(
     path.join(bcPath, 'presentation', 'controllers', 'index.ts'),
-    `// ${pascalName} Controllers\nexport {};\n`
+    `// ${pascalName} Controllers\nexport {};\n`,
   );
 
   writeFileWithDir(
     path.join(bcPath, 'presentation', 'index.ts'),
-    `export * from './controllers/index.js';\n`
+    `export * from './controllers/index.js';\n`,
   );
 
   // Root index
   writeFileWithDir(
     path.join(bcPath, 'index.ts'),
-    `export * from './domain/index.js';\nexport * from './app/index.js';\nexport * from './infra/index.js';\nexport * from './presentation/index.js';\n`
+    `export * from './domain/index.js';\nexport * from './app/index.js';\nexport * from './infra/index.js';\nexport * from './presentation/index.js';\n`,
   );
 
   s.stop(`Bounded context created: ${kebabName}`);

@@ -44,22 +44,22 @@ flowchart LR
 
 ## Options
 
-| Flag | Alias | Description | Default |
-|------|-------|-------------|---------|
-| `--structure` | - | Project structure: `simple`, `modules` | `simple` |
-| `--starter` | `-s` | Starter template (filtered by structure) | Auto |
-| `--validator` | `-v` | Validation: `zod`, `valibot`, `arktype`, `typebox` | `zod` |
-| `--framework` | `-f` | Framework: `hono`, `elysia`, `fastify` | `hono` |
-| `--use-bun` | - | Use bun package manager | Auto-detect |
-| `--use-npm` | - | Use npm package manager | - |
-| `--use-yarn` | - | Use yarn package manager | - |
-| `--use-pnpm` | - | Use pnpm package manager | - |
-| `--skip-git` | `-g` | Skip git initialization | `false` |
-| `--no-install` | - | Skip dependency installation | `false` |
-| `--dry-run` | `-d` | Preview what would be created | - |
-| `--yes` | `-y` | Skip prompts, use defaults | - |
-| `--version` | `-V` | Show version number | - |
-| `--help` | `-h` | Show help | - |
+| Flag           | Alias | Description                                        | Default     |
+| -------------- | ----- | -------------------------------------------------- | ----------- |
+| `--structure`  | -     | Project structure: `simple`, `modules`             | `simple`    |
+| `--starter`    | `-s`  | Starter template (filtered by structure)           | Auto        |
+| `--validator`  | `-v`  | Validation: `zod`, `valibot`, `arktype`, `typebox` | `zod`       |
+| `--framework`  | `-f`  | Framework: `hono`, `elysia`, `fastify`             | `hono`      |
+| `--use-bun`    | -     | Use bun package manager                            | Auto-detect |
+| `--use-npm`    | -     | Use npm package manager                            | -           |
+| `--use-yarn`   | -     | Use yarn package manager                           | -           |
+| `--use-pnpm`   | -     | Use pnpm package manager                           | -           |
+| `--skip-git`   | `-g`  | Skip git initialization                            | `false`     |
+| `--no-install` | -     | Skip dependency installation                       | `false`     |
+| `--dry-run`    | `-d`  | Preview what would be created                      | -           |
+| `--yes`        | `-y`  | Skip prompts, use defaults                         | -           |
+| `--version`    | `-V`  | Show version number                                | -           |
+| `--help`       | `-h`  | Show help                                          | -           |
 
 ## Package Manager
 
@@ -100,6 +100,7 @@ bunx create-onion-lasagna-app my-app --dry-run
 ```
 
 Output includes:
+
 - Project configuration summary
 - Files that would be created
 - Actions that would be performed
@@ -127,14 +128,14 @@ Files that would be created:
 
 Project names follow npm package naming conventions:
 
-| Rule | Invalid | Suggestion |
-|------|---------|------------|
-| Lowercase only | `MyApp` | `myapp` |
-| No spaces | `my app` | `my-app` |
-| No leading numbers | `123-app` | `app-123-app` |
-| No leading dots/underscores | `_myapp` | `myapp` |
-| No reserved names | `node_modules` | `my-node_modules` |
-| Max 214 characters | (too long) | (truncated) |
+| Rule                        | Invalid        | Suggestion        |
+| --------------------------- | -------------- | ----------------- |
+| Lowercase only              | `MyApp`        | `myapp`           |
+| No spaces                   | `my app`       | `my-app`          |
+| No leading numbers          | `123-app`      | `app-123-app`     |
+| No leading dots/underscores | `_myapp`       | `myapp`           |
+| No reserved names           | `node_modules` | `my-node_modules` |
+| Max 214 characters          | (too long)     | (truncated)       |
 
 Invalid names are caught early with helpful suggestions.
 
@@ -166,8 +167,8 @@ graph TD
 
 Flat structure for small to medium projects.
 
-| Starter | Description |
-|---------|-------------|
+| Starter        | Description                   |
+| -------------- | ----------------------------- |
 | `simple-clean` | Minimal setup, ready to build |
 
 ```
@@ -186,8 +187,8 @@ my-app/
 
 Module-based structure for large enterprise projects.
 
-| Starter | Description |
-|---------|-------------|
+| Starter         | Description                   |
+| --------------- | ----------------------------- |
 | `modules-clean` | Minimal setup, ready to build |
 
 ```
@@ -233,31 +234,31 @@ graph TD
     end
 ```
 
-| Library | Best For |
-|---------|----------|
-| **Zod** | TypeScript-first, great inference, large ecosystem |
-| **Valibot** | Bundle size critical apps, tree-shakeable |
-| **ArkType** | Performance critical, complex schemas |
-| **TypeBox** | JSON Schema compatibility, OpenAPI |
+| Library     | Best For                                           |
+| ----------- | -------------------------------------------------- |
+| **Zod**     | TypeScript-first, great inference, large ecosystem |
+| **Valibot** | Bundle size critical apps, tree-shakeable          |
+| **ArkType** | Performance critical, complex schemas              |
+| **TypeBox** | JSON Schema compatibility, OpenAPI                 |
 
 ## Frameworks
 
-| Framework | Runtime | Best For |
-|-----------|---------|----------|
-| **Hono** | Any (Node, Bun, Deno, Edge) | Universal deployment |
-| **Elysia** | Bun | Maximum performance, end-to-end type safety |
-| **Fastify** | Node | Enterprise, large plugin ecosystem |
+| Framework   | Runtime                     | Best For                                    |
+| ----------- | --------------------------- | ------------------------------------------- |
+| **Hono**    | Any (Node, Bun, Deno, Edge) | Universal deployment                        |
+| **Elysia**  | Bun                         | Maximum performance, end-to-end type safety |
+| **Fastify** | Node                        | Enterprise, large plugin ecosystem          |
 
 ## Generated Files
 
 After scaffolding, you'll find:
 
-| File | Purpose |
-|------|---------|
-| `.onion-lasagna.json` | Project config (structure, starter, validator, framework, packageManager) |
-| `.git/` | Initialized git repository with initial commit |
-| `packages/backend/.env` | Environment variables |
-| `packages/backend/.env.example` | Environment template |
+| File                            | Purpose                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------- |
+| `.onion-lasagna.json`           | Project config (structure, starter, validator, framework, packageManager) |
+| `.git/`                         | Initialized git repository with initial commit                            |
+| `packages/backend/.env`         | Environment variables                                                     |
+| `packages/backend/.env.example` | Environment template                                                      |
 
 ## Examples
 
