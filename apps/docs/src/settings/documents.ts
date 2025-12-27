@@ -61,6 +61,34 @@ export const Documents: Paths[] = [
     href: "/patterns/repositories",
   },
   {
+    title: "Validators",
+    href: "/patterns/validators",
+  },
+  {
+    title: "Error Handling",
+    href: "/patterns/error-handling",
+  },
+  {
+    spacer: true,
+  },
+  {
+    title: "Hono",
+    href: "/frameworks/hono",
+    heading: "Frameworks",
+  },
+  {
+    title: "Elysia",
+    href: "/frameworks/elysia",
+  },
+  {
+    title: "Fastify",
+    href: "/frameworks/fastify",
+  },
+  {
+    title: "NestJS",
+    href: "/frameworks/nestjs",
+  },
+  {
     spacer: true,
   },
   {
