@@ -2,16 +2,44 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Monorepo Structure
+
+```
+onion-lasagna/
+├── packages/
+│   └── onion-lasagna/     # Library (@cosmneo/onion-lasagna)
+│       ├── src/
+│       ├── package.json
+│       ├── tsconfig.json
+│       ├── tsup.config.ts
+│       └── vitest.config.ts
+├── apps/
+│   └── docs/              # Next.js documentation site
+├── starters/              # Project templates (not in workspaces)
+│   ├── simple-starter/
+│   └── modules-starter/
+├── package.json           # Workspace root (private)
+├── turbo.json
+└── eslint.config.mjs
+```
+
 ## Commands
 
 ```bash
-bun install          # Install dependencies
-bun run build        # Build with tsup (outputs ESM + CJS with .d.ts)
-bun run dev          # Watch mode for development
-bun run lint         # Check ESLint errors
+# Root commands (turbo-orchestrated)
+bun install          # Install all workspace dependencies
+bun run build        # Build all packages (library + docs)
+bun run dev          # Dev mode for all packages
+bun run lint         # Lint all packages
 bun run lint:fix     # Auto-fix ESLint issues
+bun run test         # Run tests (watch mode)
+bun run test:run     # Run tests once
 bun run format       # Format with Prettier
 bun run format:check # Check formatting
+
+# Package-specific
+cd packages/onion-lasagna && bun run build  # Build library only
+cd apps/docs && bun dev                      # Docs dev server
 ```
 
 ## Runtime Requirements
@@ -26,7 +54,7 @@ Always use Bun instead of Node.js, npm, pnpm, or Vite:
 
 This is an **Onion/Hexagonal Architecture** library providing base classes for DDD-style backend applications.
 
-### Layer Structure (`src/backend/core/`)
+### Layer Structure (`packages/onion-lasagna/src/backend/core/`)
 
 ```
 onion-layers/
@@ -84,7 +112,7 @@ CodedError (base with code + cause)
 - `BaseController` - simple pipeline: requestMapper → useCase → responseMapper. Converts `ObjectValidationError` from DTOs to `InvalidRequestError`
 - `GuardedController` - extends BaseController with built-in access guard via `accessGuard` config option
 
-### Framework Integrations (`src/backend/frameworks/`)
+### Framework Integrations (`packages/onion-lasagna/src/backend/frameworks/`)
 
 **Hono Integration:**
 
@@ -93,17 +121,24 @@ CodedError (base with code + cause)
 - `mapErrorToHttpException` - converts domain errors to HTTPException
 - Automatic path conversion: `{param}` → `:param`
 
+**Elysia Integration:**
+
+- `registerElysiaRoutes(app, routes, options?)` - register routes with optional middlewares
+- `onionErrorHandler` - error handler plugin
+- `mapErrorToResponse` - converts domain errors to Elysia response
+
+**Fastify Integration:**
+
+- `registerFastifyRoutes(app, routes, options?)` - register routes with optional middlewares
+- `onionErrorHandler` - error handler for `setErrorHandler()`
+- `mapErrorToResponse` - converts domain errors to Fastify response
+
 **NestJS Integration:**
 
-- `@OnionRequest()` - parameter decorator extracting HttpRequest from NestJS request
-- `OnionExceptionFilter` - exception filter mapping onion errors to HTTP responses
-- `OnionResponseInterceptor` - intercepts HttpResponse and maps to NestJS response
-
-**Serverless-Onion:**
-
-- Platform-agnostic serverless framework with middleware chains
-- Runtimes: AWS API Gateway HTTP, Cloudflare Workers
-- Core: exceptions, middleware, handlers, mappers
+- `@OnionLasagnaRequest()` - parameter decorator extracting HttpRequest from NestJS request
+- `OnionLasagnaExceptionFilter` - exception filter mapping onion errors to HTTP responses
+- `OnionLasagnaResponseInterceptor` - intercepts HttpResponse and maps to NestJS response
+- `BaseNestController` - base controller class for NestJS integration
 
 ### Package Exports
 
@@ -121,10 +156,9 @@ import { ... } from '@cosmneo/onion-lasagna/backend/core/validators/typebox'
 
 // Framework integrations
 import { ... } from '@cosmneo/onion-lasagna/backend/frameworks/hono'
+import { ... } from '@cosmneo/onion-lasagna/backend/frameworks/elysia'
+import { ... } from '@cosmneo/onion-lasagna/backend/frameworks/fastify'
 import { ... } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs'
-import { ... } from '@cosmneo/onion-lasagna/backend/frameworks/serverless-onion/core'
-import { ... } from '@cosmneo/onion-lasagna/backend/frameworks/serverless-onion/aws'
-import { ... } from '@cosmneo/onion-lasagna/backend/frameworks/serverless-onion/cloudflare'
 ```
 
 ## Code Style
