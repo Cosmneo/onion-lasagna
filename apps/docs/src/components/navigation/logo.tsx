@@ -12,7 +12,7 @@ export function Logo() {
       className="flex items-center gap-2.5"
     >
       <Image
-        src={Settings.siteicon}
+        src="/logo-light.svg"
         alt={`${Settings.title} main logo`}
         title={`${Settings.title} main logo`}
         aria-label={`${Settings.title} main logo`}
@@ -20,6 +20,18 @@ export function Logo() {
         height={34}
         loading="lazy"
         decoding="async"
+        className="dark:hidden"
+      />
+      <Image
+        src="/logo.svg"
+        alt={`${Settings.title} main logo`}
+        title={`${Settings.title} main logo`}
+        aria-label={`${Settings.title} main logo`}
+        width={34}
+        height={34}
+        loading="lazy"
+        decoding="async"
+        className="hidden dark:block"
       />
       <span className="text-md font-semibold">{Settings.title}</span>
     </Link>

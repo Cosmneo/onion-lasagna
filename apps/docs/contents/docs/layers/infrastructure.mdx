@@ -37,8 +37,7 @@ Persistence and external are plain classes that the implementations orchestrate.
 
 ### Persistence (Raw Database)
 
-```typescript
-// persistence/drizzle/user/user.persistence.ts
+```typescript:persistence/drizzle/user/user.persistence.ts
 class UserPersistence {
   async findById(id: string): Promise<UserRow | null> {
     return db.select().from(users).where(eq(users.id, id)).limit(1)[0];
@@ -52,8 +51,7 @@ class UserPersistence {
 
 ### Implementation (Outbound Port)
 
-```typescript
-// implementations/user/user.repository.ts
+```typescript:implementations/user/user.repository.ts
 class UserRepository implements UserRepositoryOutboundPort {
   constructor(private readonly persistence: UserPersistence) {}
 
