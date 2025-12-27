@@ -1,65 +1,248 @@
 ---
 title: "Aggregates"
-description: "Entity clusters treated as a single unit. Enforce business invariants."
+description: "Entity clusters treated as a single unit. Enforce business invariants and emit domain events."
 icon: "boxes-stacked"
 ---
 
-## Structure
+## BaseEntity and BaseAggregateRoot
+
+The library provides base classes for entities and aggregates:
 
 ```typescript
-class OrderAggregate {
-  private constructor(
-    private readonly _id: OrderId,
-    private readonly _customerId: CustomerId,
-    private _items: OrderItem[],
-    private _status: OrderStatus,
-    private readonly _createdAt: Date,
-  ) {}
+import {
+  BaseEntity,
+  BaseAggregateRoot,
+  BaseDomainEvent,
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+```
+
+---
+
+## BaseEntity
+
+Entities have identity and can be compared by ID:
+
+```typescript
+abstract class BaseEntity<
+  TId extends BaseValueObject<unknown>,
+  TProps extends object,
+> {
+  protected readonly _id: TId;
+  protected _version: number;
+  protected readonly _props: TProps;
+
+  get id(): TId;
+  get version(): number;
+  get props(): TProps;
+
+  equals(other: BaseEntity<TId, TProps>): boolean;
+  nextVersion(): number;
+}
+```
+
+---
+
+## BaseAggregateRoot
+
+Aggregates extend `BaseEntity` with domain event support:
+
+```typescript
+abstract class BaseAggregateRoot<
+  TId extends BaseValueObject<unknown>,
+  TProps extends object,
+> extends BaseEntity<TId, TProps> {
+  // Add a domain event to be published
+  protected addDomainEvent(event: BaseDomainEvent): void;
+
+  // Get and clear all domain events (for publishing)
+  public pullDomainEvents(): BaseDomainEvent[];
+
+  // Peek at events without clearing
+  public peekDomainEvents(): readonly BaseDomainEvent[];
+
+  // Check if there are pending events
+  public get hasDomainEvents(): boolean;
+
+  // Clear all events (called after publishing)
+  protected clearDomainEvents(): void;
+}
+```
+
+---
+
+## Creating an Aggregate
+
+```typescript
+import {
+  BaseAggregateRoot,
+  BaseDomainEvent,
+  InvariantViolationError,
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+interface OrderProps {
+  customerId: CustomerId;
+  items: OrderItem[];
+  status: OrderStatus;
+  createdAt: Date;
+}
+
+class OrderAggregate extends BaseAggregateRoot<OrderId, OrderProps> {
+  private constructor(id: OrderId, props: OrderProps, version = 0) {
+    super(id, props, version);
+  }
 
   // Factory for NEW instances
   static create(data: CreateOrderData): OrderAggregate {
-    return new OrderAggregate(
+    const order = new OrderAggregate(
       OrderId.generate(),
-      CustomerId.create(data.customerId),
-      [],
-      OrderStatus.DRAFT,
-      new Date(),
+      {
+        customerId: CustomerId.create(data.customerId),
+        items: [],
+        status: OrderStatus.DRAFT,
+        createdAt: new Date(),
+      },
     );
+
+    // Emit creation event
+    order.addDomainEvent(new OrderCreatedEvent(order.id.value, data.customerId));
+
+    return order;
   }
 
   // Factory for EXISTING instances (from DB)
-  static reconstitute(data: OrderData): OrderAggregate {
+  static reconstitute(data: OrderData, version: number): OrderAggregate {
     return new OrderAggregate(
       OrderId.create(data.id),
-      CustomerId.create(data.customerId),
-      data.items.map(OrderItem.reconstitute),
-      data.status,
-      data.createdAt,
+      {
+        customerId: CustomerId.create(data.customerId),
+        items: data.items.map(OrderItem.reconstitute),
+        status: data.status,
+        createdAt: data.createdAt,
+      },
+      version,
     );
   }
 
   // Domain methods (enforce invariants)
   addItem(item: AddItemData): void {
-    if (this._status !== OrderStatus.DRAFT) {
-      throw new OrderNotEditableError('Cannot add items to non-draft order');
+    if (this._props.status !== OrderStatus.DRAFT) {
+      throw new InvariantViolationError({
+        message: 'Cannot add items to non-draft order',
+        code: 'ORDER_NOT_EDITABLE',
+      });
     }
-    if (this._items.length >= 50) {
-      throw new OrderLimitExceededError('Maximum 50 items per order');
+    if (this._props.items.length >= 50) {
+      throw new InvariantViolationError({
+        message: 'Maximum 50 items per order',
+        code: 'ORDER_LIMIT_EXCEEDED',
+      });
     }
-    this._items.push(OrderItem.create(item));
+
+    this._props.items.push(OrderItem.create(item));
+    this.addDomainEvent(new OrderItemAddedEvent(this.id.value, item));
   }
 
   submit(): void {
-    if (this._items.length === 0) {
-      throw new EmptyOrderError('Cannot submit empty order');
+    if (this._props.items.length === 0) {
+      throw new InvariantViolationError({
+        message: 'Cannot submit empty order',
+        code: 'EMPTY_ORDER',
+      });
     }
-    this._status = OrderStatus.PENDING;
+
+    this._props.status = OrderStatus.PENDING;
+    this.addDomainEvent(new OrderSubmittedEvent(this.id.value));
   }
 
-  // Getters (read-only access)
-  get id(): OrderId { return this._id; }
-  get status(): OrderStatus { return this._status; }
-  get items(): readonly OrderItem[] { return [...this._items]; }
+  // Getters
+  get customerId(): CustomerId { return this._props.customerId; }
+  get status(): OrderStatus { return this._props.status; }
+  get items(): readonly OrderItem[] { return [...this._props.items]; }
+}
+```
+
+---
+
+## Domain Events
+
+Create domain events by extending `BaseDomainEvent`:
+
+```typescript
+import { BaseDomainEvent } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+interface OrderCreatedPayload {
+  customerId: string;
+}
+
+class OrderCreatedEvent extends BaseDomainEvent<OrderCreatedPayload> {
+  constructor(aggregateId: string, customerId: string) {
+    super('OrderCreated', aggregateId, { customerId });
+  }
+}
+
+interface OrderSubmittedPayload {
+  submittedAt: Date;
+}
+
+class OrderSubmittedEvent extends BaseDomainEvent<OrderSubmittedPayload> {
+  constructor(aggregateId: string) {
+    super('OrderSubmitted', aggregateId, { submittedAt: new Date() });
+  }
+}
+```
+
+`BaseDomainEvent` provides:
+- `eventId` - Unique ID for the event
+- `eventName` - Name of the event
+- `aggregateId` - ID of the aggregate that emitted it
+- `occurredOn` - Timestamp when the event occurred
+- `payload` - Event-specific data
+- `toJSON()` - Serialize for storage/transport
+
+---
+
+## Publishing Domain Events
+
+Use `pullDomainEvents()` to get and clear events after persisting:
+
+```typescript
+class CreateOrderCommand {
+  constructor(
+    private readonly orderRepo: OrderWriteRepositoryOutboundPort,
+    private readonly eventPublisher: EventPublisherOutboundPort,
+  ) {}
+
+  async execute(input: CreateOrderInput): Promise<void> {
+    const order = OrderAggregate.create(input);
+
+    // Persist first
+    await this.orderRepo.save(order);
+
+    // Then publish events (get and clear)
+    const events = order.pullDomainEvents();
+    await this.eventPublisher.publishAll(events);
+  }
+}
+```
+
+---
+
+## Optimistic Locking
+
+Use `version` and `nextVersion()` for optimistic concurrency:
+
+```typescript
+class OrderRepository {
+  async save(order: OrderAggregate): Promise<void> {
+    const affectedRows = await this.db.query(
+      `UPDATE orders SET ..., version = ? WHERE id = ? AND version = ?`,
+      [order.nextVersion(), order.id.value, order.version],
+    );
+
+    if (affectedRows === 0) {
+      throw new ConcurrencyError('Order was modified by another process');
+    }
+  }
 }
 ```
 
@@ -67,13 +250,17 @@ class OrderAggregate {
 
 ## Rules
 
+- ✅ Extend `BaseAggregateRoot` for event-sourced aggregates
 - ✅ Use factory methods (`create`, `reconstitute`)
 - ✅ Enforce all invariants in domain methods
+- ✅ Use `InvariantViolationError` for business rule violations
+- ✅ Emit domain events for state changes
 - ✅ Return copies of collections from getters
 - ✅ Reference other aggregates by ID only
-- ✅ **Prefer partial loading** over full loading
+- ✅ Use `version` for optimistic locking
 - ❌ Never create with `new` directly
 - ❌ Never reference other aggregates directly
+- ❌ Never publish events before persisting
 
 ---
 
@@ -82,10 +269,11 @@ class OrderAggregate {
 Repositories are responsible for hydrating aggregates:
 
 ```typescript
-// In repository
-async findById(id: OrderId): Promise<OrderAggregate | null> {
-  const row = await this.persistence.findById(id.value);
-  if (!row) return null;
-  return OrderAggregate.reconstitute(row);
+class OrderRepository extends BaseOutboundAdapter {
+  async findById(id: OrderId): Promise<OrderAggregate | null> {
+    const row = await this.persistence.findById(id.value);
+    if (!row) return null;
+    return OrderAggregate.reconstitute(row, row.version);
+  }
 }
 ```

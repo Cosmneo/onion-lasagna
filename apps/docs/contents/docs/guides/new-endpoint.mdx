@@ -82,9 +82,9 @@ function toGetUserResponse(output: GetUserOutput): GetUserResponse {
 
 ```typescript:presentation/http/users/get-user/access-guard.ts
 class GetUserAccessGuard {
-  async guard(request: GetUserRequest): Promise<GuardResult> {
+  async guard(request: GetUserRequest): Promise<AccessGuardResult> {
     // Allow any authenticated user
-    return { allowed: true };
+    return { isAllowed: true };
   }
 }
 ```

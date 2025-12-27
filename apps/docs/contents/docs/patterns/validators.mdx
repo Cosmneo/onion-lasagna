@@ -1,0 +1,202 @@
+---
+title: "Validators"
+description: "Validator abstraction for schema validation. Supports Zod, ArkType, Valibot, and TypeBox."
+icon: "shield-check"
+---
+
+## Overview
+
+The library provides a validator abstraction layer that allows you to use your preferred validation library while maintaining consistent patterns across your codebase.
+
+Supported validators:
+- **Zod** - TypeScript-first schema validation
+- **ArkType** - TypeScript's 1:1 validator
+- **Valibot** - Modular, tree-shakeable validation
+- **TypeBox** - JSON Schema Type Builder
+
+---
+
+## ObjectValidatorPort
+
+The core abstraction is `ObjectValidatorPort<TSchema>`:
+
+```typescript
+interface ObjectValidatorPort<TSchema> {
+  validateObject: ValidateObject<TSchema>;
+  withSchema: <T>(schema: TSchema) => BoundValidator<T>;
+}
+
+interface BoundValidator<T> {
+  validate: (value: unknown) => T;
+}
+```
+
+Each validator implementation converts validation errors to `ObjectValidationError` with structured field-level error messages.
+
+---
+
+## Factory Functions
+
+Each validator exports a factory function that creates a `BoundValidator<T>`:
+
+```typescript
+// Zod
+import { createZodValidator } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+import { z } from 'zod';
+
+const schema = z.object({ email: z.string().email() });
+const validator = createZodValidator(schema);
+
+// ArkType
+import { createArkTypeValidator } from '@cosmneo/onion-lasagna/backend/core/validators/arktype';
+import { type } from 'arktype';
+
+const schema = type({ email: 'string.email' });
+const validator = createArkTypeValidator(schema);
+
+// Valibot
+import { createValibotValidator } from '@cosmneo/onion-lasagna/backend/core/validators/valibot';
+import * as v from 'valibot';
+
+const schema = v.object({ email: v.pipe(v.string(), v.email()) });
+const validator = createValibotValidator(schema);
+
+// TypeBox
+import { createTypeBoxValidator } from '@cosmneo/onion-lasagna/backend/core/validators/typebox';
+import { Type } from '@sinclair/typebox';
+
+const schema = Type.Object({ email: Type.String({ format: 'email' }) });
+const validator = createTypeBoxValidator(schema);
+```
+
+---
+
+## Using with BaseDto
+
+Inject validators into `BaseDto` constructors:
+
+```typescript
+import { BaseDto } from '@cosmneo/onion-lasagna/backend/core/global';
+import { createZodValidator } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+
+class CreateUserDto extends BaseDto<CreateUserData> {
+  private constructor(data: CreateUserData) {
+    super(data, createZodValidator(createUserSchema));
+  }
+
+  static create(data: unknown): CreateUserDto {
+    return new CreateUserDto(data as CreateUserData);
+  }
+}
+```
+
+---
+
+## Using with BaseValueObject
+
+Inject validators into `BaseValueObject` constructors:
+
+```typescript
+import { BaseValueObject } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+import { createZodValidator } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+
+class Email extends BaseValueObject<string> {
+  private constructor(value: string) {
+    super(value, createZodValidator(z.string().email()));
+  }
+
+  static create(value: string): Email {
+    return new Email(value);
+  }
+}
+```
+
+---
+
+## Pre-built Value Objects
+
+Each validator exports ready-to-use value objects:
+
+```typescript
+import {
+  EmailVo,
+  UuidV4Vo,
+  UuidV7Vo,
+  ShortTextVo,
+  MediumTextVo,
+  LongTextVo,
+  PaginationVo,
+  AuditByVo,
+  AuditOnVo,
+  AuditInfoVo,
+} from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+
+// Usage
+const email = EmailVo.create('user@example.com');
+const id = UuidV4Vo.generate();
+const name = ShortTextVo.create('John Doe');
+```
+
+All four validators (Zod, ArkType, Valibot, TypeBox) provide these same value objects with identical APIs.
+
+---
+
+## Error Handling
+
+When validation fails, validators throw `ObjectValidationError`:
+
+```typescript
+import { ObjectValidationError } from '@cosmneo/onion-lasagna/backend/core/global';
+
+try {
+  const dto = CreateUserDto.create({ email: 'invalid' });
+} catch (error) {
+  if (error instanceof ObjectValidationError) {
+    console.log(error.code);            // 'OBJECT_VALIDATION_ERROR'
+    console.log(error.validationErrors); // [{ field: 'email', message: 'Invalid email' }]
+  }
+}
+```
+
+The `validationErrors` array contains structured errors:
+
+```typescript
+interface ValidationError {
+  field: string;   // Dot-notation path: 'user.email', 'items[0].name'
+  message: string; // Human-readable error message
+}
+```
+
+---
+
+## Swapping Validators
+
+To switch validators, update your imports and schema definitions:
+
+```typescript
+// Before (Zod)
+import { createZodValidator } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+import { z } from 'zod';
+const schema = z.object({ name: z.string() });
+const validator = createZodValidator(schema);
+
+// After (Valibot)
+import { createValibotValidator } from '@cosmneo/onion-lasagna/backend/core/validators/valibot';
+import * as v from 'valibot';
+const schema = v.object({ name: v.string() });
+const validator = createValibotValidator(schema);
+```
+
+The `BoundValidator<T>` interface remains the same, so your `BaseDto` and `BaseValueObject` classes continue working without changes.
+
+---
+
+## Validator Comparison
+
+| Feature | Zod | ArkType | Valibot | TypeBox |
+|---------|-----|---------|---------|---------|
+| Bundle size | ~12kb | ~20kb | ~5kb | ~15kb |
+| Type inference | Excellent | Excellent | Excellent | Good |
+| Error messages | Detailed | Detailed | Customizable | Basic |
+| Performance | Fast | Very fast | Fast | Very fast |
+| Ecosystem | Large | Growing | Growing | Large |

@@ -15,14 +15,19 @@ icon: "box"
 
 ---
 
-## Pattern
+## BaseDto Class
 
-Use Zod for schema definition and type inference.
+All DTOs extend `BaseDto<T>` which provides:
+- Immutable data access via `.data` getter
+- Automatic validation at construction
+- Support for skipping validation when reconstituting from trusted sources
 
 ```typescript
-// Request DTO
+import { BaseDto, SKIP_DTO_VALIDATION } from '@cosmneo/onion-lasagna/backend/core/global';
+import { createZodValidator } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
 import { z } from 'zod';
 
+// Define your schema
 const createUserRequestSchema = z.object({
   body: z.object({
     email: z.string().email(),
@@ -31,32 +36,127 @@ const createUserRequestSchema = z.object({
   }),
 });
 
-type CreateUserRequest = z.infer<typeof createUserRequestSchema>;
-```
+type CreateUserRequestData = z.infer<typeof createUserRequestSchema>;
 
-```typescript
-// Use case input
-const createUserInputSchema = z.object({
-  email: z.string().email(),
-  name: z.string(),
-  password: z.string(),
-});
+// Create a DTO class extending BaseDto
+class CreateUserRequestDto extends BaseDto<CreateUserRequestData> {
+  private constructor(data: CreateUserRequestData) {
+    super(data, createZodValidator(createUserRequestSchema));
+  }
 
-type CreateUserInput = z.infer<typeof createUserInputSchema>;
+  static create(data: unknown): CreateUserRequestDto {
+    // Validates and throws ObjectValidationError if invalid
+    return new CreateUserRequestDto(data as CreateUserRequestData);
+  }
+
+  // Convenience getters
+  get email(): string {
+    return this.data.body.email;
+  }
+
+  get name(): string {
+    return this.data.body.name;
+  }
+}
 ```
 
 ---
 
-## Validation
+## Use Case DTOs
 
-Validate at the boundary:
-- **Request DTOs** validated at controller level
-- **Input DTOs** validated when created from mapper
+Input and output DTOs follow the same pattern:
 
 ```typescript
-// In controller
-const validated = createUserRequestSchema.parse(request);
+const createUserInputSchema = z.object({
+  email: z.string().email(),
+  name: z.string(),
+  hashedPassword: z.string(),
+});
+
+type CreateUserInputData = z.infer<typeof createUserInputSchema>;
+
+class CreateUserInputDto extends BaseDto<CreateUserInputData> {
+  private constructor(data: CreateUserInputData) {
+    super(data, createZodValidator(createUserInputSchema));
+  }
+
+  static create(data: unknown): CreateUserInputDto {
+    return new CreateUserInputDto(data as CreateUserInputData);
+  }
+}
 ```
+
+---
+
+## Skipping Validation
+
+Use `SKIP_DTO_VALIDATION` when reconstituting from trusted sources (e.g., database, internal mapping):
+
+```typescript
+class UserOutputDto extends BaseDto<UserOutputData> {
+  private constructor(data: UserOutputData, skipValidation = false) {
+    super(data, skipValidation ? SKIP_DTO_VALIDATION : createZodValidator(schema));
+  }
+
+  static create(data: unknown): UserOutputDto {
+    return new UserOutputDto(data as UserOutputData);
+  }
+
+  // For internal use when data is already validated
+  static fromTrusted(data: UserOutputData): UserOutputDto {
+    return new UserOutputDto(data, true);
+  }
+}
+```
+
+---
+
+## Other Validators
+
+The library supports multiple validators. Replace the Zod validator with your preferred choice:
+
+```typescript
+// ArkType
+import { createArkTypeValidator } from '@cosmneo/onion-lasagna/backend/core/validators/arktype';
+import { type } from 'arktype';
+
+const schema = type({ email: 'string.email', name: 'string' });
+super(data, createArkTypeValidator(schema));
+
+// Valibot
+import { createValibotValidator } from '@cosmneo/onion-lasagna/backend/core/validators/valibot';
+import * as v from 'valibot';
+
+const schema = v.object({ email: v.pipe(v.string(), v.email()), name: v.string() });
+super(data, createValibotValidator(schema));
+
+// TypeBox
+import { createTypeBoxValidator } from '@cosmneo/onion-lasagna/backend/core/validators/typebox';
+import { Type } from '@sinclair/typebox';
+
+const schema = Type.Object({ email: Type.String({ format: 'email' }), name: Type.String() });
+super(data, createTypeBoxValidator(schema));
+```
+
+---
+
+## Validation Errors
+
+When validation fails, an `ObjectValidationError` is thrown with structured field-level errors:
+
+```typescript
+try {
+  const dto = CreateUserRequestDto.create(invalidData);
+} catch (error) {
+  if (error instanceof ObjectValidationError) {
+    // error.validationErrors is an array of { field: string; message: string }
+    console.log(error.validationErrors);
+    // [{ field: 'body.email', message: 'Invalid email format' }]
+  }
+}
+```
+
+Controllers automatically convert `ObjectValidationError` to `InvalidRequestError` with a 400 status code.
 
 ---
 
@@ -66,5 +166,6 @@ const validated = createUserRequestSchema.parse(request);
 |--------|-----|--------------|
 | **Purpose** | Transfer data | Represent domain concept |
 | **Location** | Presentation / App layer | Domain layer |
-| **Behavior** | None (data only) | May have methods |
+| **Behavior** | Minimal (data access) | May have methods |
 | **Identity** | None | Compared by value |
+| **Base Class** | `BaseDto<T>` | `BaseValueObject<T>` |
