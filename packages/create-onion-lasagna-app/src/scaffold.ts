@@ -5,6 +5,7 @@ import degit from 'degit';
 
 export type Structure = 'simple' | 'modules';
 export type Starter = 'simple-clean' | 'modules-clean';
+export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun';
 
 interface StarterConfig {
   structure: Structure;
@@ -34,7 +35,9 @@ interface ScaffoldOptions {
   starter: Starter;
   validator: 'zod' | 'valibot' | 'arktype' | 'typebox';
   framework: 'hono' | 'elysia' | 'fastify';
+  packageManager: PackageManager;
   install: boolean;
+  skipGit: boolean;
 }
 
 const REPO = 'Cosmneo/onion-lasagna';
@@ -52,8 +55,31 @@ const FRAMEWORK_PACKAGES: Record<string, string[]> = {
   fastify: ['fastify'],
 };
 
+const INSTALL_COMMANDS: Record<PackageManager, string> = {
+  npm: 'npm install',
+  yarn: 'yarn',
+  pnpm: 'pnpm install',
+  bun: 'bun install',
+};
+
+function initGitRepository(targetDir: string): boolean {
+  try {
+    execSync('git init', { cwd: targetDir, stdio: 'ignore' });
+    execSync('git add -A', { cwd: targetDir, stdio: 'ignore' });
+    execSync('git commit -m "Initial commit from create-onion-lasagna-app"', {
+      cwd: targetDir,
+      stdio: 'ignore',
+    });
+    return true;
+  } catch {
+    // Git not installed or init failed - silently continue
+    return false;
+  }
+}
+
 export async function scaffold(options: ScaffoldOptions): Promise<void> {
-  const { name, structure, starter, validator, framework, install } = options;
+  const { name, structure, starter, validator, framework, packageManager, install, skipGit } =
+    options;
   const targetDir = path.resolve(process.cwd(), name);
 
   // Check if directory exists
@@ -72,9 +98,7 @@ export async function scaffold(options: ScaffoldOptions): Promise<void> {
 
   // Validate starter matches structure
   if (starterConfig.structure !== structure) {
-    throw new Error(
-      `Starter "${starter}" is not compatible with structure "${structure}"`
-    );
+    throw new Error(`Starter "${starter}" is not compatible with structure "${structure}"`);
   }
 
   // Clone starter template
@@ -131,15 +155,22 @@ PORT=3000
     starter,
     validator,
     framework,
+    packageManager,
     createdAt: new Date().toISOString(),
   };
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
   // Install dependencies if requested
   if (install) {
-    execSync('bun install', {
+    const installCmd = INSTALL_COMMANDS[packageManager];
+    execSync(installCmd, {
       cwd: targetDir,
       stdio: 'ignore',
     });
+  }
+
+  // Initialize git repository (unless skipped)
+  if (!skipGit) {
+    initGitRepository(targetDir);
   }
 }

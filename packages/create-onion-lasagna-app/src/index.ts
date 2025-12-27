@@ -1,6 +1,8 @@
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { scaffold, STARTERS, type Structure, type Starter } from './scaffold.js';
+import { scaffold, STARTERS, type Structure, type Starter, type PackageManager } from './scaffold.js';
+
+const VERSION = '0.1.0';
 
 interface CliArgs {
   name?: string;
@@ -8,9 +10,34 @@ interface CliArgs {
   starter?: Starter;
   validator?: 'zod' | 'valibot' | 'arktype' | 'typebox';
   framework?: 'hono' | 'elysia' | 'fastify';
+  packageManager?: PackageManager;
   install?: boolean;
+  skipGit?: boolean;
   yes?: boolean;
   help?: boolean;
+  version?: boolean;
+}
+
+function setupSignalHandlers() {
+  const cleanup = () => {
+    // Restore terminal cursor visibility
+    process.stdout.write('\x1B[?25h');
+    console.log('\n');
+    p.cancel('Operation cancelled.');
+    process.exit(0);
+  };
+
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+}
+
+function detectPackageManager(): PackageManager {
+  const userAgent = process.env.npm_config_user_agent || '';
+  if (userAgent.startsWith('yarn')) return 'yarn';
+  if (userAgent.startsWith('pnpm')) return 'pnpm';
+  if (userAgent.startsWith('bun')) return 'bun';
+  if (userAgent.startsWith('npm')) return 'npm';
+  return 'bun'; // Default fallback
 }
 
 function parseArgs(args: string[]): CliArgs {
@@ -21,10 +48,22 @@ function parseArgs(args: string[]): CliArgs {
 
     if (arg === '--help' || arg === '-h') {
       result.help = true;
+    } else if (arg === '--version' || arg === '-V') {
+      result.version = true;
     } else if (arg === '--yes' || arg === '-y') {
       result.yes = true;
     } else if (arg === '--no-install') {
       result.install = false;
+    } else if (arg === '--skip-git' || arg === '-g') {
+      result.skipGit = true;
+    } else if (arg === '--use-npm') {
+      result.packageManager = 'npm';
+    } else if (arg === '--use-yarn') {
+      result.packageManager = 'yarn';
+    } else if (arg === '--use-pnpm') {
+      result.packageManager = 'pnpm';
+    } else if (arg === '--use-bun') {
+      result.packageManager = 'bun';
     } else if (arg === '--structure') {
       result.structure = args[++i] as Structure;
     } else if (arg === '--starter' || arg === '-s') {
@@ -50,7 +89,7 @@ function showHelp() {
     .map(([key]) => key);
 
   console.log(`
-${pc.bold('create-onion-lasagna-app')} - Scaffold a new onion-lasagna project
+${pc.bold('create-onion-lasagna-app')} ${pc.dim(`v${VERSION}`)} - Scaffold a new onion-lasagna project
 
 ${pc.bold('Usage:')}
   create-onion-lasagna-app [project-name] [options]
@@ -60,8 +99,17 @@ ${pc.bold('Options:')}
   -s, --starter <name>     Starter template (filtered by structure)
   -v, --validator <lib>    Validation library: zod, valibot, arktype, typebox (default: zod)
   -f, --framework <fw>     Web framework: hono, elysia, fastify (default: hono)
-  -y, --yes                Skip prompts and use defaults
+
+  --use-bun                Use bun package manager (default)
+  --use-npm                Use npm package manager
+  --use-yarn               Use yarn package manager
+  --use-pnpm               Use pnpm package manager
+
+  -g, --skip-git           Skip git initialization
   --no-install             Skip dependency installation
+  -y, --yes                Skip prompts and use defaults
+
+  -V, --version            Show version number
   -h, --help               Show this help message
 
 ${pc.bold('Starters:')}
@@ -70,7 +118,7 @@ ${pc.bold('Starters:')}
 
 ${pc.bold('Examples:')}
   create-onion-lasagna-app my-app
-  create-onion-lasagna-app my-app --structure simple -s simple-clean
+  create-onion-lasagna-app my-app --use-pnpm --skip-git
   create-onion-lasagna-app my-app --structure modules -s modules-clean
   create-onion-lasagna-app my-app --yes
 `);
@@ -91,18 +139,37 @@ function getDefaultStarterForStructure(structure: Structure): Starter {
   return starters[0]?.[0] as Starter;
 }
 
+function getRunCommand(pm: PackageManager): string {
+  return pm === 'npm' ? 'npm run' : pm;
+}
+
+function getInstallCommand(pm: PackageManager): string {
+  return pm === 'yarn' ? 'yarn' : `${pm} install`;
+}
+
 async function main() {
+  setupSignalHandlers();
+
   const args = parseArgs(process.argv.slice(2));
+
+  if (args.version) {
+    console.log(`create-onion-lasagna-app v${VERSION}`);
+    process.exit(0);
+  }
 
   if (args.help) {
     showHelp();
     process.exit(0);
   }
 
+  // Determine package manager: explicit flag > auto-detection > default
+  const detectedPm = detectPackageManager();
+
   // Non-interactive mode with --yes flag
   if (args.yes || (args.name && args.structure && args.starter && args.validator && args.framework)) {
     const structure = args.structure || 'simple';
     const starter = args.starter || getDefaultStarterForStructure(structure);
+    const packageManager = args.packageManager || detectedPm;
 
     // Validate starter matches structure
     const starterConfig = STARTERS[starter];
@@ -122,18 +189,25 @@ async function main() {
       starter,
       validator: args.validator || 'zod',
       framework: args.framework || 'hono',
+      packageManager,
       install: args.install !== false,
+      skipGit: args.skipGit ?? false,
     };
 
-    console.log(pc.cyan(`Creating ${options.name}...`));
+    console.log(pc.cyan(`\nCreating ${options.name}...\n`));
 
     try {
       await scaffold(options);
+
       console.log(pc.green(`\nProject created successfully!`));
-      console.log(`\nNext steps:`);
+      console.log(`\n${pc.bold('Next steps:')}`);
+      console.log(pc.dim('─'.repeat(40)));
       console.log(`  cd ${options.name}`);
-      if (!options.install) console.log(`  bun install`);
-      console.log(`  bun run dev`);
+      if (!options.install) {
+        console.log(`  ${getInstallCommand(packageManager)}`);
+      }
+      console.log(`  ${getRunCommand(packageManager)} dev`);
+      console.log('');
     } catch (error) {
       console.error(pc.red(error instanceof Error ? error.message : String(error)));
       process.exit(1);
@@ -144,7 +218,7 @@ async function main() {
   // Interactive mode
   console.clear();
 
-  p.intro(pc.bgCyan(pc.black(' create-onion-lasagna-app ')));
+  p.intro(pc.bgCyan(pc.black(` create-onion-lasagna-app v${VERSION} `)));
 
   const project = await p.group(
     {
@@ -218,6 +292,18 @@ async function main() {
           ],
         }),
 
+      packageManager: () =>
+        p.select({
+          message: 'Select a package manager',
+          initialValue: args.packageManager || detectedPm,
+          options: [
+            { value: 'bun', label: 'bun', hint: 'Fast, all-in-one toolkit' },
+            { value: 'pnpm', label: 'pnpm', hint: 'Fast, disk space efficient' },
+            { value: 'npm', label: 'npm', hint: 'Node.js default package manager' },
+            { value: 'yarn', label: 'yarn', hint: 'Classic alternative to npm' },
+          ],
+        }),
+
       install: () =>
         p.confirm({
           message: 'Install dependencies?',
@@ -237,21 +323,25 @@ async function main() {
   try {
     s.start('Scaffolding project...');
 
+    const packageManager = project.packageManager as PackageManager;
+
     await scaffold({
       name: project.name as string,
       structure: project.structure as Structure,
       starter: project.starter as Starter,
       validator: project.validator as 'zod' | 'valibot' | 'arktype' | 'typebox',
       framework: project.framework as 'hono' | 'elysia' | 'fastify',
+      packageManager,
       install: project.install as boolean,
+      skipGit: args.skipGit ?? false,
     });
 
     s.stop('Project scaffolded!');
 
     const nextSteps = [
       `cd ${project.name}`,
-      project.install ? '' : 'bun install',
-      'bun run dev',
+      project.install ? '' : getInstallCommand(packageManager),
+      `${getRunCommand(packageManager)} dev`,
     ].filter(Boolean);
 
     p.note(nextSteps.join('\n'), 'Next steps');

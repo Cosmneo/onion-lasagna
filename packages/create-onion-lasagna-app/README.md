@@ -19,7 +19,7 @@ bunx create-onion-lasagna-app my-app
 bunx create-onion-lasagna-app my-app --yes
 
 # Full customization
-bunx create-onion-lasagna-app my-app --structure simple -s simple-clean -v zod -f hono
+bunx create-onion-lasagna-app my-app --structure simple -s simple-clean -v zod -f hono --use-pnpm
 ```
 
 ## How It Works
@@ -27,33 +27,68 @@ bunx create-onion-lasagna-app my-app --structure simple -s simple-clean -v zod -
 ```mermaid
 flowchart LR
     A[Run CLI] --> B{Interactive?}
-    B -->|Yes| C[Select Structure]
-    B -->|No| D[Use Flags/Defaults]
-    C --> E[Filter Starters]
-    E --> F[Select Starter]
-    F --> G[Select Validator]
-    G --> H[Select Framework]
-    D --> I[Clone Starter]
-    H --> I
-    I --> J[Inject Dependencies]
-    J --> K[Create Config]
-    K --> L{Install?}
-    L -->|Yes| M[bun install]
-    L -->|No| N[Done]
-    M --> N
+    B -->|Yes| C[Prompts]
+    B -->|No| D[Use Flags]
+    C --> E[Clone Starter]
+    D --> E
+    E --> F[Inject Dependencies]
+    F --> G[Create Config]
+    G --> H{Install?}
+    H -->|Yes| I[Install with PM]
+    H -->|No| J{Git?}
+    I --> J
+    J -->|Yes| K[git init + commit]
+    J -->|No| L[Done]
+    K --> L
 ```
 
 ## Options
 
-| Flag | Alias | Description | Values |
-|------|-------|-------------|--------|
-| `--structure` | - | Project structure | `simple`, `modules` |
-| `--starter` | `-s` | Starter template (filtered by structure) | See below |
-| `--validator` | `-v` | Validation library | `zod`, `valibot`, `arktype`, `typebox` |
-| `--framework` | `-f` | Web framework | `hono`, `elysia`, `fastify` |
+| Flag | Alias | Description | Default |
+|------|-------|-------------|---------|
+| `--structure` | - | Project structure: `simple`, `modules` | `simple` |
+| `--starter` | `-s` | Starter template (filtered by structure) | Auto |
+| `--validator` | `-v` | Validation: `zod`, `valibot`, `arktype`, `typebox` | `zod` |
+| `--framework` | `-f` | Framework: `hono`, `elysia`, `fastify` | `hono` |
+| `--use-bun` | - | Use bun package manager | Auto-detect |
+| `--use-npm` | - | Use npm package manager | - |
+| `--use-yarn` | - | Use yarn package manager | - |
+| `--use-pnpm` | - | Use pnpm package manager | - |
+| `--skip-git` | `-g` | Skip git initialization | `false` |
+| `--no-install` | - | Skip dependency installation | `false` |
 | `--yes` | `-y` | Skip prompts, use defaults | - |
-| `--no-install` | - | Skip dependency installation | - |
+| `--version` | `-V` | Show version number | - |
 | `--help` | `-h` | Show help | - |
+
+## Package Manager
+
+The CLI auto-detects your package manager based on how you invoke it:
+
+```bash
+bunx create-onion-lasagna-app my-app   # Uses bun
+npx create-onion-lasagna-app my-app    # Uses npm
+pnpm create onion-lasagna-app my-app   # Uses pnpm
+yarn create onion-lasagna-app my-app   # Uses yarn
+```
+
+Override with explicit flags:
+
+```bash
+bunx create-onion-lasagna-app my-app --use-pnpm
+npx create-onion-lasagna-app my-app --use-bun
+```
+
+## Git Initialization
+
+By default, the CLI initializes a git repository with an initial commit:
+
+```bash
+# Default: git init + initial commit
+bunx create-onion-lasagna-app my-app
+
+# Skip git initialization
+bunx create-onion-lasagna-app my-app --skip-git
+```
 
 ## Structures & Starters
 
@@ -157,24 +192,25 @@ After scaffolding, you'll find:
 
 | File | Purpose |
 |------|---------|
-| `.onion-lasagna.json` | Project configuration (structure, starter, validator, framework) |
+| `.onion-lasagna.json` | Project config (structure, starter, validator, framework, packageManager) |
+| `.git/` | Initialized git repository with initial commit |
 | `packages/backend/.env` | Environment variables |
 | `packages/backend/.env.example` | Environment template |
 
 ## Examples
 
 ```bash
-# Simple API with Hono + Zod
-bunx create-onion-lasagna-app api --structure simple -s simple-clean -v zod -f hono
+# Simple API with Hono + Zod (defaults)
+bunx create-onion-lasagna-app api --yes
 
-# Enterprise monolith with Fastify + Valibot
-bunx create-onion-lasagna-app platform --structure modules -s modules-clean -v valibot -f fastify
+# Enterprise monolith with Fastify + Valibot + pnpm
+bunx create-onion-lasagna-app platform --structure modules -v valibot -f fastify --use-pnpm
 
-# High-performance Bun app with Elysia + ArkType
-bunx create-onion-lasagna-app service --structure simple -v arktype -f elysia -y
+# High-performance Bun app with Elysia + ArkType, no git
+bunx create-onion-lasagna-app service -v arktype -f elysia --skip-git
 
-# Quick prototype (all defaults: simple structure, simple-clean, zod, hono)
-bunx create-onion-lasagna-app prototype --yes
+# CI/CD: npm, no install, no git
+npx create-onion-lasagna-app test-app --yes --no-install --skip-git
 ```
 
 ## After Scaffolding
@@ -184,6 +220,14 @@ cd my-app
 bun run dev    # Start development server
 bun run build  # Build for production
 bun run test   # Run tests
+```
+
+Post-install instructions adapt to your selected package manager:
+
+```bash
+# If you used --use-pnpm
+cd my-app
+pnpm dev
 ```
 
 ## Configuration
@@ -196,6 +240,7 @@ The `.onion-lasagna.json` file stores your project settings:
   "starter": "simple-clean",
   "validator": "zod",
   "framework": "hono",
+  "packageManager": "bun",
   "createdAt": "2024-01-15T10:30:00.000Z"
 }
 ```
