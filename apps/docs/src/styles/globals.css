@@ -152,6 +152,65 @@
   @apply ps-0;
 }
 
+/* Table styling to match code blocks */
+.typography table {
+  margin-top: 1.5rem !important;
+  margin-bottom: 1.5rem !important;
+  width: 100% !important;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.typography thead {
+  background-color: #f4f4f5 !important;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #71717a;
+}
+
+.dark .typography thead {
+  background-color: #161617 !important;
+  color: #a1a1aa;
+}
+
+.typography thead th {
+  padding: 0.75rem 1rem !important;
+  font-weight: 500;
+  background-color: transparent !important;
+  border-bottom: 1px solid #e4e4e7 !important;
+}
+
+.dark .typography thead th {
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.typography tbody {
+  background-color: #fafafa !important;
+}
+
+.dark .typography tbody {
+  background-color: #0A0A0B !important;
+}
+
+.typography tbody td {
+  padding: 0.75rem 1rem !important;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #e4e4e7 !important;
+}
+
+.dark .typography tbody td {
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.typography tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+
 .code-line {
   @apply px-3 py-px;
 }
