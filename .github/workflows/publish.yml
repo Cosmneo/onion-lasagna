@@ -59,8 +59,8 @@ jobs:
 
       - name: Setup .npmrc
         run: |
-          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" > packages/onion-lasagna/.npmrc
-          echo "@cosmneo:registry=https://npm.pkg.github.com" >> packages/onion-lasagna/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" > ~/.npmrc
+          echo "@cosmneo:registry=https://npm.pkg.github.com" >> ~/.npmrc
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
