@@ -69,12 +69,12 @@ class CanManageResourceGuard {
     private readonly canManageResourceQuery: CanManageResourceQueryInboundPort,
   ) {}
 
-  async guard(request: Request): Promise<GuardResult> {
+  async guard(request: Request): Promise<AccessGuardResult> {
     const result = await this.canManageResourceQuery.execute({
       userId: request.executionContext.userId,
       resourceId: request.pathParams.resourceId,
     });
-    return { allowed: result.allowed, reason: result.reason };
+    return { isAllowed: result.allowed, reason: result.reason };
   }
 }
 ```
@@ -122,8 +122,8 @@ try {
   const result = await useCase.execute(input);
   return response(200, result);
 } catch (error) {
-  if (error instanceof UserNotFoundError) return response(404, error.message);
-  if (error instanceof ValidationError) return response(400, error.message);
+  if (error instanceof NotFoundError) return response(404, error.message);
+  if (error instanceof InvalidRequestError) return response(400, error.message);
   throw error;
 }
 ```

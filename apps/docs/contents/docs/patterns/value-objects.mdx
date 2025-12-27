@@ -4,92 +4,224 @@ description: "Immutable objects defined by their attributes, not identity. Used 
 icon: "diamond"
 ---
 
-## Structure
+## BaseValueObject
+
+All value objects extend `BaseValueObject<T>`:
 
 ```typescript
-class UserId {
-  private constructor(private readonly _value: string) {}
+import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+import { createZodValidator } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+import { z } from 'zod';
 
+class Email extends BaseValueObject<string> {
+  private constructor(value: string, skipValidation = false) {
+    super(
+      value,
+      skipValidation ? SKIP_VALUE_OBJECT_VALIDATION : createZodValidator(z.string().email()),
+    );
+  }
+
+  static create(value: string): Email {
+    return new Email(value);
+  }
+
+  // For reconstitution from trusted sources (e.g., database)
+  static fromPersistence(value: string): Email {
+    return new Email(value, true);
+  }
+
+  get domain(): string {
+    return this.value.split('@')[1];
+  }
+}
+```
+
+Key features:
+- **Immutable**: Value is set at construction and cannot be changed
+- **Validated**: Validator runs at construction (unless skipped)
+- **Comparable**: Built-in `equals()` method with deep equality
+
+---
+
+## Built-in Value Objects
+
+The library provides base value objects you can extend:
+
+### Text Types
+
+```typescript
+import {
+  BaseShortTextVo,   // Suggested: 1-100 characters
+  BaseMediumTextVo,  // Suggested: 1-500 characters
+  BaseLongTextVo,    // Suggested: 1-2000 characters
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+```
+
+### Identifiers
+
+```typescript
+import {
+  BaseUuidV4Vo,  // UUID v4 format
+  BaseUuidV7Vo,  // UUID v7 format (time-ordered)
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+```
+
+### Contact
+
+```typescript
+import { BaseEmailVo } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+```
+
+### Pagination
+
+```typescript
+import { BasePaginationVo } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+// Properties: page, pageSize
+```
+
+### Auditing
+
+```typescript
+import {
+  BaseAuditInfoVo,  // Combines by + on
+  BaseAuditByVo,    // createdBy, updatedBy (optional UUIDs)
+  BaseAuditOnVo,    // createdAt, updatedAt (with invariant check)
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+```
+
+**Note**: `BaseAuditOnVo` enforces that `updatedAt` cannot be before `createdAt`.
+
+---
+
+## Ready-to-Use Value Objects
+
+Each validator provides ready-to-use value objects:
+
+```typescript
+// Zod (same exports for arktype, valibot, typebox)
+import {
+  EmailVo,
+  UuidV4Vo,
+  UuidV7Vo,
+  ShortTextVo,
+  MediumTextVo,
+  LongTextVo,
+  PaginationVo,
+  AuditByVo,
+  AuditOnVo,
+  AuditInfoVo,
+} from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+
+// Usage
+const email = EmailVo.create('user@example.com');
+const id = UuidV4Vo.generate();          // Generate new UUID
+const existingId = UuidV4Vo.create(str); // Validate existing
+const name = ShortTextVo.create('John Doe');
+const page = PaginationVo.create({ page: 1, pageSize: 20 });
+```
+
+---
+
+## Creating Custom Value Objects
+
+### Simple Value Object
+
+```typescript
+class UserId extends BaseUuidV4Vo {
   static create(value: string): UserId {
-    if (!isValidUUID(value)) {
-      throw new InvalidUserIdError(`Invalid user ID: ${value}`);
-    }
     return new UserId(value);
   }
 
   static generate(): UserId {
-    return new UserId(crypto.randomUUID());
+    return UserId.create(crypto.randomUUID());
+  }
+}
+```
+
+### Value Object with Custom Validation
+
+```typescript
+const phoneSchema = z.string().regex(/^\+[1-9]\d{1,14}$/);
+
+class PhoneNumber extends BaseValueObject<string> {
+  private constructor(value: string) {
+    super(value, createZodValidator(phoneSchema));
   }
 
-  get value(): string {
-    return this._value;
+  static create(value: string): PhoneNumber {
+    return new PhoneNumber(value);
   }
 
-  equals(other: UserId): boolean {
-    return this._value === other._value;
+  get countryCode(): string {
+    return this.value.slice(1, 3);
+  }
+}
+```
+
+### Composite Value Object
+
+```typescript
+interface AddressData {
+  street: string;
+  city: string;
+  postalCode: string;
+  country: string;
+}
+
+const addressSchema = z.object({
+  street: z.string().min(1),
+  city: z.string().min(1),
+  postalCode: z.string().min(1),
+  country: z.string().length(2),
+});
+
+class Address extends BaseValueObject<AddressData> {
+  private constructor(data: AddressData) {
+    super(data, createZodValidator(addressSchema));
+  }
+
+  static create(data: AddressData): Address {
+    return new Address(data);
+  }
+
+  get street(): string { return this.value.street; }
+  get city(): string { return this.value.city; }
+  get fullAddress(): string {
+    return `${this.value.street}, ${this.value.city}, ${this.value.country}`;
   }
 }
 ```
 
 ---
 
-## Common Value Objects
+## Equality Comparison
 
-### ID Value Objects
-
-```typescript
-class UserId { ... }
-class OrderId { ... }
-class ProductId { ... }
-```
-
-### Email
+`BaseValueObject` provides deep equality via `equals()`:
 
 ```typescript
-class Email {
-  private constructor(private readonly _value: string) {}
+const email1 = EmailVo.create('user@example.com');
+const email2 = EmailVo.create('user@example.com');
+const email3 = EmailVo.create('other@example.com');
 
-  static create(value: string): Email {
-    const normalized = value.toLowerCase().trim();
-    if (!isValidEmail(normalized)) throw new InvalidEmailError(value);
-    return new Email(normalized);
-  }
-
-  get value(): string { return this._value; }
-  get domain(): string { return this._value.split('@')[1]; }
-}
+email1.equals(email2); // true (same value)
+email1.equals(email3); // false (different value)
 ```
 
-### Money
-
-```typescript
-class Money {
-  private constructor(
-    private readonly _cents: number,
-    private readonly _currency: Currency,
-  ) {}
-
-  static create(amount: number, currency: Currency): Money {
-    if (amount < 0) throw new InvalidMoneyError('Amount cannot be negative');
-    return new Money(Math.round(amount * 100), currency);
-  }
-
-  get amount(): number { return this._cents / 100; }
-  get currency(): Currency { return this._currency; }
-
-  add(other: Money): Money {
-    if (this._currency !== other._currency) throw new CurrencyMismatchError();
-    return new Money(this._cents + other._cents, this._currency);
-  }
-}
-```
+The comparison handles:
+- Primitive values
+- Nested objects
+- Arrays
+- Date objects
 
 ---
 
 ## Rules
 
-- ✅ Make immutable (no setters)
-- ✅ Use factory methods for validation
-- ✅ Implement `equals()` for comparisons
-- ✅ Throw domain exceptions on invalid data
+- ✅ Extend `BaseValueObject<T>` for consistency
+- ✅ Use factory methods (`create`, `generate`)
+- ✅ Use `SKIP_VALUE_OBJECT_VALIDATION` for trusted sources
+- ✅ Add convenience getters for derived values
+- ✅ Throw `ObjectValidationError` on invalid data (automatic with validators)
+- ❌ Don't mutate after construction
 - ❌ Don't use for complex objects (use Entities/Aggregates)

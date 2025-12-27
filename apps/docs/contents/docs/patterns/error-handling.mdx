@@ -1,0 +1,309 @@
+---
+title: "Error Handling"
+description: "Typed error hierarchy with error codes for consistent error handling across layers."
+icon: "triangle-exclamation"
+---
+
+## Overview
+
+The library provides a comprehensive error hierarchy based on `CodedError`. Each error type has a unique code for programmatic handling and maps to appropriate HTTP status codes.
+
+---
+
+## CodedError Base Class
+
+All errors extend `CodedError`:
+
+```typescript
+import { CodedError } from '@cosmneo/onion-lasagna/backend/core/global';
+
+abstract class CodedError extends Error {
+  public readonly code: string;
+
+  constructor(options: {
+    message: string;
+    code: string;
+    cause?: unknown;
+  });
+
+  static fromError(cause: unknown): CodedError;
+}
+```
+
+Key features:
+- `code` - Machine-readable identifier for error handling
+- `cause` - ES2022 error chaining support
+- `fromError()` - Factory method for wrapping unknown errors
+
+---
+
+## Error Hierarchy
+
+```
+CodedError (base)
+├── DomainError
+│   ├── InvariantViolationError
+│   └── PartialLoadError
+├── UseCaseError
+│   ├── NotFoundError
+│   ├── ConflictError
+│   └── UnprocessableError
+├── InfraError
+│   ├── DbError
+│   ├── NetworkError
+│   ├── TimeoutError
+│   └── ExternalServiceError
+├── ControllerError
+├── AccessDeniedError
+├── InvalidRequestError
+└── ObjectValidationError
+```
+
+---
+
+## Error Codes
+
+Each error has a predefined code:
+
+```typescript
+import { ErrorCodes } from '@cosmneo/onion-lasagna/backend/core/global';
+
+// Domain errors
+ErrorCodes.Domain.DOMAIN_ERROR           // 'DOMAIN_ERROR'
+ErrorCodes.Domain.INVARIANT_VIOLATION    // 'INVARIANT_VIOLATION'
+ErrorCodes.Domain.PARTIAL_LOAD           // 'PARTIAL_LOAD'
+
+// Use case errors
+ErrorCodes.App.USE_CASE_ERROR            // 'USE_CASE_ERROR'
+ErrorCodes.App.NOT_FOUND                 // 'NOT_FOUND'
+ErrorCodes.App.CONFLICT                  // 'CONFLICT'
+ErrorCodes.App.UNPROCESSABLE             // 'UNPROCESSABLE'
+
+// Infrastructure errors
+ErrorCodes.Infra.INFRA_ERROR             // 'INFRA_ERROR'
+ErrorCodes.Infra.DB_ERROR                // 'DB_ERROR'
+ErrorCodes.Infra.NETWORK_ERROR           // 'NETWORK_ERROR'
+ErrorCodes.Infra.TIMEOUT_ERROR           // 'TIMEOUT_ERROR'
+ErrorCodes.Infra.EXTERNAL_SERVICE_ERROR  // 'EXTERNAL_SERVICE_ERROR'
+
+// Presentation errors
+ErrorCodes.Presentation.CONTROLLER_ERROR // 'CONTROLLER_ERROR'
+ErrorCodes.Presentation.ACCESS_DENIED    // 'ACCESS_DENIED'
+ErrorCodes.Presentation.INVALID_REQUEST  // 'INVALID_REQUEST'
+
+// Global errors
+ErrorCodes.Global.OBJECT_VALIDATION_ERROR // 'OBJECT_VALIDATION_ERROR'
+```
+
+---
+
+## Domain Errors
+
+Use for business rule violations in the domain layer:
+
+```typescript
+import { InvariantViolationError } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+class Order {
+  addItem(item: OrderItem): void {
+    if (this.status !== 'draft') {
+      throw new InvariantViolationError({
+        message: 'Cannot add items to a submitted order',
+        code: 'ORDER_NOT_DRAFT', // Custom code
+      });
+    }
+    // ...
+  }
+}
+```
+
+---
+
+## Use Case Errors
+
+Use for application-level failures:
+
+```typescript
+import {
+  NotFoundError,
+  ConflictError,
+  UnprocessableError,
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+class CreateUserCommand {
+  async execute(input: CreateUserInput): Promise<void> {
+    const existing = await this.userRepo.findByEmail(input.email);
+    if (existing) {
+      throw new ConflictError({
+        message: `User with email ${input.email} already exists`,
+        code: 'USER_EMAIL_EXISTS', // Custom code
+      });
+    }
+    // ...
+  }
+}
+
+class GetUserQuery {
+  async execute(input: GetUserInput): Promise<UserOutput> {
+    const user = await this.userRepo.findById(input.userId);
+    if (!user) {
+      throw new NotFoundError({
+        message: `User ${input.userId} not found`,
+        code: 'USER_NOT_FOUND', // Custom code
+      });
+    }
+    return this.toOutput(user);
+  }
+}
+```
+
+---
+
+## Infrastructure Errors
+
+Use for external system failures. `BaseOutboundAdapter` automatically wraps errors:
+
+```typescript
+import { DbError, NetworkError } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+import { BaseOutboundAdapter } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+class UserRepository extends BaseOutboundAdapter {
+  constructor(private readonly db: Database) {
+    super();
+  }
+
+  // Override to customize error type
+  protected createInfraError(error: unknown, methodName: string): InfraError {
+    return new DbError({
+      message: `Database error in ${methodName}`,
+      cause: error,
+    });
+  }
+
+  async findById(id: string): Promise<User | null> {
+    // If this throws, it's automatically wrapped in DbError
+    return this.db.query('SELECT * FROM users WHERE id = ?', [id]);
+  }
+}
+```
+
+---
+
+## Presentation Errors
+
+Use for access control and request validation:
+
+```typescript
+import {
+  AccessDeniedError,
+  InvalidRequestError,
+} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+// Access guard
+class CanEditResourceGuard {
+  async guard(request: Request): Promise<AccessGuardResult> {
+    const canEdit = await this.checkPermission(request);
+    if (!canEdit) {
+      throw new AccessDeniedError({
+        message: 'You do not have permission to edit this resource',
+      });
+    }
+    return { isAllowed: true };
+  }
+}
+```
+
+---
+
+## Validation Errors
+
+`ObjectValidationError` includes structured field-level errors:
+
+```typescript
+import { ObjectValidationError } from '@cosmneo/onion-lasagna/backend/core/global';
+
+// Thrown by validators when validation fails
+throw new ObjectValidationError({
+  message: 'Validation failed',
+  validationErrors: [
+    { field: 'email', message: 'Invalid email format' },
+    { field: 'password', message: 'Password must be at least 8 characters' },
+  ],
+});
+```
+
+---
+
+## HTTP Status Code Mapping
+
+Framework integrations map errors to HTTP status codes:
+
+| Error Type | HTTP Status | Response |
+|------------|-------------|----------|
+| `ObjectValidationError` | 400 Bad Request | Includes validation errors |
+| `InvalidRequestError` | 400 Bad Request | Includes validation errors |
+| `AccessDeniedError` | 403 Forbidden | Error message |
+| `NotFoundError` | 404 Not Found | Error message |
+| `ConflictError` | 409 Conflict | Error message |
+| `UnprocessableError` | 422 Unprocessable Entity | Error message |
+| `DomainError` | 500 Internal Server Error | Masked |
+| `InfraError` | 500 Internal Server Error | Masked |
+| `ControllerError` | 500 Internal Server Error | Masked |
+| Unknown Error | 500 Internal Server Error | Masked |
+
+Internal errors (Domain, Infra, Controller) are masked in responses to prevent leaking implementation details.
+
+---
+
+## Error Handling in Controllers
+
+`BaseController` automatically converts `ObjectValidationError` to `InvalidRequestError`:
+
+```typescript
+class MyController extends BaseController<...> {
+  // If requestMapper throws ObjectValidationError,
+  // it's converted to InvalidRequestError automatically
+}
+```
+
+For custom error handling, override the `pipeline` method:
+
+```typescript
+class MyController extends BaseController<...> {
+  protected async pipeline(input: Request): Promise<Response> {
+    try {
+      return await super.pipeline(input);
+    } catch (error) {
+      if (error instanceof CustomError) {
+        // Custom handling
+      }
+      throw error;
+    }
+  }
+}
+```
+
+---
+
+## Framework Error Handlers
+
+Each framework integration provides an error handler:
+
+```typescript
+// Hono
+import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+app.onError(onionErrorHandler);
+
+// Elysia
+import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+app.error(onionErrorHandler);
+
+// Fastify
+import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
+app.setErrorHandler(onionErrorHandler);
+
+// NestJS
+import { OnionLasagnaExceptionFilter } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+@UseFilters(OnionLasagnaExceptionFilter)
+export class AppController {}
+```

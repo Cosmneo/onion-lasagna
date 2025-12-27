@@ -1,0 +1,146 @@
+---
+title: "Elysia Integration"
+description: "Register routes and handle errors with Elysia framework."
+icon: "rabbit"
+---
+
+## Installation
+
+```bash
+bun add elysia
+```
+
+Import the Elysia integration:
+
+```typescript
+import {
+  registerElysiaRoutes,
+  onionErrorHandler,
+  mapErrorToResponse,
+} from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+```
+
+---
+
+## Quick Start
+
+```typescript
+import { Elysia } from 'elysia';
+import { registerElysiaRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+
+const app = new Elysia()
+  .error(onionErrorHandler)
+  .use(registerElysiaRoutes(routes));
+
+app.listen(3000);
+```
+
+---
+
+## Registering Routes
+
+The `registerElysiaRoutes` function returns an Elysia plugin:
+
+```typescript
+import type { RouteInput } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+const routes: RouteInput[] = [
+  {
+    metadata: {
+      method: 'GET',
+      path: '/users/{userId}',
+    },
+    controller: getUserController,
+    requestDtoFactory: GetUserRequestDto.create,
+  },
+];
+
+const app = new Elysia()
+  .use(registerElysiaRoutes(routes));
+```
+
+### Path Parameter Conversion
+
+Paths use `{param}` syntax which is automatically converted to Elysia's `:param` format.
+
+---
+
+## Options
+
+```typescript
+interface RegisterRoutesOptions {
+  prefix?: string;
+  middlewares?: ElysiaMiddleware[];
+}
+
+const app = new Elysia()
+  .use(registerElysiaRoutes(routes, {
+    prefix: '/api/v1',
+    middlewares: [authMiddleware],
+  }));
+```
+
+---
+
+## Error Handler
+
+The `onionErrorHandler` is a function that handles errors:
+
+```typescript
+const app = new Elysia()
+  .error(onionErrorHandler);
+```
+
+### Error Mapping
+
+| Error Type | HTTP Status | Body |
+|------------|-------------|------|
+| `ObjectValidationError` | 400 | `{ code, message, errors }` |
+| `InvalidRequestError` | 400 | `{ code, message, errors }` |
+| `AccessDeniedError` | 403 | `{ code, message }` |
+| `NotFoundError` | 404 | `{ code, message }` |
+| `ConflictError` | 409 | `{ code, message }` |
+| `UnprocessableError` | 422 | `{ code, message }` |
+| Internal errors | 500 | `{ message: 'Internal Server Error' }` |
+
+---
+
+## Custom Error Handling
+
+Use `mapErrorToResponse` for custom handling:
+
+```typescript
+import { mapErrorToResponse } from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+
+const app = new Elysia()
+  .error(({ error }) => {
+    console.error('Error:', error);
+
+    const { statusCode, body } = mapErrorToResponse(error);
+    return new Response(JSON.stringify(body), {
+      status: statusCode,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  });
+```
+
+---
+
+## Complete Example
+
+```typescript
+import { Elysia } from 'elysia';
+import { cors } from '@elysiajs/cors';
+import { registerElysiaRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+
+const app = new Elysia()
+  .use(cors())
+  .error(onionErrorHandler)
+  .get('/health', () => ({ status: 'ok' }))
+  .use(registerElysiaRoutes(userRoutes, { prefix: '/api/v1' }))
+  .use(registerElysiaRoutes(orderRoutes, { prefix: '/api/v1' }));
+
+app.listen(3000);
+
+console.log(`Server running at http://localhost:3000`);
+```

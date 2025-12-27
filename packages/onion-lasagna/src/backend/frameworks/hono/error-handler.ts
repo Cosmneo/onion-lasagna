@@ -11,7 +11,7 @@ import { mapErrorToHttpException } from './map-error-to-http-exception';
  * @example
  * ```typescript
  * import { Hono } from 'hono';
- * import { createHonoRouter, onionErrorHandler } from '@onion-lasagna/hono';
+ * import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
  *
  * const app = new Hono();
  *
@@ -19,7 +19,7 @@ import { mapErrorToHttpException } from './map-error-to-http-exception';
  * app.onError(onionErrorHandler);
  *
  * // Register routes
- * createHonoRouter(app, routes);
+ * registerHonoRoutes(app, routes);
  *
  * export default app;
  * ```

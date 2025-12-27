@@ -74,17 +74,17 @@ validators/
 
 ### Built-in Value Objects (`onion-layers/domain/value-objects/`)
 
-- **Text:** BaseShortText, BaseMediumText, BaseLongText
-- **Identifiers:** BaseUUIDv4, BaseUUIDv7
-- **Contact:** BaseEmail
-- **Pagination:** BasePagination
-- **Auditing:** BaseAuditInfo, BaseAuditBy, BaseAuditOn
+- **Text:** BaseShortTextVo, BaseMediumTextVo, BaseLongTextVo
+- **Identifiers:** BaseUuidV4Vo, BaseUuidV7Vo
+- **Contact:** BaseEmailVo
+- **Pagination:** BasePaginationVo
+- **Auditing:** BaseAuditInfoVo, BaseAuditByVo, BaseAuditOnVo
 
 ### Key Patterns
 
 **Ports & Adapters:**
 
-- `BaseInboundPort<TInput, TOutput>` - primary port interface for use cases
+- `BaseInboundPort<TInDto extends BaseDto, TOutDto extends BaseDto>` - primary port interface for use cases (DTOs required at boundaries)
 - `BaseInboundAdapter` - implements port, wraps handle() with error catching
 - `BaseOutboundAdapter` - secondary adapter, auto-wraps all methods to convert errors to InfraError
 
