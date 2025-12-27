@@ -5,11 +5,11 @@ import { createZodValidator } from '../../bootstrap';
 const schema = (maxLength: number) => z.string().min(1).max(maxLength);
 
 export class MediumTextVo extends BaseMediumTextVo {
-  private constructor(value: string, maxLength = 500) {
+  private constructor(value: string, maxLength: number) {
     super(value, createZodValidator(schema(maxLength)));
   }
 
-  static create(value: string, maxLength = 500): MediumTextVo {
+  static create(value: string, maxLength: number = 500): MediumTextVo {
     return new MediumTextVo(value, maxLength);
   }
 }

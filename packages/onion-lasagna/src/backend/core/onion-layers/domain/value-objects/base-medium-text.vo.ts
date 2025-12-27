@@ -28,8 +28,10 @@
  * ```
  */
 import type { BoundValidator } from '../../../global/interfaces/ports/object-validator.port';
-import type { SKIP_VALUE_OBJECT_VALIDATION } from '../classes/base-value-object.class';
-import { BaseValueObject } from '../classes/base-value-object.class';
+import {
+  BaseValueObject,
+  SKIP_VALUE_OBJECT_VALIDATION,
+} from '../classes/base-value-object.class';
 
 /**
  * Value object for medium-length text strings.
@@ -49,4 +51,5 @@ export class BaseMediumTextVo extends BaseValueObject<string> {
   ) {
     super(value, validator);
   }
+
 }

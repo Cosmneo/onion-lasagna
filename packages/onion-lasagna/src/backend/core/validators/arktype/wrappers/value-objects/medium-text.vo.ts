@@ -5,11 +5,11 @@ import { createArkTypeValidator } from '../../bootstrap';
 const schema = (maxLength: number) => type(`1 <= string <= ${maxLength}`);
 
 export class MediumTextVo extends BaseMediumTextVo {
-  private constructor(value: string, maxLength = 500) {
-    super(value, createArkTypeValidator(schema(maxLength)));
+  private constructor(value: string, max: number) {
+    super(value, createArkTypeValidator(schema(max)));
   }
 
-  static create(value: string, maxLength = 500): MediumTextVo {
+  static create(value: string, maxLength: number = 500): MediumTextVo {
     return new MediumTextVo(value, maxLength);
   }
 }
