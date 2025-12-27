@@ -91,7 +91,7 @@ jobs:
       - name: Update package version
         if: env.VERSION
         working-directory: packages/create-onion-lasagna-app
-        run: npm version ${{ env.VERSION }} --no-git-tag-version
+        run: npm version ${{ env.VERSION }} --no-git-tag-version --allow-same-version
 
       - name: Publish to npm
         working-directory: packages/create-onion-lasagna-app

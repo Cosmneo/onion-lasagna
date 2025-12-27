@@ -8,7 +8,9 @@ import { findProjectRoot, loadConfig, getBackendPath, writeFileWithDir } from '.
 export async function generateEntity(name?: string): Promise<void> {
   const projectRoot = findProjectRoot();
   if (!projectRoot) {
-    p.log.error(pc.red('Not in an onion-lasagna project. Run this command from your project root.'));
+    p.log.error(
+      pc.red('Not in an onion-lasagna project. Run this command from your project root.'),
+    );
     process.exit(1);
   }
 
@@ -30,7 +32,9 @@ export async function generateEntity(name?: string): Promise<void> {
     : [];
 
   if (contexts.length === 0) {
-    p.log.error(pc.red('No bounded contexts found. Create one first with: onion-lasagna g bc <name>'));
+    p.log.error(
+      pc.red('No bounded contexts found. Create one first with: onion-lasagna g bc <name>'),
+    );
     process.exit(1);
   }
 
@@ -135,7 +139,7 @@ export class ${pascalName} extends BaseEntity<${pascalName}Props> {
   if (!currentIndex.includes(`${kebabName}.entity.js`)) {
     const newIndex = currentIndex.replace(
       /^(\/\/ .+\n)?/,
-      `$1export { ${pascalName} } from './${kebabName}.entity.js';\n`
+      `$1export { ${pascalName} } from './${kebabName}.entity.js';\n`,
     );
     fs.writeFileSync(indexPath, newIndex);
   }

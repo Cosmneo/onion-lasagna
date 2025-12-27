@@ -5,13 +5,12 @@ import pc from 'picocolors';
 import { toPascalCase, toCamelCase, toKebabCase } from '../utils/naming.js';
 import { findProjectRoot, loadConfig, getBackendPath, writeFileWithDir } from '../utils/project.js';
 
-export async function generateUseCase(
-  name?: string,
-  type?: 'command' | 'query'
-): Promise<void> {
+export async function generateUseCase(name?: string, type?: 'command' | 'query'): Promise<void> {
   const projectRoot = findProjectRoot();
   if (!projectRoot) {
-    p.log.error(pc.red('Not in an onion-lasagna project. Run this command from your project root.'));
+    p.log.error(
+      pc.red('Not in an onion-lasagna project. Run this command from your project root.'),
+    );
     process.exit(1);
   }
 
@@ -33,7 +32,9 @@ export async function generateUseCase(
     : [];
 
   if (contexts.length === 0) {
-    p.log.error(pc.red('No bounded contexts found. Create one first with: onion-lasagna g bc <name>'));
+    p.log.error(
+      pc.red('No bounded contexts found. Create one first with: onion-lasagna g bc <name>'),
+    );
     process.exit(1);
   }
 
@@ -106,7 +107,7 @@ export type ${pascalName}Port = BaseInboundPort<${pascalName}InputDto, ${pascalN
 
   writeFileWithDir(
     path.join(contextPath, 'app', 'ports', 'inbound', typeFolder, `${kebabName}.port.ts`),
-    portContent
+    portContent,
   );
 
   // Generate DTOs
@@ -167,7 +168,7 @@ export { ${pascalName}InputDto, ${pascalName}OutputDto } from './${camelName}.dt
   if (!currentPortsIndex.includes(`${kebabName}.port.js`)) {
     const newPortsIndex = currentPortsIndex.replace(
       /^(\/\/ .+\n)?/,
-      `$1export type { ${pascalName}Port } from './${kebabName}.port.js';\n`
+      `$1export type { ${pascalName}Port } from './${kebabName}.port.js';\n`,
     );
     fs.writeFileSync(portsIndexPath, newPortsIndex);
   }
@@ -181,7 +182,7 @@ export { ${pascalName}InputDto, ${pascalName}OutputDto } from './${camelName}.dt
   if (!currentUseCasesIndex.includes(`${kebabName}/index.js`)) {
     const newUseCasesIndex = currentUseCasesIndex.replace(
       /^(\/\/ .+\n)?/,
-      `$1export * from './${kebabName}/index.js';\n`
+      `$1export * from './${kebabName}/index.js';\n`,
     );
     fs.writeFileSync(useCasesIndexPath, newUseCasesIndex);
   }
