@@ -35,8 +35,7 @@ Create all directories under `bounded-contexts/{bc-name}/`.
 
 Start with aggregates and value objects:
 
-```typescript
-// domain/value-objects/user-id.vo.ts
+```typescript:domain/value-objects/user-id.vo.ts
 class UserId {
   private constructor(private readonly _value: string) {}
   static create(value: string): UserId { ... }
@@ -53,8 +52,7 @@ class UserAggregate {
 
 ### 3. Define Exceptions
 
-```typescript
-// domain/exceptions/user-not-found.error.ts
+```typescript:domain/exceptions/user-not-found.error.ts
 class UserNotFoundError extends Error {
   constructor(userId: string) {
     super(`User not found: ${userId}`);
@@ -64,8 +62,7 @@ class UserNotFoundError extends Error {
 
 ### 4. Define Outbound Ports
 
-```typescript
-// app/ports/outbound/user.repository.outbound.ts
+```typescript:app/ports/outbound/user.repository.outbound.ts
 interface UserReadRepositoryOutboundPort {
   findById(id: UserId): Promise<UserAggregate | null>;
 }
@@ -77,8 +74,7 @@ interface UserWriteRepositoryOutboundPort {
 
 ### 5. Define Inbound Ports
 
-```typescript
-// app/ports/inbound/create-user.command.inbound.ts
+```typescript:app/ports/inbound/create-user.command.inbound.ts
 interface CreateUserCommandInboundPort {
   execute(input: CreateUserInput): Promise<CreateUserOutput>;
 }
@@ -86,8 +82,7 @@ interface CreateUserCommandInboundPort {
 
 ### 6. Implement Use Cases
 
-```typescript
-// app/use-cases/commands/create-user.command.ts
+```typescript:app/use-cases/commands/create-user.command.ts
 class CreateUserCommand implements CreateUserCommandInboundPort {
   constructor(
     private readonly readRepo: UserReadRepositoryOutboundPort,
@@ -104,8 +99,7 @@ class CreateUserCommand implements CreateUserCommandInboundPort {
 
 ### 7. Implement Infrastructure (if BC-scoped)
 
-```typescript
-// infra/implementations/user/user.repository.ts
+```typescript:infra/implementations/user/user.repository.ts
 class UserRepository implements 
   UserReadRepositoryOutboundPort, 
   UserWriteRepositoryOutboundPort 
