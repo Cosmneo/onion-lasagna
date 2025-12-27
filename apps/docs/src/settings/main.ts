@@ -1,27 +1,29 @@
-export const url = "https://rubix-documents.vercel.app"
-export const siteicon = "/icon.png"
+export const url = "https://onion-lasagna.dev"
+export const siteicon = "/logo.svg"
 
 export const gtm = "GTM-XXXXXXX"
-export const gtmconnected = true
+export const gtmconnected = false
 
-export const sitename = "Documents"
+export const sitename = "Onion Lasagna"
 export const description =
-  "This comprehensive documentation template, crafted with Next.js and available as open-source, delivers a sleek and responsive design, tailored to meet all your project documentation requirements."
+  "A TypeScript library for building backend applications using Onion/Hexagonal Architecture. Clean, layered, and delicious code."
 export const keywords = [
-  "Next.js",
-  "documentation",
-  "Rubix Studios",
-  "open source",
-  "SEO",
+  "TypeScript",
+  "Onion Architecture",
+  "Hexagonal Architecture",
+  "Clean Architecture",
+  "DDD",
+  "Backend",
+  "Node.js",
 ]
 export const urlimage = "/images/og-image.png"
-export const imagealt = "Rubix Studios Documentation"
-export const twitterhandle = "@RubixStudios"
+export const imagealt = "Onion Lasagna Documentation"
+export const twitterhandle = "@cosmneo"
 
-export const companyname = "Rubix Studios"
-export const companylink = "https://rubixstudios.com.au"
+export const companyname = "Cosmneo"
+export const companylink = "https://github.com/Cosmneo"
 
-export const branding = true
+export const branding = false
 export const rightsidebar = true
 export const feedbackedit = true
 export const tableofcontent = true
