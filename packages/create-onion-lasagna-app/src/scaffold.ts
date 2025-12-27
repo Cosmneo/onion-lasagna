@@ -311,14 +311,16 @@ PORT=3000
   };
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
-  // Create/update VS Code settings if requested
+  // Handle VS Code settings
+  const vscodeDir = path.join(targetDir, '.vscode');
   if (vscode) {
-    const vscodeDir = path.join(targetDir, '.vscode');
     if (!fs.existsSync(vscodeDir)) {
       fs.mkdirSync(vscodeDir, { recursive: true });
     }
     const vscodeSettingsPath = path.join(vscodeDir, 'settings.json');
     fs.writeFileSync(vscodeSettingsPath, JSON.stringify(VSCODE_SETTINGS, null, 2) + '\n');
+  } else if (fs.existsSync(vscodeDir)) {
+    fs.rmSync(vscodeDir, { recursive: true });
   }
 
   // Install dependencies if requested
