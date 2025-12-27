@@ -2,14 +2,14 @@ import { Type } from '@sinclair/typebox';
 import { BaseMediumTextVo } from '../../../../onion-layers/domain/value-objects/base-medium-text.vo';
 import { createTypeBoxValidator } from '../../bootstrap';
 
-const schema = (maxLen: number) => Type.String({ minLength: 1, maxLength: maxLen });
+const schema = (max: number) => Type.String({ minLength: 1, maxLength: max });
 
 export class MediumTextVo extends BaseMediumTextVo {
-  private constructor(value: string, maxLen = 500) {
-    super(value, createTypeBoxValidator(schema(maxLen)));
+  private constructor(value: string, max: number) {
+    super(value, createTypeBoxValidator<string>(schema(max)));
   }
 
-  static create(value: string, maxLen = 500): MediumTextVo {
-    return new MediumTextVo(value, maxLen);
+  static create(value: string, maxLength: number = 500): MediumTextVo {
+    return new MediumTextVo(value, maxLength);
   }
 }
