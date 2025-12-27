@@ -278,8 +278,7 @@ presentation/
 
 These are the **source of truth** for API contracts.
 
-```typescript
-// request.dto.ts
+```typescript:request.dto.ts
 const findUserByIdRequestSchema = z.object({
   pathParams: z.object({
     userId: z.string().uuid(),
@@ -289,8 +288,7 @@ const findUserByIdRequestSchema = z.object({
 type FindUserByIdRequest = z.infer;
 ```
 
-```typescript
-// response.dto.ts
+```typescript:response.dto.ts
 const findUserByIdResponseSchema = z.object({
   id: z.string().uuid(),
   email: z.string(),
@@ -311,8 +309,7 @@ Stateless gate-keepers. Receive use cases via DI.
 - ✅ Delegate authorization logic to use cases
 - ❌ Cannot implement custom business logic
 
-```typescript
-// access-guard.ts
+```typescript:access-guard.ts
 class CanManageResourceGuard {
   constructor(
     private readonly canManageResourceQuery: CanManageResourceQueryInboundPort,
@@ -334,8 +331,7 @@ class CanManageResourceGuard {
 
 Pure functions transforming between HTTP and use case shapes.
 
-```typescript
-// to-use-case.mapper.ts
+```typescript:to-use-case.mapper.ts
 function toFindUserByIdInput(request: FindUserByIdRequest): FindUserByIdInput {
   return { userId: request.pathParams.userId };
 }
@@ -414,8 +410,7 @@ Persistence and external are plain classes that the implementations orchestrate.
 
 ### Persistence (Raw Database)
 
-```typescript
-// persistence/drizzle/user/user.persistence.ts
+```typescript:persistence/drizzle/user/user.persistence.ts
 class UserPersistence {
   async findById(id: string): Promise {
     return db.select().from(users).where(eq(users.id, id)).limit(1)[0];
@@ -429,8 +424,7 @@ class UserPersistence {
 
 ### Implementation (Outbound Port)
 
-```typescript
-// implementations/user/user.repository.ts
+```typescript:implementations/user/user.repository.ts
 class UserRepository implements UserRepositoryOutboundPort {
   constructor(private readonly persistence: UserPersistence) {}
 
@@ -524,8 +518,7 @@ orchestrations/
 
 ## Composition
 
-```typescript
-// compositions/use-cases/get-order-details.composition.ts
+```typescript:compositions/use-cases/get-order-details.composition.ts
 class GetOrderDetailsComposition implements GetOrderDetailsCompositionInboundPort {
   constructor(
     orderQueryRepo: OrderQueryRepositoryOutboundPort,
@@ -547,8 +540,7 @@ class GetOrderDetailsComposition implements GetOrderDetailsCompositionInboundPor
 
 ## Workflow
 
-```typescript
-// workflows/use-cases/process-checkout.workflow.ts
+```typescript:workflows/use-cases/process-checkout.workflow.ts
 class ProcessCheckoutWorkflow implements ProcessCheckoutWorkflowInboundPort {
   async execute(input: ProcessCheckoutInput): Promise {
     const order = await this.createOrderCommand.execute({ ... });
@@ -576,8 +568,7 @@ Projections have their own infrastructure layer for denormalized storage.
 - CAN write only to its own denormalized storage
 - For simple systems with shared DB, may not need separate storage
 
-```typescript
-// projections/use-cases/user-dashboard.projection.ts
+```typescript:projections/use-cases/user-dashboard.projection.ts
 class UserDashboardProjection implements UserDashboardProjectionInboundPort {
   async execute(input: UserDashboardInput): Promise {
     // Reads from multiple BCs, returns aggregated view
@@ -637,8 +628,7 @@ bounded-contexts/{bc-name}/
 
 Interfaces for use cases. Implemented by queries and commands.
 
-```typescript
-// ports/inbound/find-user-by-id.query.inbound.ts
+```typescript:ports/inbound/find-user-by-id.query.inbound.ts
 interface FindUserByIdQueryInboundPort {
   execute(input: FindUserByIdInput): Promise;
 }
@@ -657,8 +647,7 @@ interface FindUserByIdQueryInboundPort {
 
 Interfaces for external dependencies. Implemented by infrastructure.
 
-```typescript
-// ports/outbound/user.repository.outbound.ts
+```typescript:ports/outbound/user.repository.outbound.ts
 interface UserRepositoryOutboundPort {
   findById(id: UserId): Promise;
   save(user: User): Promise;
@@ -671,8 +660,7 @@ interface UserRepositoryOutboundPort {
 
 Implement inbound ports.
 
-```typescript
-// use-cases/queries/find-user-by-id.query.ts
+```typescript:use-cases/queries/find-user-by-id.query.ts
 class FindUserByIdQuery implements FindUserByIdQueryInboundPort {
   constructor(
     private readonly userRepo: UserRepositoryOutboundPort,
@@ -987,8 +975,7 @@ async findById(id: OrderId): Promise {
 
 ## Port Definition (Outbound)
 
-```typescript
-// ports/outbound/user.repository.outbound.ts
+```typescript:ports/outbound/user.repository.outbound.ts
 
 interface UserQueryRepositoryOutboundPort {
   findPaginated(options: PaginationOptions): Promise>;
@@ -1009,8 +996,7 @@ interface UserWriteRepositoryOutboundPort {
 
 ## Implementation
 
-```typescript
-// infra/implementations/user/user.repository.ts
+```typescript:infra/implementations/user/user.repository.ts
 
 class UserRepository implements 
   UserQueryRepositoryOutboundPort,
@@ -1093,8 +1079,7 @@ class CreateUserCommand {
 
 ### 1. Create Request/Response DTOs
 
-```typescript
-// presentation/http/users/get-user/request.dto.ts
+```typescript:presentation/http/users/get-user/request.dto.ts
 const getUserRequestSchema = z.object({
   pathParams: z.object({
     userId: z.string().uuid(),
@@ -1113,8 +1098,7 @@ type GetUserResponse = z.infer;
 
 ### 2. Create Endpoint Metadata
 
-```typescript
-// presentation/http/users/get-user/endpoint.metadata.ts
+```typescript:presentation/http/users/get-user/endpoint.metadata.ts
 
   method: 'GET' as const,
   path: '/users/:userId',
@@ -1123,8 +1107,7 @@ type GetUserResponse = z.infer;
 
 ### 3. Define Inbound Port (in BC)
 
-```typescript
-// app/ports/inbound/get-user.query.inbound.ts
+```typescript:app/ports/inbound/get-user.query.inbound.ts
 interface GetUserQueryInboundPort {
   execute(input: GetUserInput): Promise;
 }
@@ -1132,8 +1115,7 @@ interface GetUserQueryInboundPort {
 
 ### 4. Implement Use Case
 
-```typescript
-// app/use-cases/queries/get-user.query.ts
+```typescript:app/use-cases/queries/get-user.query.ts
 class GetUserQuery implements GetUserQueryInboundPort {
   constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {}
 
@@ -1147,8 +1129,7 @@ class GetUserQuery implements GetUserQueryInboundPort {
 
 ### 5. Create Mappers
 
-```typescript
-// presentation/http/users/get-user/to-use-case.mapper.ts
+```typescript:presentation/http/users/get-user/to-use-case.mapper.ts
 function toGetUserInput(request: GetUserRequest): GetUserInput {
   return { userId: request.pathParams.userId };
 }
@@ -1161,8 +1142,7 @@ function toGetUserResponse(output: GetUserOutput): GetUserResponse {
 
 ### 6. Create Access Guard (if needed)
 
-```typescript
-// presentation/http/users/get-user/access-guard.ts
+```typescript:presentation/http/users/get-user/access-guard.ts
 class GetUserAccessGuard {
   async guard(request: GetUserRequest): Promise {
     // Allow any authenticated user
@@ -1173,8 +1153,7 @@ class GetUserAccessGuard {
 
 ### 7. Wire in Bootstrap
 
-```typescript
-// bootstrap/user.bootstrap.ts
+```typescript:bootstrap/user.bootstrap.ts
 const userReadRepo = new UserRepository(new UserPersistence());
 const getUserQuery = new GetUserQuery(userReadRepo);
 ```
@@ -1231,8 +1210,7 @@ Create all directories under `bounded-contexts/{bc-name}/`.
 
 Start with aggregates and value objects:
 
-```typescript
-// domain/value-objects/user-id.vo.ts
+```typescript:domain/value-objects/user-id.vo.ts
 class UserId {
   private constructor(private readonly _value: string) {}
   static create(value: string): UserId { ... }
@@ -1249,8 +1227,7 @@ class UserAggregate {
 
 ### 3. Define Exceptions
 
-```typescript
-// domain/exceptions/user-not-found.error.ts
+```typescript:domain/exceptions/user-not-found.error.ts
 class UserNotFoundError extends Error {
   constructor(userId: string) {
     super(`User not found: ${userId}`);
@@ -1260,8 +1237,7 @@ class UserNotFoundError extends Error {
 
 ### 4. Define Outbound Ports
 
-```typescript
-// app/ports/outbound/user.repository.outbound.ts
+```typescript:app/ports/outbound/user.repository.outbound.ts
 interface UserReadRepositoryOutboundPort {
   findById(id: UserId): Promise;
 }
@@ -1273,8 +1249,7 @@ interface UserWriteRepositoryOutboundPort {
 
 ### 5. Define Inbound Ports
 
-```typescript
-// app/ports/inbound/create-user.command.inbound.ts
+```typescript:app/ports/inbound/create-user.command.inbound.ts
 interface CreateUserCommandInboundPort {
   execute(input: CreateUserInput): Promise;
 }
@@ -1282,8 +1257,7 @@ interface CreateUserCommandInboundPort {
 
 ### 6. Implement Use Cases
 
-```typescript
-// app/use-cases/commands/create-user.command.ts
+```typescript:app/use-cases/commands/create-user.command.ts
 class CreateUserCommand implements CreateUserCommandInboundPort {
   constructor(
     private readonly readRepo: UserReadRepositoryOutboundPort,
@@ -1300,8 +1274,7 @@ class CreateUserCommand implements CreateUserCommandInboundPort {
 
 ### 7. Implement Infrastructure (if BC-scoped)
 
-```typescript
-// infra/implementations/user/user.repository.ts
+```typescript:infra/implementations/user/user.repository.ts
 class UserRepository implements 
   UserReadRepositoryOutboundPort, 
   UserWriteRepositoryOutboundPort 
@@ -1405,8 +1378,7 @@ app/use-cases/queries/get-user.query.ts
 
 ## Current Manual Approach
 
-```typescript
-// bootstrap/user.bootstrap.ts
+```typescript:bootstrap/user.bootstrap.ts
 const userPersistence = new UserPersistence(db);
 const userRepo = new UserRepository(userPersistence);
 const getUserQuery = new GetUserQuery(userRepo);
@@ -1469,8 +1441,7 @@ Frontend developers get auto-completed, type-safe API calls.
 
 ## Generated Output
 
-```typescript
-// packages/shared/clients/http/user.client.ts
+```typescript:packages/shared/clients/http/user.client.ts
 
 class UserClient {
   constructor(
@@ -1544,8 +1515,7 @@ class UserPersistence implements UserRepositoryOutboundPort { ... }
 
 ## Configuration
 
-```javascript
-// eslint.config.js
+```javascript:eslint.config.js
 
 
 

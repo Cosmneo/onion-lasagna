@@ -1,17 +1,8 @@
 import { Link } from "@/lib/transition"
 import Image from "next/image"
-import { FaGithub, FaNpm } from "react-icons/fa"
-import {
-  LuArrowRight,
-  LuBox,
-  LuLayers,
-  LuShieldCheck,
-  LuZap,
-  LuCode2,
-  LuTerminal,
-  LuCopy,
-  LuCheck,
-} from "react-icons/lu"
+import { FaGithub } from "react-icons/fa"
+import { LuArrowRight, LuBox, LuCopy, LuLayers, LuShieldCheck, LuZap } from "react-icons/lu"
+import { SiFastify, SiHono, SiNestjs } from "react-icons/si"
 import { PageRoutes } from "@/lib/pageroutes"
 
 function HeroSection() {
@@ -25,14 +16,12 @@ function HeroSection() {
 
       <div className="z-10 flex max-w-5xl flex-col items-center text-center">
         {/* Badge */}
-        <div className="mb-8 inline-flex animate-fade-in items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-medium text-primary backdrop-blur-sm transition-colors hover:border-primary/30 hover:bg-primary/20">
-          <span className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary"></span>
-            </span>
-            v1.0 Now Available
+        <div className="mb-8 inline-flex animate-fade-in items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-medium text-primary backdrop-blur-sm transition-colors hover:border-primary/30 hover:bg-primary/20">
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-75" />
+            <span className="relative inline-flex size-2 rounded-full bg-primary" />
           </span>
+          v1.0 Now Available
         </div>
 
         {/* Logo & Headline */}
@@ -83,7 +72,7 @@ function HeroSection() {
             target="_blank"
             className="inline-flex h-12 items-center justify-center gap-2 rounded-md border border-border bg-background/50 px-8 font-medium text-foreground backdrop-blur transition-colors hover:bg-muted"
           >
-            <FaGithub className="h-5 w-5" />
+            <FaGithub className="size-5" />
             GitHub
           </Link>
         </div>
@@ -93,13 +82,29 @@ function HeroSection() {
           <p className="mb-6 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Works with your favorite frameworks
           </p>
-          <div className="flex flex-wrap justify-center gap-8 grayscale transition-all hover:grayscale-0">
-            {/* Simple text representations for now to avoid icon dependency issues */}
-            {['Hono', 'NestJS', 'Fastify', 'Elysia'].map((fw) => (
-              <span key={fw} className="text-xl font-bold text-foreground/40 transition-colors hover:text-foreground">
-                {fw}
-              </span>
-            ))}
+          <div className="flex flex-wrap justify-center gap-8">
+            <span className="group flex items-center gap-2 text-xl font-bold text-foreground/40 transition-colors hover:text-foreground">
+              <SiHono className="size-6 transition-colors group-hover:text-[#E36002]" />
+              Hono
+            </span>
+            <span className="group flex items-center gap-2 text-xl font-bold text-foreground/40 transition-colors hover:text-foreground">
+              <SiNestjs className="size-6 transition-colors group-hover:text-[#E0234E]" />
+              NestJS
+            </span>
+            <span className="group flex items-center gap-2 text-xl font-bold text-foreground/40 transition-colors hover:text-foreground">
+              <SiFastify className="size-6 transition-colors group-hover:text-foreground" />
+              Fastify
+            </span>
+            <span className="group flex items-center gap-2 text-xl font-bold text-foreground/40 transition-colors hover:text-foreground">
+              <Image
+                src="/elysia.svg"
+                alt="Elysia"
+                width={24}
+                height={24}
+                className="opacity-40 grayscale transition-all group-hover:opacity-100 group-hover:grayscale-0"
+              />
+              Elysia
+            </span>
           </div>
         </div>
       </div>
@@ -122,16 +127,16 @@ function FeaturesSection() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {/* Feature 1 - Large Span */}
         <div className="group relative col-span-1 overflow-hidden rounded-2xl border border-border bg-card/50 p-8 backdrop-blur transition-all hover:border-primary/50 md:col-span-2">
-          <div className="absolute -right-10 -top-10 h-64 w-64 rounded-full bg-primary/10 blur-[80px] transition-all group-hover:bg-primary/20" />
+          <div className="absolute -right-10 -top-10 size-64 rounded-full bg-primary/10 blur-[80px] transition-all group-hover:bg-primary/20" />
           <div className="relative z-10">
-            <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <LuLayers className="h-6 w-6" />
+            <div className="mb-4 inline-flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <LuLayers className="size-6" />
             </div>
             <h3 className="mb-2 text-xl font-bold">Onion Architecture Standard</h3>
             <p className="text-muted-foreground">
-              Strict separation of concerns. Your business logic (Domain) sits at the center, 
-              completely isolated from frameworks, databases, and external APIs.
-              Dependencies flow inward, making your core logic easy to test and maintain.
+              Strict separation of concerns. Your business logic (Domain) sits at the center,
+              completely isolated from frameworks, databases, and external APIs. Dependencies
+              flow inward, making your core logic easy to test and maintain.
             </p>
           </div>
         </div>
@@ -139,12 +144,13 @@ function FeaturesSection() {
         {/* Feature 2 */}
         <div className="group relative overflow-hidden rounded-2xl border border-border bg-card/50 p-8 backdrop-blur transition-all hover:border-primary/50">
           <div className="relative z-10">
-            <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <LuBox className="h-6 w-6" />
+            <div className="mb-4 inline-flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <LuBox className="size-6" />
             </div>
             <h3 className="mb-2 text-xl font-bold">Framework Agnostic</h3>
             <p className="text-muted-foreground">
-              Switch from Express to Fastify or Hono without rewriting a single line of business logic.
+              Switch from Express to Fastify or Hono without rewriting a single line of business
+              logic.
             </p>
           </div>
         </div>
@@ -152,8 +158,8 @@ function FeaturesSection() {
         {/* Feature 3 */}
         <div className="group relative overflow-hidden rounded-2xl border border-border bg-card/50 p-8 backdrop-blur transition-all hover:border-primary/50">
           <div className="relative z-10">
-            <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <LuShieldCheck className="h-6 w-6" />
+            <div className="mb-4 inline-flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <LuShieldCheck className="size-6" />
             </div>
             <h3 className="mb-2 text-xl font-bold">Type-Safe Core</h3>
             <p className="text-muted-foreground">
@@ -164,15 +170,16 @@ function FeaturesSection() {
 
         {/* Feature 4 - Large Span */}
         <div className="group relative col-span-1 overflow-hidden rounded-2xl border border-border bg-card/50 p-8 backdrop-blur transition-all hover:border-primary/50 md:col-span-2">
-          <div className="absolute -left-10 -bottom-10 h-64 w-64 rounded-full bg-blue-500/10 blur-[80px] transition-all group-hover:bg-blue-500/20" />
+          <div className="absolute -bottom-10 -left-10 size-64 rounded-full bg-blue-500/10 blur-[80px] transition-all group-hover:bg-blue-500/20" />
           <div className="relative z-10">
-            <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <LuZap className="h-6 w-6" />
+            <div className="mb-4 inline-flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <LuZap className="size-6" />
             </div>
             <h3 className="mb-2 text-xl font-bold">Zero-Dependency Core</h3>
             <p className="text-muted-foreground">
-              The core package has zero runtime dependencies. You only install what you need (validators, framework adapters) as peer dependencies. 
-              Keeps your bundle size small and your supply chain secure.
+              The core package has zero runtime dependencies. You only install what you need
+              (validators, framework adapters) as peer dependencies. Keeps your bundle size
+              small and your supply chain secure.
             </p>
           </div>
         </div>
@@ -201,56 +208,61 @@ function ArchitectureSection() {
           
           {/* Layer Nodes */}
           <div className="flex w-full flex-col gap-4 lg:w-1/3">
-             <div className="rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-purple-500/50">
-                <div className="text-xs font-bold uppercase text-muted-foreground">Layer 1</div>
-                <div className="text-lg font-bold text-foreground">Presentation</div>
-                <div className="text-sm text-muted-foreground">Controllers, DTOs</div>
-             </div>
-             <div className="flex justify-center lg:hidden"><LuArrowRight className="rotate-90 text-muted-foreground" /></div>
-             
-             <div className="rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-purple-500/50">
-                <div className="text-xs font-bold uppercase text-muted-foreground">Layer 2</div>
-                <div className="text-lg font-bold text-foreground">Application</div>
-                <div className="text-sm text-muted-foreground">Use Cases, Ports</div>
-             </div>
-             <div className="flex justify-center lg:hidden"><LuArrowRight className="rotate-90 text-muted-foreground" /></div>
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-purple-500/50">
+              <div className="text-xs font-bold uppercase text-muted-foreground">Layer 1</div>
+              <div className="text-lg font-bold text-foreground">Presentation</div>
+              <div className="text-sm text-muted-foreground">Controllers, DTOs</div>
+            </div>
+            <div className="flex justify-center lg:hidden">
+              <LuArrowRight className="rotate-90 text-muted-foreground" />
+            </div>
 
-             <div className="rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-purple-500/50">
-                <div className="text-xs font-bold uppercase text-muted-foreground">Layer 3</div>
-                <div className="text-lg font-bold text-primary">Domain</div>
-                <div className="text-sm text-muted-foreground">Entities, Value Objects</div>
-             </div>
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-purple-500/50">
+              <div className="text-xs font-bold uppercase text-muted-foreground">Layer 2</div>
+              <div className="text-lg font-bold text-foreground">Application</div>
+              <div className="text-sm text-muted-foreground">Use Cases, Ports</div>
+            </div>
+            <div className="flex justify-center lg:hidden">
+              <LuArrowRight className="rotate-90 text-muted-foreground" />
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-purple-500/50">
+              <div className="text-xs font-bold uppercase text-muted-foreground">Layer 3</div>
+              <div className="text-lg font-bold text-primary">Domain</div>
+              <div className="text-sm text-muted-foreground">Entities, Value Objects</div>
+            </div>
           </div>
 
           {/* Central Graphic */}
-          <div className="relative flex h-[300px] w-[300px] shrink-0 items-center justify-center rounded-full border border-border/50 bg-background/50 p-8 shadow-[0_0_100px_rgba(124,58,237,0.1)] lg:h-[400px] lg:w-[400px]">
-             {/* Orbital Rings */}
-             <div className="absolute inset-0 animate-[spin_10s_linear_infinite] rounded-full border border-dashed border-primary/20" />
-             <div className="absolute inset-8 animate-[spin_15s_linear_infinite_reverse] rounded-full border border-dashed border-primary/30" />
-             <div className="absolute inset-16 animate-[spin_20s_linear_infinite] rounded-full border border-dashed border-primary/40" />
-             
-             {/* Core */}
-             <div className="flex h-32 w-32 items-center justify-center rounded-full bg-primary shadow-[0_0_50px_rgba(124,58,237,0.5)]">
-                <span className="font-bold text-white">Core</span>
-             </div>
+          <div className="relative flex size-[300px] shrink-0 items-center justify-center rounded-full border border-border/50 bg-background/50 p-8 shadow-[0_0_100px_rgba(124,58,237,0.1)] lg:size-[400px]">
+            {/* Orbital Rings */}
+            <div className="absolute inset-0 animate-[spin_10s_linear_infinite] rounded-full border border-dashed border-primary/20" />
+            <div className="absolute inset-8 animate-[spin_15s_linear_infinite_reverse] rounded-full border border-dashed border-primary/30" />
+            <div className="absolute inset-16 animate-[spin_20s_linear_infinite] rounded-full border border-dashed border-primary/40" />
+
+            {/* Core */}
+            <div className="flex size-32 items-center justify-center rounded-full bg-primary shadow-[0_0_50px_rgba(124,58,237,0.5)]">
+              <span className="font-bold text-white">Core</span>
+            </div>
           </div>
 
           {/* Infra Side */}
           <div className="flex w-full flex-col gap-4 lg:w-1/3">
-             <div className="rounded-xl border border-border bg-card p-4 text-right shadow-sm transition-all hover:border-purple-500/50">
-                <div className="text-xs font-bold uppercase text-muted-foreground">Infrastructure</div>
-                <div className="text-lg font-bold text-foreground">Repositories</div>
-                <div className="text-sm text-muted-foreground">Postgres, Mongo, etc.</div>
-             </div>
-             <div className="flex justify-center lg:hidden"><LuArrowRight className="rotate-90 text-muted-foreground" /></div>
-             
-             <div className="rounded-xl border border-border bg-card p-4 text-right shadow-sm transition-all hover:border-purple-500/50">
-                <div className="text-xs font-bold uppercase text-muted-foreground">External</div>
-                <div className="text-lg font-bold text-foreground">Services</div>
-                <div className="text-sm text-muted-foreground">Stripe, AWS, SendGrid</div>
-             </div>
-          </div>
+            <div className="rounded-xl border border-border bg-card p-4 text-right shadow-sm transition-all hover:border-purple-500/50">
+              <div className="text-xs font-bold uppercase text-muted-foreground">Infrastructure</div>
+              <div className="text-lg font-bold text-foreground">Repositories</div>
+              <div className="text-sm text-muted-foreground">Postgres, Mongo, etc.</div>
+            </div>
+            <div className="flex justify-center lg:hidden">
+              <LuArrowRight className="rotate-90 text-muted-foreground" />
+            </div>
 
+            <div className="rounded-xl border border-border bg-card p-4 text-right shadow-sm transition-all hover:border-purple-500/50">
+              <div className="text-xs font-bold uppercase text-muted-foreground">External</div>
+              <div className="text-lg font-bold text-foreground">Services</div>
+              <div className="text-sm text-muted-foreground">Stripe, AWS, SendGrid</div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -271,41 +283,79 @@ function CodeSection() {
 
       <div className="mx-auto max-w-4xl overflow-hidden rounded-xl border border-border bg-zinc-50 dark:bg-[#0A0A0B] shadow-xl">
         {/* Window Header */}
-        <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-100 px-4 py-3 dark:border-white/10 dark:bg-white/5">
           <div className="flex gap-2">
-            <div className="h-3 w-3 rounded-full bg-[#FF5F56]" />
-            <div className="h-3 w-3 rounded-full bg-[#FFBD2E]" />
-            <div className="h-3 w-3 rounded-full bg-[#27C93F]" />
+            <div className="size-3 rounded-full bg-[#FF5F56]" />
+            <div className="size-3 rounded-full bg-[#FFBD2E]" />
+            <div className="size-3 rounded-full bg-[#27C93F]" />
           </div>
-          <div className="text-xs font-medium text-muted-foreground">create-user.use-case.ts</div>
-          <div className="w-10" /> {/* Spacer */}
+          <span className="text-xs font-medium text-muted-foreground">create-user.use-case.ts</span>
+          <div className="w-10" />
         </div>
 
         {/* Code Content */}
         <div className="overflow-x-auto p-6">
           <pre className="font-mono text-sm leading-relaxed">
             <code className="block text-zinc-700 dark:text-gray-300">
-              <span className="text-purple-600 dark:text-purple-400">import</span> {'{ BaseInboundAdapter }'} <span className="text-purple-600 dark:text-purple-400">from</span> <span className="text-green-600 dark:text-green-400">'@cosmneo/onion-lasagna'</span>
-              {'\n\n'}
-              <span className="text-purple-600 dark:text-purple-400">export class</span> <span className="text-yellow-600 dark:text-yellow-300">CreateUserUseCase</span> <span className="text-purple-600 dark:text-purple-400">extends</span> <span className="text-yellow-600 dark:text-yellow-300">BaseInboundAdapter</span>&lt;{'\n'}
-              {'  '}CreateUserInput,{'\n'}
-              {'  '}CreateUserOutput{'\n'}
-              &gt; {'{'}{'\n'}
-              {'  '}<span className="text-purple-600 dark:text-purple-400">constructor</span>({'\n'}
-              {'    '}<span className="text-blue-600 dark:text-blue-400">private readonly</span> userRepo: UserRepository,{'\n'}
-              {'    '}<span className="text-blue-600 dark:text-blue-400">private readonly</span> emailService: EmailService{'\n'}
-              {'  '}) {'{'}{'\n'}
-              {'    '}<span className="text-blue-600 dark:text-blue-400">super</span>(){'\n'}
-              {'  '}{'}'}{'\n\n'}
-              {'  '}<span className="text-purple-600 dark:text-purple-400">async</span> <span className="text-blue-600 dark:text-blue-400">handle</span>(input: CreateUserInput): <span className="text-yellow-600 dark:text-yellow-300">Promise</span>&lt;CreateUserOutput&gt; {'{'}{'\n'}
-              {'    '}<span className="text-gray-500">// 1. Domain logic stays pure</span>{'\n'}
-              {'    '}<span className="text-purple-600 dark:text-purple-400">const</span> user = <span className="text-yellow-600 dark:text-yellow-300">User</span>.create(input.email, input.name){'\n\n'}
-              {'    '}<span className="text-gray-500">// 2. Infrastructure through ports</span>{'\n'}
-              {'    '}<span className="text-purple-600 dark:text-purple-400">await</span> <span className="text-blue-600 dark:text-blue-400">this</span>.userRepo.save(user){'\n'}
-              {'    '}<span className="text-purple-600 dark:text-purple-400">await</span> <span className="text-blue-600 dark:text-blue-400">this</span>.emailService.sendWelcome(user.email){'\n\n'}
-              {'    '}<span className="text-purple-600 dark:text-purple-400">return</span> {'{'} id: user.id.value {'}'}{'\n'}
-              {'  '}{'}'}{'\n'}
-              {'}'}
+              <span className="text-purple-600 dark:text-purple-400">import</span>
+              {" { BaseInboundAdapter } "}
+              <span className="text-purple-600 dark:text-purple-400">from</span>{" "}
+              <span className="text-green-600 dark:text-green-400">
+                {"'@cosmneo/onion-lasagna'"}
+              </span>
+              {"\n\n"}
+              <span className="text-purple-600 dark:text-purple-400">export class</span>{" "}
+              <span className="text-yellow-600 dark:text-yellow-300">CreateUserUseCase</span>{" "}
+              <span className="text-purple-600 dark:text-purple-400">extends</span>{" "}
+              <span className="text-yellow-600 dark:text-yellow-300">BaseInboundAdapter</span>
+              {"<\n"}
+              {"  CreateUserInput,\n"}
+              {"  CreateUserOutput\n"}
+              {"> {\n"}
+              {"  "}
+              <span className="text-purple-600 dark:text-purple-400">constructor</span>
+              {"(\n"}
+              {"    "}
+              <span className="text-blue-600 dark:text-blue-400">private readonly</span>
+              {" userRepo: UserRepository,\n"}
+              {"    "}
+              <span className="text-blue-600 dark:text-blue-400">private readonly</span>
+              {" emailService: EmailService\n"}
+              {"  ) {\n"}
+              {"    "}
+              <span className="text-blue-600 dark:text-blue-400">super</span>
+              {"()\n"}
+              {"  }\n\n"}
+              {"  "}
+              <span className="text-purple-600 dark:text-purple-400">async</span>{" "}
+              <span className="text-blue-600 dark:text-blue-400">handle</span>
+              {"(input: CreateUserInput): "}
+              <span className="text-yellow-600 dark:text-yellow-300">Promise</span>
+              {"<CreateUserOutput> {\n"}
+              {"    "}
+              <span className="text-gray-500">{"// 1. Domain logic stays pure"}</span>
+              {"\n"}
+              {"    "}
+              <span className="text-purple-600 dark:text-purple-400">const</span>
+              {" user = "}
+              <span className="text-yellow-600 dark:text-yellow-300">User</span>
+              {".create(input.email, input.name)\n\n"}
+              {"    "}
+              <span className="text-gray-500">{"// 2. Infrastructure through ports"}</span>
+              {"\n"}
+              {"    "}
+              <span className="text-purple-600 dark:text-purple-400">await</span>{" "}
+              <span className="text-blue-600 dark:text-blue-400">this</span>
+              {".userRepo.save(user)\n"}
+              {"    "}
+              <span className="text-purple-600 dark:text-purple-400">await</span>{" "}
+              <span className="text-blue-600 dark:text-blue-400">this</span>
+              {".emailService.sendWelcome(user.email)\n\n"}
+              {"    "}
+              <span className="text-purple-600 dark:text-purple-400">return</span>
+              {" { id: user.id.value }\n"}
+              {"  }\n"}
+              {"}"}
             </code>
           </pre>
         </div>
@@ -345,11 +395,14 @@ function CTASection() {
             </Link>
 
             <div className="group relative flex h-12 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-white/5 px-6 font-mono text-sm text-zinc-300 transition-colors hover:bg-white/10">
-               <span className="mr-3 select-none text-zinc-500">$</span>
-               <span>bunx create-onion-lasagna-app</span>
-               <button className="ml-4 flex items-center justify-center text-zinc-500 transition-colors hover:text-white" title="Copy command">
-                  <LuCopy className="h-4 w-4" />
-               </button>
+              <span className="mr-3 select-none text-zinc-500">$</span>
+              <span>bunx create-onion-lasagna-app</span>
+              <button
+                className="ml-4 flex items-center justify-center text-zinc-500 transition-colors hover:text-white"
+                title="Copy command"
+              >
+                <LuCopy className="size-4" />
+              </button>
             </div>
           </div>
         </div>
