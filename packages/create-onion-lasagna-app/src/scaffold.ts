@@ -3,9 +3,35 @@ import fs from 'node:fs';
 import path from 'node:path';
 import degit from 'degit';
 
+export type Structure = 'simple' | 'modules';
+export type Starter = 'simple-clean' | 'modules-clean';
+
+interface StarterConfig {
+  structure: Structure;
+  label: string;
+  hint: string;
+  repoPath: string;
+}
+
+export const STARTERS: Record<Starter, StarterConfig> = {
+  'simple-clean': {
+    structure: 'simple',
+    label: 'Clean',
+    hint: 'Minimal setup, ready to build',
+    repoPath: 'simple-clean-starter',
+  },
+  'modules-clean': {
+    structure: 'modules',
+    label: 'Clean',
+    hint: 'Minimal setup, ready to build',
+    repoPath: 'modules-clean-starter',
+  },
+};
+
 interface ScaffoldOptions {
   name: string;
-  starter: 'simple' | 'modules';
+  structure: Structure;
+  starter: Starter;
   validator: 'zod' | 'valibot' | 'arktype' | 'typebox';
   framework: 'hono' | 'elysia' | 'fastify';
   install: boolean;
@@ -27,7 +53,7 @@ const FRAMEWORK_PACKAGES: Record<string, string[]> = {
 };
 
 export async function scaffold(options: ScaffoldOptions): Promise<void> {
-  const { name, starter, validator, framework, install } = options;
+  const { name, structure, starter, validator, framework, install } = options;
   const targetDir = path.resolve(process.cwd(), name);
 
   // Check if directory exists
@@ -38,8 +64,21 @@ export async function scaffold(options: ScaffoldOptions): Promise<void> {
     }
   }
 
+  // Get starter config
+  const starterConfig = STARTERS[starter];
+  if (!starterConfig) {
+    throw new Error(`Unknown starter: ${starter}`);
+  }
+
+  // Validate starter matches structure
+  if (starterConfig.structure !== structure) {
+    throw new Error(
+      `Starter "${starter}" is not compatible with structure "${structure}"`
+    );
+  }
+
   // Clone starter template
-  const starterPath = `${REPO}/starters/${starter}-starter`;
+  const starterPath = `${REPO}/starters/${starterConfig.repoPath}`;
   const emitter = degit(starterPath, {
     cache: false,
     force: true,
@@ -88,6 +127,7 @@ PORT=3000
   // Create a basic configuration comment file to indicate selections
   const configPath = path.join(targetDir, '.onion-lasagna.json');
   const config = {
+    structure,
     starter,
     validator,
     framework,
