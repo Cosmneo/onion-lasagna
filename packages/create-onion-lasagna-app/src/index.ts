@@ -11,7 +11,7 @@ import {
   type PackageManager,
 } from './scaffold.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.1.2';
 
 interface CliArgs {
   name?: string;
