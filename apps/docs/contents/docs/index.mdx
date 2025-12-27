@@ -1,0 +1,48 @@
+---
+title: "Introduction"
+description: "Welcome to Onion Lasagna Architecture v2"
+icon: "layout-template"
+---
+
+> **Layer by layer, dependency inward, business at the core.**
+
+A DDD + Hexagonal architecture with framework-free business logic. Each layer has a distinct purpose, dependencies flow inward, and contracts are the shared source of truth.
+
+## Architecture at a Glance
+
+```mermaid
+graph TD
+    subgraph Presentation
+        HTTP[HTTP Handlers / Controllers]
+    end
+
+    subgraph Infrastructure
+        DB[Persistence / Database]
+        External[External APIs]
+    end
+
+    subgraph Orchestrations
+        Workflow[Workflows]
+        Composition[Compositions]
+    end
+
+    subgraph "Bounded Contexts"
+        Domain[Domain Logic / Use Cases]
+    end
+
+    Presentation --> Infrastructure
+    Presentation --> Orchestrations
+    Presentation --> "Bounded Contexts"
+    Infrastructure --> "Bounded Contexts"
+    Orchestrations --> "Bounded Contexts"
+```
+
+## Core Principles
+
+1.  **Business Logic is Framework-Free**: Domain code never knows about HTTP or databases.
+2.  **Dependencies Flow Inward**: Outer layers depend on inner layers.
+3.  **Contracts are Source of Truth**: DTOs and interfaces define how layers interact.
+
+## Getting Started
+
+Check out the [New Endpoint Guide](/docs/guides/new-endpoint) to see how to build a feature from scratch.

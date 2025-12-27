@@ -1,0 +1,125 @@
+---
+title: "Bounded Contexts"
+description: "Pure domain logic with ports and use cases"
+icon: "cube"
+---
+
+
+Pure domain logic, completely framework-free.
+
+---
+
+## Structure
+
+```
+bounded-contexts/{bc-name}/
+├── app/
+│   ├── ports/
+│   │   ├── inbound/           ← Use case interfaces
+│   │   └── outbound/          ← Repository interfaces
+│   └── use-cases/
+│       ├── queries/
+│       └── commands/
+├── domain/
+│   ├── aggregates/
+│   ├── entities/
+│   ├── value-objects/
+│   └── exceptions/
+└── infra/                      ← BC-scoped implementations
+```
+
+---
+
+## Golden Rules
+
+1. **NO framework imports**
+2. **NO environment variables**
+3. **NO direct cross-BC imports**
+4. **CAN import** from domain (VOs, aggregates) into infra
+
+---
+
+## Inbound Ports
+
+Interfaces for use cases. Implemented by queries and commands.
+
+```typescript
+// ports/inbound/find-user-by-id.query.inbound.ts
+interface FindUserByIdQueryInboundPort {
+  execute(input: FindUserByIdInput): Promise<FindUserByIdOutput>;
+}
+```
+
+### Naming
+
+| Type | Interface | File |
+|------|-----------|------|
+| Query | `{Name}QueryInboundPort` | `.query.inbound.ts` |
+| Command | `{Name}CommandInboundPort` | `.command.inbound.ts` |
+
+---
+
+## Outbound Ports
+
+Interfaces for external dependencies. Implemented by infrastructure.
+
+```typescript
+// ports/outbound/user.repository.outbound.ts
+interface UserRepositoryOutboundPort {
+  findById(id: UserId): Promise<User | null>;
+  save(user: User): Promise<void>;
+}
+```
+
+---
+
+## Use Cases
+
+Implement inbound ports.
+
+```typescript
+// use-cases/queries/find-user-by-id.query.ts
+class FindUserByIdQuery implements FindUserByIdQueryInboundPort {
+  constructor(
+    private readonly userRepo: UserRepositoryOutboundPort,
+  ) {}
+
+  async execute(input: FindUserByIdInput): Promise<FindUserByIdOutput> {
+    const user = await this.userRepo.findById(UserId.create(input.userId));
+    if (!user) throw new UserNotFoundError(input.userId);
+    return { id: user.id.value, email: user.email, name: user.name };
+  }
+}
+```
+
+---
+
+## Domain
+
+### Aggregates
+
+```typescript
+class UserAggregate {
+  private constructor(
+    private readonly _id: UserId,
+    private _email: string,
+    private _name: string,
+  ) {}
+
+  static create(data: CreateUserData): UserAggregate { ... }
+  static reconstitute(data: UserData): UserAggregate { ... }
+}
+```
+
+### Value Objects
+
+```typescript
+class UserId {
+  private constructor(private readonly _value: string) {}
+  static create(value: string): UserId { ... }
+  static generate(): UserId { ... }
+  get value(): string { return this._value; }
+}
+```
+
+See [Aggregates](../patterns/aggregates.md) and [Value Objects](../patterns/value-objects.md) for details.

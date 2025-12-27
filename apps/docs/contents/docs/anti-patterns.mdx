@@ -1,0 +1,116 @@
+---
+title: "Anti-Patterns"
+description: "What NOT to do when implementing Onion Lasagna Architecture"
+icon: "triangle-exclamation"
+---
+
+## Bounded Context
+
+### ❌ Framework Code in Domain
+
+```typescript
+// BAD: Using Express in domain
+import { Request, Response } from 'express';
+class CreateUserCommand {
+  execute(req: Request, res: Response) { ... }
+}
+```
+
+### ❌ Environment Variables in Domain
+
+```typescript
+// BAD: Reading env vars in BC
+const apiKey = process.env.API_KEY;
+```
+
+### ❌ Direct Cross-BC Import
+
+```typescript
+// BAD: Importing from another BC
+import { OrderAggregate } from '../order/domain/aggregates';
+```
+
+---
+
+## Infrastructure
+
+### ❌ Business Logic in Repository
+
+```typescript
+// BAD: Price calculation in repository
+async findWithDiscount(id: string): Promise<Product> {
+  const product = await this.db.find(id);
+  product.price = product.price * 0.9;  // BAD!
+  return product;
+}
+```
+
+### ❌ `implements` in Persistence/External
+
+```typescript
+// BAD: Persistence should NOT implement port
+class UserPersistence implements UserRepositoryOutboundPort { ... }
+
+// GOOD: Only implementations/ use `implements`
+class UserRepository implements UserRepositoryOutboundPort {
+  constructor(private persistence: UserPersistence) {}
+}
+```
+
+---
+
+## Presentation
+
+### ❌ Business Logic in Access Guard
+
+```typescript
+// BAD: Custom logic in guard
+async guard(request: Request): Promise<GuardResult> {
+  const discount = request.user.isVIP ? 0.2 : 0;  // BAD!
+  return { allowed: true, discount };
+}
+```
+
+### ❌ Business Logic in Mapper
+
+```typescript
+// BAD: Calculation in mapper
+function toResponse(order: Order): OrderResponse {
+  return {
+    ...order,
+    total: order.items.reduce((sum, i) => sum + i.price, 0),  // BAD!
+  };
+}
+```
+
+---
+
+## Dependencies
+
+### ❌ Outer Layer Import in Inner Layer
+
+```typescript
+// BAD: BC importing from Infrastructure
+import { DrizzleUserRepository } from '@infra/repositories';
+```
+
+### ❌ Two-Way Module Dependencies
+
+```typescript
+// BAD: Module A imports Module B, AND Module B imports Module A
+// This creates circular dependency
+```
+
+---
+
+## Naming
+
+### ❌ Inconsistent Port Naming
+
+```typescript
+// BAD: Missing port suffix
+interface UserRepository { ... }
+
+// GOOD
+interface UserRepositoryOutboundPort { ... }
+```

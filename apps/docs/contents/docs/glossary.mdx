@@ -1,0 +1,88 @@
+---
+title: "Glossary"
+description: "Terms and definitions for Onion Lasagna Architecture"
+icon: "book-open"
+---
+
+## Layers
+
+**Bounded Context (BC)**
+: A logical boundary with its own domain model, language, and rules. BCs don't import from each other directly.
+
+**Orchestrations**
+: Coordinates operations across multiple BCs. Three types: Compositions, Workflows, Projections.
+
+**Infrastructure**
+: Implements outbound ports. Contains persistence (databases) and external (API clients).
+
+**Presentation**
+: HTTP handlers, controllers, access guards, and mappers.
+
+---
+
+## Orchestration Types
+
+**Composition**
+: Read-only query that fans out to multiple BCs and aggregates results.
+
+**Workflow**
+: Command with side effects that may span multiple BCs. May include compensation logic.
+
+**Projection**
+: Denormalized read store. Can read from shared database, writes only to its own storage.
+
+---
+
+## Ports
+
+**Inbound Port**
+: Interface that defines how external actors interact with the BC. Implemented by use cases.
+
+**Outbound Port**
+: Interface that defines how the BC interacts with external systems. Implemented by infrastructure.
+
+---
+
+## Domain
+
+**Aggregate**
+: Cluster of domain objects treated as a single unit. Enforces business invariants.
+
+**Entity**
+: Domain object with unique identity that persists over time.
+
+**Value Object (VO)**
+: Immutable object defined by its attributes, not identity. Used for type safety.
+
+---
+
+## Data
+
+**DTO (Data Transfer Object)**
+: Object that carries data between layers. Immutable, validated at creation.
+
+**Read Model**
+: DTO optimized for display. Returned by Query Repositories.
+
+---
+
+## Repositories
+
+**Query Repository**
+: Returns Read Models. Optimized for display.
+
+**Read Repository**
+: Returns Aggregates. Used before modifications.
+
+**Write Repository**
+: Persists Aggregates. Returns void or ID.
+
+---
+
+## Presentation
+
+**Access Guard**
+: Stateless gate-keeper at controller level. Receives use cases via DI, cannot implement custom logic.
+
+**Mapper**
+: Pure function that transforms data between HTTP and use case shapes.

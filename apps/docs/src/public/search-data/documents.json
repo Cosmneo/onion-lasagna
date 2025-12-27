@@ -1,0 +1,682 @@
+[
+  {
+    "slug": "/anti-patterns",
+    "title": "Anti-Patterns",
+    "description": "What NOT to do when implementing Onion Lasagna Architecture",
+    "content": "## Bounded Context\n\n### ❌ Framework Code in Domain\n\n```typescript\n// BAD: Using Express in domain\nimport { Request, Response } from 'express';\nclass CreateUserCommand {\n  execute(req: Request, res: Response) { ... }\n}\n```\n\n### ❌ Environment Variables in Domain\n\n```typescript\n// BAD: Reading env vars in BC\nconst apiKey = process.env.API_KEY;\n```\n\n### ❌ Direct Cross-BC Import\n\n```typescript\n// BAD: Importing from another BC\nimport { OrderAggregate } from '../order/domain/aggregates';\n```\n\n***\n\n## Infrastructure\n\n### ❌ Business Logic in Repository\n\n```typescript\n// BAD: Price calculation in repository\nasync findWithDiscount(id: string): Promise<Product> {\n  const product = await this.db.find(id);\n  product.price = product.price * 0.9;  // BAD!\n  return product;\n}\n```\n\n### ❌ `implements` in Persistence/External\n\n```typescript\n// BAD: Persistence should NOT implement port\nclass UserPersistence implements UserRepositoryOutboundPort { ... }\n\n// GOOD: Only implementations/ use `implements`\nclass UserRepository implements UserRepositoryOutboundPort {\n  constructor(private persistence: UserPersistence) {}\n}\n```\n\n***\n\n## Presentation\n\n### ❌ Business Logic in Access Guard\n\n```typescript\n// BAD: Custom logic in guard\nasync guard(request: Request): Promise<GuardResult> {\n  const discount = request.user.isVIP ? 0.2 : 0;  // BAD!\n  return { allowed: true, discount };\n}\n```\n\n### ❌ Business Logic in Mapper\n\n```typescript\n// BAD: Calculation in mapper\nfunction toResponse(order: Order): OrderResponse {\n  return {\n    ...order,\n    total: order.items.reduce((sum, i) => sum + i.price, 0),  // BAD!\n  };\n}\n```\n\n***\n\n## Dependencies\n\n### ❌ Outer Layer Import in Inner Layer\n\n```typescript\n// BAD: BC importing from Infrastructure\nimport { DrizzleUserRepository } from '@infra/repositories';\n```\n\n### ❌ Two-Way Module Dependencies\n\n```typescript\n// BAD: Module A imports Module B, AND Module B imports Module A\n// This creates circular dependency\n```\n\n***\n\n## Naming\n\n### ❌ Inconsistent Port Naming\n\n```typescript\n// BAD: Missing port suffix\ninterface UserRepository { ... }\n\n// GOOD\ninterface UserRepositoryOutboundPort { ... }\n```\n",
+    "_searchMeta": {
+      "cleanContent": "bounded context framework code in domain environment variables in domain direct cross-bc import infrastructure business logic in repository implements in persistence external presentation business logic in access guard business logic in mapper dependencies outer layer import in inner layer two-way module dependencies naming inconsistent port naming",
+      "headings": [
+        "Bounded Context",
+        "Infrastructure",
+        "Presentation",
+        "Dependencies",
+        "Naming"
+      ],
+      "keywords": [
+        "Bounded Context",
+        "Infrastructure",
+        "Presentation",
+        "Dependencies",
+        "Naming",
+        "## Presentation\n\n### ❌ Business Logic in Access Guard\n\n```typescript\n// BAD: Custom logic in guard\nasync guard(request: Request): Promise<GuardResult> {\n  const discount = request.user.isVIP ? 0.2 : 0;  // BAD!\n  return { allowed: true, discount };\n}\n```\n\n### ❌ Business Logic in Mapper\n\n```typescript\n// BAD: Calculation in mapper\nfunction toResponse(order: Order): OrderResponse {\n  return {\n    ...order,\n    total: order.items.reduce((sum, i) => sum + i.price, 0),  // BAD!\n  };\n}\n```",
+        "typescript\n// BAD: Using Express in domain\nimport { Request, Response } from 'express';\nclass CreateUserCommand {\n  execute(req: Request, res: Response) { ... }\n}",
+        "### ❌ Environment Variables in Domain",
+        "typescript\n// BAD: Reading env vars in BC\nconst apiKey = process.env.API_KEY;",
+        "### ❌ Direct Cross-BC Import",
+        "typescript\n// BAD: Importing from another BC\nimport { OrderAggregate } from '../order/domain/aggregates';",
+        "***\n\n## Infrastructure\n\n### ❌ Business Logic in Repository",
+        "typescript\n// BAD: Price calculation in repository\nasync findWithDiscount(id: string): Promise<Product> {\n  const product = await this.db.find(id);\n  product.price = product.price * 0.9;  // BAD!\n  return product;\n}",
+        "### ❌",
+        "in Persistence/External",
+        "typescript\n// BAD: Persistence should NOT implement port\nclass UserPersistence implements UserRepositoryOutboundPort { ... }\n\n// GOOD: Only implementations/ use",
+        "class UserRepository implements UserRepositoryOutboundPort {\n  constructor(private persistence: UserPersistence) {}\n}",
+        "***\n\n## Presentation\n\n### ❌ Business Logic in Access Guard",
+        "typescript\n// BAD: Custom logic in guard\nasync guard(request: Request): Promise<GuardResult> {\n  const discount = request.user.isVIP ? 0.2 : 0;  // BAD!\n  return { allowed: true, discount };\n}",
+        "### ❌ Business Logic in Mapper",
+        "typescript\n// BAD: Calculation in mapper\nfunction toResponse(order: Order): OrderResponse {\n  return {\n    ...order,\n    total: order.items.reduce((sum, i) => sum + i.price, 0),  // BAD!\n  };\n}",
+        "***\n\n## Dependencies\n\n### ❌ Outer Layer Import in Inner Layer",
+        "typescript\n// BAD: BC importing from Infrastructure\nimport { DrizzleUserRepository } from '@infra/repositories';",
+        "### ❌ Two-Way Module Dependencies",
+        "typescript\n// BAD: Module A imports Module B, AND Module B imports Module A\n// This creates circular dependency",
+        "***\n\n## Naming\n\n### ❌ Inconsistent Port Naming",
+        "typescript\n// BAD: Missing port suffix\ninterface UserRepository { ... }\n\n// GOOD\ninterface UserRepositoryOutboundPort { ... }"
+      ]
+    }
+  },
+  {
+    "slug": "/glossary",
+    "title": "Glossary",
+    "description": "Terms and definitions for Onion Lasagna Architecture",
+    "content": "## Layers\n\n**Bounded Context (BC)**\n: A logical boundary with its own domain model, language, and rules. BCs don't import from each other directly.\n\n**Orchestrations**\n: Coordinates operations across multiple BCs. Three types: Compositions, Workflows, Projections.\n\n**Infrastructure**\n: Implements outbound ports. Contains persistence (databases) and external (API clients).\n\n**Presentation**\n: HTTP handlers, controllers, access guards, and mappers.\n\n***\n\n## Orchestration Types\n\n**Composition**\n: Read-only query that fans out to multiple BCs and aggregates results.\n\n**Workflow**\n: Command with side effects that may span multiple BCs. May include compensation logic.\n\n**Projection**\n: Denormalized read store. Can read from shared database, writes only to its own storage.\n\n***\n\n## Ports\n\n**Inbound Port**\n: Interface that defines how external actors interact with the BC. Implemented by use cases.\n\n**Outbound Port**\n: Interface that defines how the BC interacts with external systems. Implemented by infrastructure.\n\n***\n\n## Domain\n\n**Aggregate**\n: Cluster of domain objects treated as a single unit. Enforces business invariants.\n\n**Entity**\n: Domain object with unique identity that persists over time.\n\n**Value Object (VO)**\n: Immutable object defined by its attributes, not identity. Used for type safety.\n\n***\n\n## Data\n\n**DTO (Data Transfer Object)**\n: Object that carries data between layers. Immutable, validated at creation.\n\n**Read Model**\n: DTO optimized for display. Returned by Query Repositories.\n\n***\n\n## Repositories\n\n**Query Repository**\n: Returns Read Models. Optimized for display.\n\n**Read Repository**\n: Returns Aggregates. Used before modifications.\n\n**Write Repository**\n: Persists Aggregates. Returns void or ID.\n\n***\n\n## Presentation\n\n**Access Guard**\n: Stateless gate-keeper at controller level. Receives use cases via DI, cannot implement custom logic.\n\n**Mapper**\n: Pure function that transforms data between HTTP and use case shapes.\n",
+    "_searchMeta": {
+      "cleanContent": "layers bounded context bc : a logical boundary with its own domain model language and rules bcs don t import from each other directly orchestrations : coordinates operations across multiple bcs three types: compositions workflows projections infrastructure : implements outbound ports contains persistence databases and external api clients presentation : http handlers controllers access guards and mappers orchestration types composition : read-only query that fans out to multiple bcs and aggregates results workflow : command with side effects that may span multiple bcs may include compensation logic projection : denormalized read store can read from shared database writes only to its own storage ports inbound port : interface that defines how external actors interact with the bc implemented by use cases outbound port : interface that defines how the bc interacts with external systems implemented by infrastructure domain aggregate : cluster of domain objects treated as a single unit enforces business invariants entity : domain object with unique identity that persists over time value object vo : immutable object defined by its attributes not identity used for type safety data dto data transfer object : object that carries data between layers immutable validated at creation read model : dto optimized for display returned by query repositories repositories query repository : returns read models optimized for display read repository : returns aggregates used before modifications write repository : persists aggregates returns void or id presentation access guard : stateless gate-keeper at controller level receives use cases via di cannot implement custom logic mapper : pure function that transforms data between http and use case shapes",
+      "headings": [
+        "Layers",
+        "Orchestration Types",
+        "Ports",
+        "Domain",
+        "Data",
+        "Repositories",
+        "Presentation"
+      ],
+      "keywords": [
+        "Layers",
+        "Orchestration Types",
+        "Ports",
+        "Domain",
+        "Data",
+        "Repositories",
+        "Presentation",
+        "Bounded Context (BC)",
+        "Orchestrations",
+        "Infrastructure",
+        "## Orchestration Types",
+        ": Read-only query that fans out to multiple BCs and aggregates results.",
+        ": Command with side effects that may span multiple BCs. May include compensation logic.",
+        ": Denormalized read store. Can read from shared database, writes only to its own storage.",
+        "Inbound Port",
+        "Outbound Port",
+        "## Domain",
+        ": Cluster of domain objects treated as a single unit. Enforces business invariants.",
+        ": Domain object with unique identity that persists over time.",
+        ": Immutable object defined by its attributes, not identity. Used for type safety.",
+        "DTO (Data Transfer Object)",
+        "Read Model",
+        "## Repositories",
+        ": Returns Read Models. Optimized for display.",
+        ": Returns Aggregates. Used before modifications.",
+        ": Persists Aggregates. Returns void or ID.",
+        "Access Guard",
+        "Mapper"
+      ]
+    }
+  },
+  {
+    "slug": "/guides/new-bounded-context",
+    "title": "New Bounded Context",
+    "description": "Step-by-step guide to creating a new Bounded Context",
+    "content": "## Structure\n\n```\nbounded-contexts/{bc-name}/\n├── app/\n│   ├── ports/\n│   │   ├── inbound/\n│   │   └── outbound/\n│   └── use-cases/\n│       ├── queries/\n│       └── commands/\n├── domain/\n│   ├── aggregates/\n│   ├── entities/\n│   ├── value-objects/\n│   └── exceptions/\n└── infra/\n```\n\n***\n\n## Steps\n\n### 1. Create Folder Structure\n\nCreate all directories under `bounded-contexts/{bc-name}/`.\n\n### 2. Define Domain Model\n\nStart with aggregates and value objects:\n\n```typescript\n// domain/value-objects/user-id.vo.ts\nclass UserId {\n  private constructor(private readonly _value: string) {}\n  static create(value: string): UserId { ... }\n  static generate(): UserId { ... }\n  get value(): string { return this._value; }\n}\n\n// domain/aggregates/user.aggregate.ts\nclass UserAggregate {\n  static create(data: CreateUserData): UserAggregate { ... }\n  static reconstitute(data: UserData): UserAggregate { ... }\n}\n```\n\n### 3. Define Exceptions\n\n```typescript\n// domain/exceptions/user-not-found.error.ts\nclass UserNotFoundError extends Error {\n  constructor(userId: string) {\n    super(`User not found: ${userId}`);\n  }\n}\n```\n\n### 4. Define Outbound Ports\n\n```typescript\n// app/ports/outbound/user.repository.outbound.ts\ninterface UserReadRepositoryOutboundPort {\n  findById(id: UserId): Promise<UserAggregate | null>;\n}\n\ninterface UserWriteRepositoryOutboundPort {\n  save(user: UserAggregate): Promise<void>;\n}\n```\n\n### 5. Define Inbound Ports\n\n```typescript\n// app/ports/inbound/create-user.command.inbound.ts\ninterface CreateUserCommandInboundPort {\n  execute(input: CreateUserInput): Promise<CreateUserOutput>;\n}\n```\n\n### 6. Implement Use Cases\n\n```typescript\n// app/use-cases/commands/create-user.command.ts\nclass CreateUserCommand implements CreateUserCommandInboundPort {\n  constructor(\n    private readonly readRepo: UserReadRepositoryOutboundPort,\n    private readonly writeRepo: UserWriteRepositoryOutboundPort,\n  ) {}\n\n  async execute(input: CreateUserInput): Promise<CreateUserOutput> {\n    const user = UserAggregate.create(input);\n    await this.writeRepo.save(user);\n    return { id: user.id.value };\n  }\n}\n```\n\n### 7. Implement Infrastructure (if BC-scoped)\n\n```typescript\n// infra/implementations/user/user.repository.ts\nclass UserRepository implements \n  UserReadRepositoryOutboundPort, \n  UserWriteRepositoryOutboundPort \n{\n  constructor(private readonly persistence: UserPersistence) {}\n  // ...\n}\n```\n\n***\n\n## Checklist\n\n* \\[ ] Folder structure created\n* \\[ ] Value objects defined\n* \\[ ] Aggregates defined\n* \\[ ] Domain exceptions created\n* \\[ ] Outbound ports defined\n* \\[ ] Inbound ports defined\n* \\[ ] Use cases implemented\n* \\[ ] Infrastructure implemented (if BC-scoped)\n",
+    "_searchMeta": {
+      "cleanContent": "structure steps create folder structure create all directories under bounded-contexts bc-name define domain model start with aggregates and value objects: define exceptions define outbound ports define inbound ports implement use cases implement infrastructure if bc-scoped checklist folder structure created value objects defined aggregates defined domain exceptions created outbound ports defined inbound ports defined use cases implemented infrastructure implemented if bc-scoped",
+      "headings": [
+        "Structure",
+        "Steps",
+        "Checklist"
+      ],
+      "keywords": [
+        "Structure",
+        "Steps",
+        "Checklist",
+        "## Steps\n\n### 1. Create Folder Structure\n\nCreate all directories under `bounded-contexts/{bc-name}/`.\n\n### 2. Define Domain Model\n\nStart with aggregates and value objects:\n\n```typescript\n// domain/value-objects/user-id.vo.ts\nclass UserId {\n  private constructor(private readonly _value: string) {}\n  static create(value: string): UserId { ... }\n  static generate(): UserId { ... }\n  get value(): string { return this._value; }\n}\n\n// domain/aggregates/user.aggregate.ts\nclass UserAggregate {\n  static create(data: CreateUserData): UserAggregate { ... }\n  static reconstitute(data: UserData): UserAggregate { ... }\n}\n```\n\n### 3. Define Exceptions\n\n```typescript\n// domain/exceptions/user-not-found.error.ts\nclass UserNotFoundError extends Error {\n  constructor(userId: string) {\n    super(`User not found: ${userId}`);\n  }\n}\n```\n\n### 4. Define Outbound Ports\n\n```typescript\n// app/ports/outbound/user.repository.outbound.ts\ninterface UserReadRepositoryOutboundPort {\n  findById(id: UserId): Promise<UserAggregate | null>;\n}\n\ninterface UserWriteRepositoryOutboundPort {\n  save(user: UserAggregate): Promise<void>;\n}\n```\n\n### 5. Define Inbound Ports\n\n```typescript\n// app/ports/inbound/create-user.command.inbound.ts\ninterface CreateUserCommandInboundPort {\n  execute(input: CreateUserInput): Promise<CreateUserOutput>;\n}\n```\n\n### 6. Implement Use Cases\n\n```typescript\n// app/use-cases/commands/create-user.command.ts\nclass CreateUserCommand implements CreateUserCommandInboundPort {\n  constructor(\n    private readonly readRepo: UserReadRepositoryOutboundPort,\n    private readonly writeRepo: UserWriteRepositoryOutboundPort,\n  ) {}\n\n  async execute(input: CreateUserInput): Promise<CreateUserOutput> {\n    const user = UserAggregate.create(input);\n    await this.writeRepo.save(user);\n    return { id: user.id.value };\n  }\n}\n```\n\n### 7. Implement Infrastructure (if BC-scoped)\n\n```typescript\n// infra/implementations/user/user.repository.ts\nclass UserRepository implements \n  UserReadRepositoryOutboundPort, \n  UserWriteRepositoryOutboundPort \n{\n  constructor(private readonly persistence: UserPersistence) {}\n  // ...\n}\n```",
+        "bounded-contexts/{bc-name}/\n├── app/\n│   ├── ports/\n│   │   ├── inbound/\n│   │   └── outbound/\n│   └── use-cases/\n│       ├── queries/\n│       └── commands/\n├── domain/\n│   ├── aggregates/\n│   ├── entities/\n│   ├── value-objects/\n│   └── exceptions/\n└── infra/",
+        "***\n\n## Steps\n\n### 1. Create Folder Structure\n\nCreate all directories under",
+        ".\n\n### 2. Define Domain Model\n\nStart with aggregates and value objects:",
+        "typescript\n// domain/value-objects/user-id.vo.ts\nclass UserId {\n  private constructor(private readonly _value: string) {}\n  static create(value: string): UserId { ... }\n  static generate(): UserId { ... }\n  get value(): string { return this._value; }\n}\n\n// domain/aggregates/user.aggregate.ts\nclass UserAggregate {\n  static create(data: CreateUserData): UserAggregate { ... }\n  static reconstitute(data: UserData): UserAggregate { ... }\n}",
+        "### 3. Define Exceptions",
+        "typescript\n// domain/exceptions/user-not-found.error.ts\nclass UserNotFoundError extends Error {\n  constructor(userId: string) {\n    super(",
+        ");\n  }\n}",
+        "### 4. Define Outbound Ports",
+        "typescript\n// app/ports/outbound/user.repository.outbound.ts\ninterface UserReadRepositoryOutboundPort {\n  findById(id: UserId): Promise<UserAggregate | null>;\n}\n\ninterface UserWriteRepositoryOutboundPort {\n  save(user: UserAggregate): Promise<void>;\n}",
+        "### 5. Define Inbound Ports",
+        "typescript\n// app/ports/inbound/create-user.command.inbound.ts\ninterface CreateUserCommandInboundPort {\n  execute(input: CreateUserInput): Promise<CreateUserOutput>;\n}",
+        "### 6. Implement Use Cases",
+        "typescript\n// app/use-cases/commands/create-user.command.ts\nclass CreateUserCommand implements CreateUserCommandInboundPort {\n  constructor(\n    private readonly readRepo: UserReadRepositoryOutboundPort,\n    private readonly writeRepo: UserWriteRepositoryOutboundPort,\n  ) {}\n\n  async execute(input: CreateUserInput): Promise<CreateUserOutput> {\n    const user = UserAggregate.create(input);\n    await this.writeRepo.save(user);\n    return { id: user.id.value };\n  }\n}",
+        "### 7. Implement Infrastructure (if BC-scoped)",
+        "typescript\n// infra/implementations/user/user.repository.ts\nclass UserRepository implements \n  UserReadRepositoryOutboundPort, \n  UserWriteRepositoryOutboundPort \n{\n  constructor(private readonly persistence: UserPersistence) {}\n  // ...\n}"
+      ]
+    }
+  },
+  {
+    "slug": "/guides/new-endpoint",
+    "title": "New Endpoint",
+    "description": "Step-by-step guide to creating a new HTTP endpoint",
+    "content": "## Decision: Direct BC vs Orchestration\n\n| Scenario | Approach |\n|----------|----------|\n| Single BC, self-contained | Direct BC call |\n| Multiple BCs needed | Orchestration |\n\n***\n\n## Steps\n\n### 1. Create Request/Response DTOs\n\n```typescript\n// presentation/http/users/get-user/request.dto.ts\nconst getUserRequestSchema = z.object({\n  pathParams: z.object({\n    userId: z.string().uuid(),\n  }),\n});\ntype GetUserRequest = z.infer<typeof getUserRequestSchema>;\n\n// presentation/http/users/get-user/response.dto.ts\nconst getUserResponseSchema = z.object({\n  id: z.string().uuid(),\n  email: z.string(),\n  name: z.string(),\n});\ntype GetUserResponse = z.infer<typeof getUserResponseSchema>;\n```\n\n### 2. Create Endpoint Metadata\n\n```typescript\n// presentation/http/users/get-user/endpoint.metadata.ts\nexport const getUserMetadata = {\n  method: 'GET' as const,\n  path: '/users/:userId',\n};\n```\n\n### 3. Define Inbound Port (in BC)\n\n```typescript\n// app/ports/inbound/get-user.query.inbound.ts\ninterface GetUserQueryInboundPort {\n  execute(input: GetUserInput): Promise<GetUserOutput>;\n}\n```\n\n### 4. Implement Use Case\n\n```typescript\n// app/use-cases/queries/get-user.query.ts\nclass GetUserQuery implements GetUserQueryInboundPort {\n  constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {}\n\n  async execute(input: GetUserInput): Promise<GetUserOutput> {\n    const user = await this.userRepo.findById(UserId.create(input.userId));\n    if (!user) throw new UserNotFoundError(input.userId);\n    return { id: user.id.value, email: user.email, name: user.name };\n  }\n}\n```\n\n### 5. Create Mappers\n\n```typescript\n// presentation/http/users/get-user/to-use-case.mapper.ts\nfunction toGetUserInput(request: GetUserRequest): GetUserInput {\n  return { userId: request.pathParams.userId };\n}\n\n// presentation/http/users/get-user/to-response.mapper.ts\nfunction toGetUserResponse(output: GetUserOutput): GetUserResponse {\n  return { id: output.id, email: output.email, name: output.name };\n}\n```\n\n### 6. Create Access Guard (if needed)\n\n```typescript\n// presentation/http/users/get-user/access-guard.ts\nclass GetUserAccessGuard {\n  async guard(request: GetUserRequest): Promise<GuardResult> {\n    // Allow any authenticated user\n    return { allowed: true };\n  }\n}\n```\n\n### 7. Wire in Bootstrap\n\n```typescript\n// bootstrap/user.bootstrap.ts\nconst userReadRepo = new UserRepository(new UserPersistence());\nconst getUserQuery = new GetUserQuery(userReadRepo);\n```\n\n### 8. Create Controller (CLI-generated in future)\n\nWire together: validate → guard → map → execute → map response.\n\n***\n\n## Checklist\n\n* \\[ ] Request/Response DTOs created\n* \\[ ] Endpoint metadata created\n* \\[ ] Inbound port defined\n* \\[ ] Use case implemented\n* \\[ ] Mappers created\n* \\[ ] Access guard created (if needed)\n* \\[ ] Bootstrap wired\n* \\[ ] Controller created (or generated)\n",
+    "_searchMeta": {
+      "cleanContent": "decision: direct bc vs orchestration scenario approach---------- ----------single bc self-contained direct bc callmultiple bcs needed orchestration steps create request response dtos create endpoint metadata define inbound port in bc implement use case create mappers create access guard if needed wire in bootstrap create controller cli-generated in future wire together: validate guard map execute map response checklist request response dtos created endpoint metadata created inbound port defined use case implemented mappers created access guard created if needed bootstrap wired controller created or generated",
+      "headings": [
+        "Decision: Direct BC vs Orchestration",
+        "Steps",
+        "Checklist"
+      ],
+      "keywords": [
+        "Decision: Direct BC vs Orchestration",
+        "Steps",
+        "Checklist",
+        "## Steps\n\n### 1. Create Request/Response DTOs\n\n```typescript\n// presentation/http/users/get-user/request.dto.ts\nconst getUserRequestSchema = z.object({\n  pathParams: z.object({\n    userId: z.string().uuid(),\n  }),\n});\ntype GetUserRequest = z.infer<typeof getUserRequestSchema>;\n\n// presentation/http/users/get-user/response.dto.ts\nconst getUserResponseSchema = z.object({\n  id: z.string().uuid(),\n  email: z.string(),\n  name: z.string(),\n});\ntype GetUserResponse = z.infer<typeof getUserResponseSchema>;\n```\n\n### 2. Create Endpoint Metadata\n\n```typescript\n// presentation/http/users/get-user/endpoint.metadata.ts\nexport const getUserMetadata = {\n  method: 'GET' as const,\n  path: '/users/:userId',\n};\n```\n\n### 3. Define Inbound Port (in BC)\n\n```typescript\n// app/ports/inbound/get-user.query.inbound.ts\ninterface GetUserQueryInboundPort {\n  execute(input: GetUserInput): Promise<GetUserOutput>;\n}\n```\n\n### 4. Implement Use Case\n\n```typescript\n// app/use-cases/queries/get-user.query.ts\nclass GetUserQuery implements GetUserQueryInboundPort {\n  constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {}\n\n  async execute(input: GetUserInput): Promise<GetUserOutput> {\n    const user = await this.userRepo.findById(UserId.create(input.userId));\n    if (!user) throw new UserNotFoundError(input.userId);\n    return { id: user.id.value, email: user.email, name: user.name };\n  }\n}\n```\n\n### 5. Create Mappers\n\n```typescript\n// presentation/http/users/get-user/to-use-case.mapper.ts\nfunction toGetUserInput(request: GetUserRequest): GetUserInput {\n  return { userId: request.pathParams.userId };\n}\n\n// presentation/http/users/get-user/to-response.mapper.ts\nfunction toGetUserResponse(output: GetUserOutput): GetUserResponse {\n  return { id: output.id, email: output.email, name: output.name };\n}\n```\n\n### 6. Create Access Guard (if needed)\n\n```typescript\n// presentation/http/users/get-user/access-guard.ts\nclass GetUserAccessGuard {\n  async guard(request: GetUserRequest): Promise<GuardResult> {\n    // Allow any authenticated user\n    return { allowed: true };\n  }\n}\n```\n\n### 7. Wire in Bootstrap\n\n```typescript\n// bootstrap/user.bootstrap.ts\nconst userReadRepo = new UserRepository(new UserPersistence());\nconst getUserQuery = new GetUserQuery(userReadRepo);\n```\n\n### 8. Create Controller (CLI-generated in future)\n\nWire together: validate → guard → map → execute → map response.",
+        "typescript\n// presentation/http/users/get-user/request.dto.ts\nconst getUserRequestSchema = z.object({\n  pathParams: z.object({\n    userId: z.string().uuid(),\n  }),\n});\ntype GetUserRequest = z.infer<typeof getUserRequestSchema>;\n\n// presentation/http/users/get-user/response.dto.ts\nconst getUserResponseSchema = z.object({\n  id: z.string().uuid(),\n  email: z.string(),\n  name: z.string(),\n});\ntype GetUserResponse = z.infer<typeof getUserResponseSchema>;",
+        "### 2. Create Endpoint Metadata",
+        "typescript\n// presentation/http/users/get-user/endpoint.metadata.ts\nexport const getUserMetadata = {\n  method: 'GET' as const,\n  path: '/users/:userId',\n};",
+        "### 3. Define Inbound Port (in BC)",
+        "typescript\n// app/ports/inbound/get-user.query.inbound.ts\ninterface GetUserQueryInboundPort {\n  execute(input: GetUserInput): Promise<GetUserOutput>;\n}",
+        "### 4. Implement Use Case",
+        "typescript\n// app/use-cases/queries/get-user.query.ts\nclass GetUserQuery implements GetUserQueryInboundPort {\n  constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {}\n\n  async execute(input: GetUserInput): Promise<GetUserOutput> {\n    const user = await this.userRepo.findById(UserId.create(input.userId));\n    if (!user) throw new UserNotFoundError(input.userId);\n    return { id: user.id.value, email: user.email, name: user.name };\n  }\n}",
+        "### 5. Create Mappers",
+        "typescript\n// presentation/http/users/get-user/to-use-case.mapper.ts\nfunction toGetUserInput(request: GetUserRequest): GetUserInput {\n  return { userId: request.pathParams.userId };\n}\n\n// presentation/http/users/get-user/to-response.mapper.ts\nfunction toGetUserResponse(output: GetUserOutput): GetUserResponse {\n  return { id: output.id, email: output.email, name: output.name };\n}",
+        "### 6. Create Access Guard (if needed)",
+        "typescript\n// presentation/http/users/get-user/access-guard.ts\nclass GetUserAccessGuard {\n  async guard(request: GetUserRequest): Promise<GuardResult> {\n    // Allow any authenticated user\n    return { allowed: true };\n  }\n}",
+        "### 7. Wire in Bootstrap",
+        "typescript\n// bootstrap/user.bootstrap.ts\nconst userReadRepo = new UserRepository(new UserPersistence());\nconst getUserQuery = new GetUserQuery(userReadRepo);"
+      ]
+    }
+  },
+  {
+    "slug": "/",
+    "title": "Introduction",
+    "description": "Welcome to Onion Lasagna Architecture v2",
+    "content": "> **Layer by layer, dependency inward, business at the core.**\n\nA DDD + Hexagonal architecture with framework-free business logic. Each layer has a distinct purpose, dependencies flow inward, and contracts are the shared source of truth.\n\n## Architecture at a Glance\n\n```mermaid\ngraph TD\n    subgraph Presentation\n        HTTP[HTTP Handlers / Controllers]\n    end\n\n    subgraph Infrastructure\n        DB[Persistence / Database]\n        External[External APIs]\n    end\n\n    subgraph Orchestrations\n        Workflow[Workflows]\n        Composition[Compositions]\n    end\n\n    subgraph \"Bounded Contexts\"\n        Domain[Domain Logic / Use Cases]\n    end\n\n    Presentation --> Infrastructure\n    Presentation --> Orchestrations\n    Presentation --> \"Bounded Contexts\"\n    Infrastructure --> \"Bounded Contexts\"\n    Orchestrations --> \"Bounded Contexts\"\n```\n\n## Core Principles\n\n1. **Business Logic is Framework-Free**: Domain code never knows about HTTP or databases.\n2. **Dependencies Flow Inward**: Outer layers depend on inner layers.\n3. **Contracts are Source of Truth**: DTOs and interfaces define how layers interact.\n\n## Getting Started\n\nCheck out the [New Endpoint Guide](/docs/guides/new-endpoint) to see how to build a feature from scratch.\n",
+    "_searchMeta": {
+      "cleanContent": "layer by layer dependency inward business at the core a ddd hexagonal architecture with framework-free business logic each layer has a distinct purpose dependencies flow inward and contracts are the shared source of truth architecture at a glance core principles business logic is framework-free: domain code never knows about http or databases dependencies flow inward: outer layers depend on inner layers contracts are source of truth: dtos and interfaces define how layers interact getting started check out the new endpoint guide to see how to build a feature from scratch",
+      "headings": [
+        "Architecture at a Glance",
+        "Core Principles",
+        "Getting Started"
+      ],
+      "keywords": [
+        "Architecture at a Glance",
+        "Core Principles",
+        "Getting Started",
+        "Layer by layer, dependency inward, business at the core.",
+        "Business Logic is Framework-Free",
+        "Dependencies Flow Inward",
+        "Contracts are Source of Truth",
+        "mermaid\ngraph TD\n    subgraph Presentation\n        HTTP[HTTP Handlers / Controllers]\n    end\n\n    subgraph Infrastructure\n        DB[Persistence / Database]\n        External[External APIs]\n    end\n\n    subgraph Orchestrations\n        Workflow[Workflows]\n        Composition[Compositions]\n    end\n\n    subgraph \"Bounded Contexts\"\n        Domain[Domain Logic / Use Cases]\n    end\n\n    Presentation --> Infrastructure\n    Presentation --> Orchestrations\n    Presentation --> \"Bounded Contexts\"\n    Infrastructure --> \"Bounded Contexts\"\n    Orchestrations --> \"Bounded Contexts\""
+      ]
+    }
+  },
+  {
+    "slug": "/layers/bounded-contexts",
+    "title": "Bounded Contexts",
+    "description": "Pure domain logic with ports and use cases",
+    "content": "Pure domain logic, completely framework-free.\n\n***\n\n## Structure\n\n```\nbounded-contexts/{bc-name}/\n├── app/\n│   ├── ports/\n│   │   ├── inbound/           ← Use case interfaces\n│   │   └── outbound/          ← Repository interfaces\n│   └── use-cases/\n│       ├── queries/\n│       └── commands/\n├── domain/\n│   ├── aggregates/\n│   ├── entities/\n│   ├── value-objects/\n│   └── exceptions/\n└── infra/                      ← BC-scoped implementations\n```\n\n***\n\n## Golden Rules\n\n1. **NO framework imports**\n2. **NO environment variables**\n3. **NO direct cross-BC imports**\n4. **CAN import** from domain (VOs, aggregates) into infra\n\n***\n\n## Inbound Ports\n\nInterfaces for use cases. Implemented by queries and commands.\n\n```typescript\n// ports/inbound/find-user-by-id.query.inbound.ts\ninterface FindUserByIdQueryInboundPort {\n  execute(input: FindUserByIdInput): Promise<FindUserByIdOutput>;\n}\n```\n\n### Naming\n\n| Type | Interface | File |\n|------|-----------|------|\n| Query | `{Name}QueryInboundPort` | `.query.inbound.ts` |\n| Command | `{Name}CommandInboundPort` | `.command.inbound.ts` |\n\n***\n\n## Outbound Ports\n\nInterfaces for external dependencies. Implemented by infrastructure.\n\n```typescript\n// ports/outbound/user.repository.outbound.ts\ninterface UserRepositoryOutboundPort {\n  findById(id: UserId): Promise<User | null>;\n  save(user: User): Promise<void>;\n}\n```\n\n***\n\n## Use Cases\n\nImplement inbound ports.\n\n```typescript\n// use-cases/queries/find-user-by-id.query.ts\nclass FindUserByIdQuery implements FindUserByIdQueryInboundPort {\n  constructor(\n    private readonly userRepo: UserRepositoryOutboundPort,\n  ) {}\n\n  async execute(input: FindUserByIdInput): Promise<FindUserByIdOutput> {\n    const user = await this.userRepo.findById(UserId.create(input.userId));\n    if (!user) throw new UserNotFoundError(input.userId);\n    return { id: user.id.value, email: user.email, name: user.name };\n  }\n}\n```\n\n***\n\n## Domain\n\n### Aggregates\n\n```typescript\nclass UserAggregate {\n  private constructor(\n    private readonly _id: UserId,\n    private _email: string,\n    private _name: string,\n  ) {}\n\n  static create(data: CreateUserData): UserAggregate { ... }\n  static reconstitute(data: UserData): UserAggregate { ... }\n}\n```\n\n### Value Objects\n\n```typescript\nclass UserId {\n  private constructor(private readonly _value: string) {}\n  static create(value: string): UserId { ... }\n  static generate(): UserId { ... }\n  get value(): string { return this._value; }\n}\n```\n\nSee [Aggregates](../patterns/aggregates.md) and [Value Objects](../patterns/value-objects.md) for details.\n",
+    "_searchMeta": {
+      "cleanContent": "pure domain logic completely framework-free structure golden rules no framework imports no environment variables no direct cross-bc imports can import from domain vos aggregates into infra inbound ports interfaces for use cases implemented by queries and commands naming type interface file------ ----------- ------query name queryinboundport query inbound tscommand name commandinboundport command inbound ts outbound ports interfaces for external dependencies implemented by infrastructure use cases implement inbound ports domain aggregates value objects see aggregates and value objects for details",
+      "headings": [
+        "Structure",
+        "Golden Rules",
+        "Inbound Ports",
+        "Outbound Ports",
+        "Use Cases",
+        "Domain"
+      ],
+      "keywords": [
+        "Structure",
+        "Golden Rules",
+        "Inbound Ports",
+        "Outbound Ports",
+        "Use Cases",
+        "Domain",
+        "## Structure\n\n```\nbounded-contexts/{bc-name}/\n├── app/\n│   ├── ports/\n│   │   ├── inbound/           ← Use case interfaces\n│   │   └── outbound/          ← Repository interfaces\n│   └── use-cases/\n│       ├── queries/\n│       └── commands/\n├── domain/\n│   ├── aggregates/\n│   ├── entities/\n│   ├── value-objects/\n│   └── exceptions/\n└── infra/                      ← BC-scoped implementations\n```",
+        "NO framework imports",
+        "NO environment variables",
+        "NO direct cross-BC imports",
+        "CAN import",
+        "## Inbound Ports\n\nInterfaces for use cases. Implemented by queries and commands.\n\n```typescript\n// ports/inbound/find-user-by-id.query.inbound.ts\ninterface FindUserByIdQueryInboundPort {\n  execute(input: FindUserByIdInput): Promise<FindUserByIdOutput>;\n}\n```\n\n### Naming\n\n| Type | Interface | File |\n|------|-----------|------|\n| Query | `{Name}QueryInboundPort` | `.query.inbound.ts` |\n| Command | `{Name}CommandInboundPort` | `.command.inbound.ts` |",
+        "## Use Cases\n\nImplement inbound ports.\n\n```typescript\n// use-cases/queries/find-user-by-id.query.ts\nclass FindUserByIdQuery implements FindUserByIdQueryInboundPort {\n  constructor(\n    private readonly userRepo: UserRepositoryOutboundPort,\n  ) {}\n\n  async execute(input: FindUserByIdInput): Promise<FindUserByIdOutput> {\n    const user = await this.userRepo.findById(UserId.create(input.userId));\n    if (!user) throw new UserNotFoundError(input.userId);\n    return { id: user.id.value, email: user.email, name: user.name };\n  }\n}\n```",
+        "bounded-contexts/{bc-name}/\n├── app/\n│   ├── ports/\n│   │   ├── inbound/           ← Use case interfaces\n│   │   └── outbound/          ← Repository interfaces\n│   └── use-cases/\n│       ├── queries/\n│       └── commands/\n├── domain/\n│   ├── aggregates/\n│   ├── entities/\n│   ├── value-objects/\n│   └── exceptions/\n└── infra/                      ← BC-scoped implementations",
+        "***\n\n## Golden Rules\n\n1. **NO framework imports**\n2. **NO environment variables**\n3. **NO direct cross-BC imports**\n4. **CAN import** from domain (VOs, aggregates) into infra\n\n***\n\n## Inbound Ports\n\nInterfaces for use cases. Implemented by queries and commands.",
+        "typescript\n// ports/inbound/find-user-by-id.query.inbound.ts\ninterface FindUserByIdQueryInboundPort {\n  execute(input: FindUserByIdInput): Promise<FindUserByIdOutput>;\n}",
+        "### Naming\n\n| Type | Interface | File |\n|------|-----------|------|\n| Query |",
+        "|",
+        "|\n| Command |",
+        "|\n\n***\n\n## Outbound Ports\n\nInterfaces for external dependencies. Implemented by infrastructure.",
+        "typescript\n// ports/outbound/user.repository.outbound.ts\ninterface UserRepositoryOutboundPort {\n  findById(id: UserId): Promise<User | null>;\n  save(user: User): Promise<void>;\n}",
+        "***\n\n## Use Cases\n\nImplement inbound ports.",
+        "typescript\n// use-cases/queries/find-user-by-id.query.ts\nclass FindUserByIdQuery implements FindUserByIdQueryInboundPort {\n  constructor(\n    private readonly userRepo: UserRepositoryOutboundPort,\n  ) {}\n\n  async execute(input: FindUserByIdInput): Promise<FindUserByIdOutput> {\n    const user = await this.userRepo.findById(UserId.create(input.userId));\n    if (!user) throw new UserNotFoundError(input.userId);\n    return { id: user.id.value, email: user.email, name: user.name };\n  }\n}",
+        "***\n\n## Domain\n\n### Aggregates",
+        "typescript\nclass UserAggregate {\n  private constructor(\n    private readonly _id: UserId,\n    private _email: string,\n    private _name: string,\n  ) {}\n\n  static create(data: CreateUserData): UserAggregate { ... }\n  static reconstitute(data: UserData): UserAggregate { ... }\n}",
+        "### Value Objects",
+        "typescript\nclass UserId {\n  private constructor(private readonly _value: string) {}\n  static create(value: string): UserId { ... }\n  static generate(): UserId { ... }\n  get value(): string { return this._value; }\n}"
+      ]
+    }
+  },
+  {
+    "slug": "/layers/infrastructure",
+    "title": "Infrastructure",
+    "description": "Implement outbound ports with persistence and external services",
+    "content": "Implements outbound ports. Three-tier structure.\n\n***\n\n## Structure\n\n```\ninfra/ (or shared-infra/)\n├── implementations/           ← Outbound port implementations (uses `implements`)\n│   └── {resource}/\n│       └── {resource}.repository.ts\n├── persistence/               ← Raw database access (NO `implements`)\n│   └── drizzle/\n│       └── {resource}/\n└── external/                  ← Raw API adapters (NO `implements`)\n    └── {service-name}/\n```\n\n***\n\n## Key Rule\n\n**Only `implementations/` uses the `implements` keyword.**\n\nPersistence and external are plain classes that the implementations orchestrate.\n\n***\n\n## Example\n\n### Persistence (Raw Database)\n\n```typescript\n// persistence/drizzle/user/user.persistence.ts\nclass UserPersistence {\n  async findById(id: string): Promise<UserRow | null> {\n    return db.select().from(users).where(eq(users.id, id)).limit(1)[0];\n  }\n\n  async insert(data: UserRow): Promise<void> {\n    await db.insert(users).values(data);\n  }\n}\n```\n\n### Implementation (Outbound Port)\n\n```typescript\n// implementations/user/user.repository.ts\nclass UserRepository implements UserRepositoryOutboundPort {\n  constructor(private readonly persistence: UserPersistence) {}\n\n  async findById(id: UserId): Promise<UserAggregate | null> {\n    const row = await this.persistence.findById(id.value);\n    if (!row) return null;\n    return UserAggregate.reconstitute(row);  // Hydrates aggregate\n  }\n\n  async save(user: UserAggregate): Promise<void> {\n    await this.persistence.insert({\n      id: user.id.value,\n      email: user.email,\n      name: user.name,\n    });\n  }\n}\n```\n\n***\n\n## Shared-Infra Scoping\n\n| Scope | Location | Use When |\n|-------|----------|----------|\n| Global | `/packages/backend/shared-infra/` | Shared across all modules |\n| Module | `/modules/{module}/shared-infra/` | Shared across BCs in one module |\n| BC | `/bounded-contexts/{bc}/infra/` | Scoped to single BC |\n\nSimple systems can share a single database + ORM via shared-infra.\n\n***\n\n## Aggregate Hydration\n\nRepositories are responsible for hydrating aggregates using `Aggregate.reconstitute()`.\n\n**Prefer partial loading** over full loading when possible.\n\n***\n\n## Environment Variables\n\n* ❌ **Prohibited** in Bounded Contexts\n* ✅ **Allowed** in Infrastructure (persistence, external, implementations)\n",
+    "_searchMeta": {
+      "cleanContent": "implements outbound ports three-tier structure structure key rule only implementations uses the implements keyword persistence and external are plain classes that the implementations orchestrate example persistence raw database implementation outbound port shared-infra scoping scope location use when------- ---------- ----------global packages backend shared-infra shared across all modulesmodule modules module shared-infra shared across bcs in one modulebc bounded-contexts bc infra scoped to single bc simple systems can share a single database orm via shared-infra aggregate hydration repositories are responsible for hydrating aggregates using aggregate reconstitute prefer partial loading over full loading when possible environment variables prohibited in bounded contexts allowed in infrastructure persistence external implementations",
+      "headings": [
+        "Structure",
+        "Key Rule",
+        "Example",
+        "Shared-Infra Scoping",
+        "Aggregate Hydration",
+        "Environment Variables"
+      ],
+      "keywords": [
+        "Structure",
+        "Key Rule",
+        "Example",
+        "Shared-Infra Scoping",
+        "Aggregate Hydration",
+        "Environment Variables",
+        "## Structure\n\n```\ninfra/ (or shared-infra/)\n├── implementations/           ← Outbound port implementations (uses `implements`)\n│   └── {resource}/\n│       └── {resource}.repository.ts\n├── persistence/               ← Raw database access (NO `implements`)\n│   └── drizzle/\n│       └── {resource}/\n└── external/                  ← Raw API adapters (NO `implements`)\n    └── {service-name}/\n```",
+        "Only `implementations/` uses the `implements` keyword.",
+        "## Example\n\n### Persistence (Raw Database)\n\n```typescript\n// persistence/drizzle/user/user.persistence.ts\nclass UserPersistence {\n  async findById(id: string): Promise<UserRow | null> {\n    return db.select().from(users).where(eq(users.id, id)).limit(1)[0];\n  }\n\n  async insert(data: UserRow): Promise<void> {\n    await db.insert(users).values(data);\n  }\n}\n```\n\n### Implementation (Outbound Port)\n\n```typescript\n// implementations/user/user.repository.ts\nclass UserRepository implements UserRepositoryOutboundPort {\n  constructor(private readonly persistence: UserPersistence) {}\n\n  async findById(id: UserId): Promise<UserAggregate | null> {\n    const row = await this.persistence.findById(id.value);\n    if (!row) return null;\n    return UserAggregate.reconstitute(row);  // Hydrates aggregate\n  }\n\n  async save(user: UserAggregate): Promise<void> {\n    await this.persistence.insert({\n      id: user.id.value,\n      email: user.email,\n      name: user.name,\n    });\n  }\n}\n```",
+        "## Aggregate Hydration\n\nRepositories are responsible for hydrating aggregates using `Aggregate.reconstitute()`.",
+        "over full loading when possible.",
+        "Prohibited",
+        "Allowed",
+        "infra/ (or shared-infra/)\n├── implementations/           ← Outbound port implementations (uses",
+        ")\n│   └── {resource}/\n│       └── {resource}.repository.ts\n├── persistence/               ← Raw database access (NO",
+        ")\n│   └── drizzle/\n│       └── {resource}/\n└── external/                  ← Raw API adapters (NO",
+        ")\n    └── {service-name}/",
+        "***\n\n## Key Rule\n\n**Only",
+        "uses the",
+        "keyword.**\n\nPersistence and external are plain classes that the implementations orchestrate.\n\n***\n\n## Example\n\n### Persistence (Raw Database)",
+        "typescript\n// persistence/drizzle/user/user.persistence.ts\nclass UserPersistence {\n  async findById(id: string): Promise<UserRow | null> {\n    return db.select().from(users).where(eq(users.id, id)).limit(1)[0];\n  }\n\n  async insert(data: UserRow): Promise<void> {\n    await db.insert(users).values(data);\n  }\n}",
+        "### Implementation (Outbound Port)",
+        "typescript\n// implementations/user/user.repository.ts\nclass UserRepository implements UserRepositoryOutboundPort {\n  constructor(private readonly persistence: UserPersistence) {}\n\n  async findById(id: UserId): Promise<UserAggregate | null> {\n    const row = await this.persistence.findById(id.value);\n    if (!row) return null;\n    return UserAggregate.reconstitute(row);  // Hydrates aggregate\n  }\n\n  async save(user: UserAggregate): Promise<void> {\n    await this.persistence.insert({\n      id: user.id.value,\n      email: user.email,\n      name: user.name,\n    });\n  }\n}",
+        "***\n\n## Shared-Infra Scoping\n\n| Scope | Location | Use When |\n|-------|----------|----------|\n| Global |",
+        "| Shared across all modules |\n| Module |",
+        "| Shared across BCs in one module |\n| BC |",
+        "| Scoped to single BC |\n\nSimple systems can share a single database + ORM via shared-infra.\n\n***\n\n## Aggregate Hydration\n\nRepositories are responsible for hydrating aggregates using"
+      ]
+    }
+  },
+  {
+    "slug": "/layers/orchestrations",
+    "title": "Orchestrations",
+    "description": "Coordinate operations across multiple Bounded Contexts",
+    "content": "Coordinates operations across multiple Bounded Contexts.\n\n***\n\n## When to Use\n\n| Scenario | Approach |\n|----------|----------|\n| Single BC, self-contained | Direct BC call |\n| Multiple BCs needed | Orchestration |\n\n***\n\n## Three Types\n\n| Type | Purpose | Example |\n|------|---------|---------|\n| **Composition** | Read-only, multi-BC query | GET order with customer + products |\n| **Workflow** | Write, multi-BC command | Checkout: order + inventory + payment |\n| **Projection** | Denormalized read store | Dashboard aggregating multiple BCs |\n\n***\n\n## Structure\n\n```\norchestrations/\n├── compositions/\n│   ├── ports/\n│   └── use-cases/\n├── workflows/\n│   ├── ports/\n│   └── use-cases/\n└── projections/\n    ├── ports/\n    ├── use-cases/\n    └── infra/              ← Projection's own infrastructure\n```\n\n***\n\n## Composition\n\n```typescript\n// compositions/use-cases/get-order-details.composition.ts\nclass GetOrderDetailsComposition implements GetOrderDetailsCompositionInboundPort {\n  constructor(\n    orderQueryRepo: OrderQueryRepositoryOutboundPort,\n    customerQueryRepo: CustomerQueryRepositoryOutboundPort,\n  ) {\n    this.findOrderQuery = new FindOrderByIdQuery(orderQueryRepo);\n    this.findCustomerQuery = new FindCustomerByIdQuery(customerQueryRepo);\n  }\n\n  async execute(input: GetOrderDetailsInput): Promise<GetOrderDetailsOutput> {\n    const order = await this.findOrderQuery.execute({ orderId: input.orderId });\n    const customer = await this.findCustomerQuery.execute({ customerId: order.customerId });\n    return { order, customer };\n  }\n}\n```\n\n***\n\n## Workflow\n\n```typescript\n// workflows/use-cases/process-checkout.workflow.ts\nclass ProcessCheckoutWorkflow implements ProcessCheckoutWorkflowInboundPort {\n  async execute(input: ProcessCheckoutInput): Promise<ProcessCheckoutOutput> {\n    const order = await this.createOrderCommand.execute({ ... });\n    \n    try {\n      await this.reserveInventoryCommand.execute({ orderId: order.id });\n      await this.processPaymentCommand.execute({ orderId: order.id });\n      return { orderId: order.id, status: 'COMPLETED' };\n    } catch (error) {\n      await this.cancelOrderCommand.execute({ orderId: order.id });\n      throw error;\n    }\n  }\n}\n```\n\n***\n\n## Projection\n\nProjections have their own infrastructure layer for denormalized storage.\n\n**Rules:**\n\n* CAN read from shared database\n* CAN write only to its own denormalized storage\n* For simple systems with shared DB, may not need separate storage\n\n```typescript\n// projections/use-cases/user-dashboard.projection.ts\nclass UserDashboardProjection implements UserDashboardProjectionInboundPort {\n  async execute(input: UserDashboardInput): Promise<UserDashboardOutput> {\n    // Reads from multiple BCs, returns aggregated view\n  }\n}\n```\n\n***\n\n## Naming\n\n| Type | Interface | File |\n|------|-----------|------|\n| Composition | `{Name}CompositionInboundPort` | `.composition.ts` |\n| Workflow | `{Name}WorkflowInboundPort` | `.workflow.ts` |\n| Projection | `{Name}ProjectionInboundPort` | `.projection.ts` |\n",
+    "_searchMeta": {
+      "cleanContent": "coordinates operations across multiple bounded contexts when to use scenario approach---------- ----------single bc self-contained direct bc callmultiple bcs needed orchestration three types type purpose example------ --------- ---------composition read-only multi-bc query get order with customer productsworkflow write multi-bc command checkout: order inventory paymentprojection denormalized read store dashboard aggregating multiple bcs structure composition workflow projection projections have their own infrastructure layer for denormalized storage rules: can read from shared database can write only to its own denormalized storage for simple systems with shared db may not need separate storage naming type interface file------ ----------- ------composition name compositioninboundport composition tsworkflow name workflowinboundport workflow tsprojection name projectioninboundport projection ts",
+      "headings": [
+        "When to Use",
+        "Three Types",
+        "Structure",
+        "Composition",
+        "Workflow",
+        "Projection",
+        "Naming"
+      ],
+      "keywords": [
+        "When to Use",
+        "Three Types",
+        "Structure",
+        "Composition",
+        "Workflow",
+        "Projection",
+        "Naming",
+        "## When to Use\n\n| Scenario | Approach |\n|----------|----------|\n| Single BC, self-contained | Direct BC call |\n| Multiple BCs needed | Orchestration |",
+        "## Structure\n\n```\norchestrations/\n├── compositions/\n│   ├── ports/\n│   └── use-cases/\n├── workflows/\n│   ├── ports/\n│   └── use-cases/\n└── projections/\n    ├── ports/\n    ├── use-cases/\n    └── infra/              ← Projection's own infrastructure\n```",
+        "## Workflow\n\n```typescript\n// workflows/use-cases/process-checkout.workflow.ts\nclass ProcessCheckoutWorkflow implements ProcessCheckoutWorkflowInboundPort {\n  async execute(input: ProcessCheckoutInput): Promise<ProcessCheckoutOutput> {\n    const order = await this.createOrderCommand.execute({ ... });\n    \n    try {\n      await this.reserveInventoryCommand.execute({ orderId: order.id });\n      await this.processPaymentCommand.execute({ orderId: order.id });\n      return { orderId: order.id, status: 'COMPLETED' };\n    } catch (error) {\n      await this.cancelOrderCommand.execute({ orderId: order.id });\n      throw error;\n    }\n  }\n}\n```",
+        "Rules:",
+        "orchestrations/\n├── compositions/\n│   ├── ports/\n│   └── use-cases/\n├── workflows/\n│   ├── ports/\n│   └── use-cases/\n└── projections/\n    ├── ports/\n    ├── use-cases/\n    └── infra/              ← Projection's own infrastructure",
+        "***\n\n## Composition",
+        "typescript\n// compositions/use-cases/get-order-details.composition.ts\nclass GetOrderDetailsComposition implements GetOrderDetailsCompositionInboundPort {\n  constructor(\n    orderQueryRepo: OrderQueryRepositoryOutboundPort,\n    customerQueryRepo: CustomerQueryRepositoryOutboundPort,\n  ) {\n    this.findOrderQuery = new FindOrderByIdQuery(orderQueryRepo);\n    this.findCustomerQuery = new FindCustomerByIdQuery(customerQueryRepo);\n  }\n\n  async execute(input: GetOrderDetailsInput): Promise<GetOrderDetailsOutput> {\n    const order = await this.findOrderQuery.execute({ orderId: input.orderId });\n    const customer = await this.findCustomerQuery.execute({ customerId: order.customerId });\n    return { order, customer };\n  }\n}",
+        "***\n\n## Workflow",
+        "typescript\n// workflows/use-cases/process-checkout.workflow.ts\nclass ProcessCheckoutWorkflow implements ProcessCheckoutWorkflowInboundPort {\n  async execute(input: ProcessCheckoutInput): Promise<ProcessCheckoutOutput> {\n    const order = await this.createOrderCommand.execute({ ... });\n    \n    try {\n      await this.reserveInventoryCommand.execute({ orderId: order.id });\n      await this.processPaymentCommand.execute({ orderId: order.id });\n      return { orderId: order.id, status: 'COMPLETED' };\n    } catch (error) {\n      await this.cancelOrderCommand.execute({ orderId: order.id });\n      throw error;\n    }\n  }\n}",
+        "***\n\n## Projection\n\nProjections have their own infrastructure layer for denormalized storage.\n\n**Rules:**\n\n* CAN read from shared database\n* CAN write only to its own denormalized storage\n* For simple systems with shared DB, may not need separate storage",
+        "typescript\n// projections/use-cases/user-dashboard.projection.ts\nclass UserDashboardProjection implements UserDashboardProjectionInboundPort {\n  async execute(input: UserDashboardInput): Promise<UserDashboardOutput> {\n    // Reads from multiple BCs, returns aggregated view\n  }\n}",
+        "***\n\n## Naming\n\n| Type | Interface | File |\n|------|-----------|------|\n| Composition |",
+        "|",
+        "|\n| Workflow |",
+        "|\n| Projection |"
+      ]
+    }
+  },
+  {
+    "slug": "/layers/overview",
+    "title": "Overview",
+    "description": "Layer structure, dependencies, and request flow",
+    "content": "## Layer Diagram\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│                      PRESENTATION                           │\n│  HTTP handlers, controllers, access guards, mappers         │\n│  CAN import: All inner layers                               │\n├─────────────────────────────────────────────────────────────┤\n│                      INFRASTRUCTURE                         │\n│  Implementations, Persistence, External                     │\n│  CAN import: BC ports, domain (VOs, aggregates), shared     │\n├─────────────────────────────────────────────────────────────┤\n│                      ORCHESTRATIONS                         │\n│  Compositions, Workflows, Projections                       │\n│  CAN import: BC ports + use cases                           │\n├─────────────────────────────────────────────────────────────┤\n│                    BOUNDED CONTEXTS                         │\n│  Domain + Use Cases + Ports                                 │\n│  CAN import: Shared only (NO frameworks, NO env vars)       │\n├─────────────────────────────────────────────────────────────┤\n│                         SHARED                              │\n│  Read Models, Enums, Generated Clients                      │\n└─────────────────────────────────────────────────────────────┘\n                   Dependencies flow INWARD →\n```\n\n***\n\n## Dependency Rules\n\n| Layer | Can Import |\n|-------|------------|\n| **Presentation** | Infrastructure, Orchestrations, Bounded Contexts, Shared |\n| **Infrastructure** | BC ports, domain (VOs, aggregates), Shared |\n| **Orchestrations** | BC ports + use cases, Shared |\n| **Bounded Contexts** | Shared only |\n| **Shared** | Nothing (leaf layer) |\n\n***\n\n## Request Flow\n\n```\nHTTP Request\n    │\n    ▼\nHandler ─────────────────► Extracts event, generates ExecutionContext\n    │\n    ▼\nController ──────────────► Validates, authorizes, maps\n    │\n    ▼\nUse Case / Orchestration ► Business logic\n    │\n    ▼\nOutbound Port Implementation\n    │\n    ▼\nPersistence / External ──► Database or API call\n    │\n    ▼\nResponse bubbles back up\n```\n\n***\n\n## Folder Structure\n\n### Module-Based\n\n```\npackages/backend/\n├── modules/{module}/\n│   ├── bounded-contexts/{bc}/\n│   │   ├── app/\n│   │   │   ├── ports/inbound/\n│   │   │   ├── ports/outbound/\n│   │   │   └── use-cases/\n│   │   ├── domain/\n│   │   └── infra/\n│   ├── orchestrations/\n│   ├── presentation/\n│   └── shared-infra/\n└── shared-infra/\n```\n\n### Simple\n\n```\npackages/backend/\n├── bounded-contexts/{bc}/\n├── orchestrations/\n├── presentation/\n└── shared-infra/\n```\n",
+    "_searchMeta": {
+      "cleanContent": "layer diagram dependency rules layer can import------- ------------presentation infrastructure orchestrations bounded contexts sharedinfrastructure bc ports domain vos aggregates sharedorchestrations bc ports use cases sharedbounded contexts shared onlyshared nothing leaf layer request flow folder structure module-based simple",
+      "headings": [
+        "Layer Diagram",
+        "Dependency Rules",
+        "Request Flow",
+        "Folder Structure"
+      ],
+      "keywords": [
+        "Layer Diagram",
+        "Dependency Rules",
+        "Request Flow",
+        "Folder Structure",
+        "## Dependency Rules\n\n| Layer | Can Import |\n|-------|------------|\n|",
+        "| Infrastructure, Orchestrations, Bounded Contexts, Shared |\n|",
+        "| BC ports, domain (VOs, aggregates), Shared |\n|",
+        "| BC ports + use cases, Shared |\n|",
+        "| Shared only |\n|",
+        "| Nothing (leaf layer) |",
+        "┌─────────────────────────────────────────────────────────────┐\n│                      PRESENTATION                           │\n│  HTTP handlers, controllers, access guards, mappers         │\n│  CAN import: All inner layers                               │\n├─────────────────────────────────────────────────────────────┤\n│                      INFRASTRUCTURE                         │\n│  Implementations, Persistence, External                     │\n│  CAN import: BC ports, domain (VOs, aggregates), shared     │\n├─────────────────────────────────────────────────────────────┤\n│                      ORCHESTRATIONS                         │\n│  Compositions, Workflows, Projections                       │\n│  CAN import: BC ports + use cases                           │\n├─────────────────────────────────────────────────────────────┤\n│                    BOUNDED CONTEXTS                         │\n│  Domain + Use Cases + Ports                                 │\n│  CAN import: Shared only (NO frameworks, NO env vars)       │\n├─────────────────────────────────────────────────────────────┤\n│                         SHARED                              │\n│  Read Models, Enums, Generated Clients                      │\n└─────────────────────────────────────────────────────────────┘\n                   Dependencies flow INWARD →",
+        "***\n\n## Dependency Rules\n\n| Layer | Can Import |\n|-------|------------|\n| **Presentation** | Infrastructure, Orchestrations, Bounded Contexts, Shared |\n| **Infrastructure** | BC ports, domain (VOs, aggregates), Shared |\n| **Orchestrations** | BC ports + use cases, Shared |\n| **Bounded Contexts** | Shared only |\n| **Shared** | Nothing (leaf layer) |\n\n***\n\n## Request Flow",
+        "HTTP Request\n    │\n    ▼\nHandler ─────────────────► Extracts event, generates ExecutionContext\n    │\n    ▼\nController ──────────────► Validates, authorizes, maps\n    │\n    ▼\nUse Case / Orchestration ► Business logic\n    │\n    ▼\nOutbound Port Implementation\n    │\n    ▼\nPersistence / External ──► Database or API call\n    │\n    ▼\nResponse bubbles back up",
+        "***\n\n## Folder Structure\n\n### Module-Based",
+        "packages/backend/\n├── modules/{module}/\n│   ├── bounded-contexts/{bc}/\n│   │   ├── app/\n│   │   │   ├── ports/inbound/\n│   │   │   ├── ports/outbound/\n│   │   │   └── use-cases/\n│   │   ├── domain/\n│   │   └── infra/\n│   ├── orchestrations/\n│   ├── presentation/\n│   └── shared-infra/\n└── shared-infra/",
+        "### Simple",
+        "packages/backend/\n├── bounded-contexts/{bc}/\n├── orchestrations/\n├── presentation/\n└── shared-infra/"
+      ]
+    }
+  },
+  {
+    "slug": "/layers/presentation",
+    "title": "Presentation",
+    "description": "HTTP handlers, controllers, access guards, and mappers",
+    "content": "HTTP layer: handlers, controllers, access guards, mappers.\n\n***\n\n## Structure\n\n```\npresentation/\n└── http/\n    ├── service.metadata.ts\n    └── {resource}/\n        ├── route.metadata.ts\n        └── {endpoint}/\n            ├── endpoint.metadata.ts\n            ├── request.dto.ts         ← Source of truth\n            ├── response.dto.ts        ← Source of truth\n            ├── access-guard.ts\n            ├── to-use-case.mapper.ts\n            └── to-response.mapper.ts\n```\n\n***\n\n## Request/Response DTOs\n\nThese are the **source of truth** for API contracts.\n\n```typescript\n// request.dto.ts\nconst findUserByIdRequestSchema = z.object({\n  pathParams: z.object({\n    userId: z.string().uuid(),\n  }),\n});\n\ntype FindUserByIdRequest = z.infer<typeof findUserByIdRequestSchema>;\n```\n\n```typescript\n// response.dto.ts\nconst findUserByIdResponseSchema = z.object({\n  id: z.string().uuid(),\n  email: z.string(),\n  name: z.string(),\n});\n\ntype FindUserByIdResponse = z.infer<typeof findUserByIdResponseSchema>;\n```\n\n***\n\n## Access Guards\n\nStateless gate-keepers. Receive use cases via DI.\n\n**Rules:**\n\n* ✅ Receive use cases via dependency injection\n* ✅ Delegate authorization logic to use cases\n* ❌ Cannot implement custom business logic\n\n```typescript\n// access-guard.ts\nclass CanManageResourceGuard {\n  constructor(\n    private readonly canManageResourceQuery: CanManageResourceQueryInboundPort,\n  ) {}\n\n  async guard(request: Request): Promise<GuardResult> {\n    const result = await this.canManageResourceQuery.execute({\n      userId: request.executionContext.userId,\n      resourceId: request.pathParams.resourceId,\n    });\n    return { allowed: result.allowed, reason: result.reason };\n  }\n}\n```\n\n***\n\n## Mappers\n\nPure functions transforming between HTTP and use case shapes.\n\n```typescript\n// to-use-case.mapper.ts\nfunction toFindUserByIdInput(request: FindUserByIdRequest): FindUserByIdInput {\n  return { userId: request.pathParams.userId };\n}\n\n// to-response.mapper.ts\nfunction toFindUserByIdResponse(output: FindUserByIdOutput): FindUserByIdResponse {\n  return { id: output.id, email: output.email, name: output.name };\n}\n```\n\n***\n\n## Execution Context\n\nGenerated at controller level. **Never a frontend concern.**\n\n```typescript\n// Inside controller/handler\nconst executionContext = {\n  userId: extractUserIdFromToken(request),\n  roles: extractRolesFromToken(request),\n};\n```\n\n***\n\n## Exception Handling\n\nControllers catch domain exceptions and map to HTTP status codes.\n\n```typescript\n// Framework-specific exception handler\ntry {\n  const result = await useCase.execute(input);\n  return response(200, result);\n} catch (error) {\n  if (error instanceof UserNotFoundError) return response(404, error.message);\n  if (error instanceof ValidationError) return response(400, error.message);\n  throw error;\n}\n```\n",
+    "_searchMeta": {
+      "cleanContent": "http layer: handlers controllers access guards mappers structure request response dtos these are the source of truth for api contracts access guards stateless gate-keepers receive use cases via di rules: receive use cases via dependency injection delegate authorization logic to use cases cannot implement custom business logic mappers pure functions transforming between http and use case shapes execution context generated at controller level never a frontend concern exception handling controllers catch domain exceptions and map to http status codes",
+      "headings": [
+        "Structure",
+        "Request/Response DTOs",
+        "Access Guards",
+        "Mappers",
+        "Execution Context",
+        "Exception Handling"
+      ],
+      "keywords": [
+        "Structure",
+        "Request/Response DTOs",
+        "Access Guards",
+        "Mappers",
+        "Execution Context",
+        "Exception Handling",
+        "## Structure\n\n```\npresentation/\n└── http/\n    ├── service.metadata.ts\n    └── {resource}/\n        ├── route.metadata.ts\n        └── {endpoint}/\n            ├── endpoint.metadata.ts\n            ├── request.dto.ts         ← Source of truth\n            ├── response.dto.ts        ← Source of truth\n            ├── access-guard.ts\n            ├── to-use-case.mapper.ts\n            └── to-response.mapper.ts\n```",
+        "source of truth",
+        "## Access Guards\n\nStateless gate-keepers. Receive use cases via DI.",
+        "## Mappers\n\nPure functions transforming between HTTP and use case shapes.\n\n```typescript\n// to-use-case.mapper.ts\nfunction toFindUserByIdInput(request: FindUserByIdRequest): FindUserByIdInput {\n  return { userId: request.pathParams.userId };\n}\n\n// to-response.mapper.ts\nfunction toFindUserByIdResponse(output: FindUserByIdOutput): FindUserByIdResponse {\n  return { id: output.id, email: output.email, name: output.name };\n}\n```",
+        "Never a frontend concern.",
+        "presentation/\n└── http/\n    ├── service.metadata.ts\n    └── {resource}/\n        ├── route.metadata.ts\n        └── {endpoint}/\n            ├── endpoint.metadata.ts\n            ├── request.dto.ts         ← Source of truth\n            ├── response.dto.ts        ← Source of truth\n            ├── access-guard.ts\n            ├── to-use-case.mapper.ts\n            └── to-response.mapper.ts",
+        "***\n\n## Request/Response DTOs\n\nThese are the **source of truth** for API contracts.",
+        "typescript\n// request.dto.ts\nconst findUserByIdRequestSchema = z.object({\n  pathParams: z.object({\n    userId: z.string().uuid(),\n  }),\n});\n\ntype FindUserByIdRequest = z.infer<typeof findUserByIdRequestSchema>;",
+        "",
+        "typescript\n// response.dto.ts\nconst findUserByIdResponseSchema = z.object({\n  id: z.string().uuid(),\n  email: z.string(),\n  name: z.string(),\n});\n\ntype FindUserByIdResponse = z.infer<typeof findUserByIdResponseSchema>;",
+        "***\n\n## Access Guards\n\nStateless gate-keepers. Receive use cases via DI.\n\n**Rules:**\n\n* ✅ Receive use cases via dependency injection\n* ✅ Delegate authorization logic to use cases\n* ❌ Cannot implement custom business logic",
+        "typescript\n// access-guard.ts\nclass CanManageResourceGuard {\n  constructor(\n    private readonly canManageResourceQuery: CanManageResourceQueryInboundPort,\n  ) {}\n\n  async guard(request: Request): Promise<GuardResult> {\n    const result = await this.canManageResourceQuery.execute({\n      userId: request.executionContext.userId,\n      resourceId: request.pathParams.resourceId,\n    });\n    return { allowed: result.allowed, reason: result.reason };\n  }\n}",
+        "***\n\n## Mappers\n\nPure functions transforming between HTTP and use case shapes.",
+        "typescript\n// to-use-case.mapper.ts\nfunction toFindUserByIdInput(request: FindUserByIdRequest): FindUserByIdInput {\n  return { userId: request.pathParams.userId };\n}\n\n// to-response.mapper.ts\nfunction toFindUserByIdResponse(output: FindUserByIdOutput): FindUserByIdResponse {\n  return { id: output.id, email: output.email, name: output.name };\n}",
+        "***\n\n## Execution Context\n\nGenerated at controller level. **Never a frontend concern.**",
+        "typescript\n// Inside controller/handler\nconst executionContext = {\n  userId: extractUserIdFromToken(request),\n  roles: extractRolesFromToken(request),\n};",
+        "***\n\n## Exception Handling\n\nControllers catch domain exceptions and map to HTTP status codes.",
+        "typescript\n// Framework-specific exception handler\ntry {\n  const result = await useCase.execute(input);\n  return response(200, result);\n} catch (error) {\n  if (error instanceof UserNotFoundError) return response(404, error.message);\n  if (error instanceof ValidationError) return response(400, error.message);\n  throw error;\n}"
+      ]
+    }
+  },
+  {
+    "slug": "/next-steps/cli-overview",
+    "title": "CLI Overview",
+    "description": "Planned tooling to automate common tasks",
+    "content": "## Current State vs Future\n\n| Task | Current | Future |\n|------|---------|--------|\n| Controller wiring | Manual in bootstrap | CLI generated |\n| HTTP client | Manual | CLI generated |\n| New endpoint | 6+ files created manually | CLI scaffolded |\n| Dependency rules | Developer discipline | Linter enforced |\n\n***\n\n## Planned Tools\n\n| Tool | Purpose |\n|------|---------|\n| **Controller Generator** | Auto-wire validate → guard → map → execute → respond |\n| **HTTP Client Generator** | TypeScript-safe clients from request/response schemas |\n| **Endpoint Scaffold** | Generate all files for a new endpoint |\n| **Linter Rules** | Enforce one-way module deps, layer import rules |\n\n***\n\n## See Also\n\n* [Controller Wiring](controller-wiring.md)\n* [HTTP Client Generation](http-client-generation.md)\n* [Endpoint Scaffolding](endpoint-scaffolding.md)\n* [Linter Rules](linter-rules.md)\n",
+    "_searchMeta": {
+      "cleanContent": "current state vs future task current future------ --------- --------controller wiring manual in bootstrap cli generatedhttp client manual cli generatednew endpoint 6 files created manually cli scaffoldeddependency rules developer discipline linter enforced planned tools tool purpose------ ---------controller generator auto-wire validate guard map execute respondhttp client generator typescript-safe clients from request response schemasendpoint scaffold generate all files for a new endpointlinter rules enforce one-way module deps layer import rules see also controller wiring http client generation endpoint scaffolding linter rules",
+      "headings": [
+        "Current State vs Future",
+        "Planned Tools",
+        "See Also"
+      ],
+      "keywords": [
+        "Current State vs Future",
+        "Planned Tools",
+        "See Also",
+        "## Planned Tools\n\n| Tool | Purpose |\n|------|---------|\n|",
+        "| Auto-wire validate → guard → map → execute → respond |\n|",
+        "| TypeScript-safe clients from request/response schemas |\n|",
+        "| Generate all files for a new endpoint |\n|",
+        "| Enforce one-way module deps, layer import rules |"
+      ]
+    }
+  },
+  {
+    "slug": "/next-steps/controller-wiring",
+    "title": "Controller Wiring",
+    "description": "Auto-generate controllers that wire all endpoint components",
+    "content": "## Current Manual Approach\n\n```typescript\n// bootstrap/user.bootstrap.ts\nconst userPersistence = new UserPersistence(db);\nconst userRepo = new UserRepository(userPersistence);\nconst getUserQuery = new GetUserQuery(userRepo);\nconst getUserAccessGuard = new GetUserAccessGuard();\n\n// Controller manually wires everything\nclass GetUserController {\n  static async execute(event: APIGatewayEvent) {\n    const request = parseRequest(event);\n\n    // 1. Validate\n    const validated = getUserRequestSchema.parse(request);\n\n    // 2. Check access\n    const guardResult = await getUserAccessGuard.guard(validated);\n    if (!guardResult.allowed) throw new ForbiddenError();\n\n    // 3. Map to input\n    const input = toGetUserInput(validated);\n\n    // 4. Execute\n    const output = await getUserQuery.execute(input);\n\n    // 5. Map to response\n    return toGetUserResponse(output);\n  }\n}\n```\n\n***\n\n## Future Generated Approach\n\n```bash\nonion-cli generate controller get-user\n```\n\nGenerates a controller that:\n\n* Reads endpoint metadata\n* Wires validation, guard, mappers, use case\n* Handles exception mapping\n* Outputs framework-specific handler\n",
+    "_searchMeta": {
+      "cleanContent": "current manual approach future generated approach generates a controller that: reads endpoint metadata wires validation guard mappers use case handles exception mapping outputs framework-specific handler",
+      "headings": [
+        "Current Manual Approach",
+        "Future Generated Approach"
+      ],
+      "keywords": [
+        "Current Manual Approach",
+        "Future Generated Approach",
+        "typescript\n// bootstrap/user.bootstrap.ts\nconst userPersistence = new UserPersistence(db);\nconst userRepo = new UserRepository(userPersistence);\nconst getUserQuery = new GetUserQuery(userRepo);\nconst getUserAccessGuard = new GetUserAccessGuard();\n\n// Controller manually wires everything\nclass GetUserController {\n  static async execute(event: APIGatewayEvent) {\n    const request = parseRequest(event);\n\n    // 1. Validate\n    const validated = getUserRequestSchema.parse(request);\n\n    // 2. Check access\n    const guardResult = await getUserAccessGuard.guard(validated);\n    if (!guardResult.allowed) throw new ForbiddenError();\n\n    // 3. Map to input\n    const input = toGetUserInput(validated);\n\n    // 4. Execute\n    const output = await getUserQuery.execute(input);\n\n    // 5. Map to response\n    return toGetUserResponse(output);\n  }\n}",
+        "***\n\n## Future Generated Approach",
+        "bash\nonion-cli generate controller get-user"
+      ]
+    }
+  },
+  {
+    "slug": "/next-steps/endpoint-scaffolding",
+    "title": "Endpoint Scaffolding",
+    "description": "CLI command to generate all files for a new endpoint",
+    "content": "## Command\n\n```bash\nonion-cli generate endpoint users/get-user --method GET --path /users/:userId\n```\n\n***\n\n## Generated Files\n\n```\npresentation/http/users/get-user/\n├── endpoint.metadata.ts\n├── request.dto.ts\n├── response.dto.ts\n├── access-guard.ts\n├── to-use-case.mapper.ts\n└── to-response.mapper.ts\n```\n\nPlus stubs in the BC:\n\n```\napp/ports/inbound/get-user.query.inbound.ts\napp/use-cases/queries/get-user.query.ts\n```\n\n***\n\n## Options\n\n| Flag | Description |\n|------|-------------|\n| `--method` | HTTP method (GET, POST, etc.) |\n| `--path` | URL path with params |\n| `--bc` | Target bounded context |\n| `--orchestration` | Create as composition/workflow instead |\n",
+    "_searchMeta": {
+      "cleanContent": "command generated files plus stubs in the bc: options flag description------ ---------------method http method get post etc --path url path with params--bc target bounded context--orchestration create as composition workflow instead",
+      "headings": [
+        "Command",
+        "Generated Files",
+        "Options"
+      ],
+      "keywords": [
+        "Command",
+        "Generated Files",
+        "Options",
+        "## Generated Files\n\n```\npresentation/http/users/get-user/\n├── endpoint.metadata.ts\n├── request.dto.ts\n├── response.dto.ts\n├── access-guard.ts\n├── to-use-case.mapper.ts\n└── to-response.mapper.ts\n```\n\nPlus stubs in the BC:\n\n```\napp/ports/inbound/get-user.query.inbound.ts\napp/use-cases/queries/get-user.query.ts\n```",
+        "bash\nonion-cli generate endpoint users/get-user --method GET --path /users/:userId",
+        "***\n\n## Generated Files",
+        "presentation/http/users/get-user/\n├── endpoint.metadata.ts\n├── request.dto.ts\n├── response.dto.ts\n├── access-guard.ts\n├── to-use-case.mapper.ts\n└── to-response.mapper.ts",
+        "Plus stubs in the BC:",
+        "app/ports/inbound/get-user.query.inbound.ts\napp/use-cases/queries/get-user.query.ts",
+        "***\n\n## Options\n\n| Flag | Description |\n|------|-------------|\n|",
+        "| HTTP method (GET, POST, etc.) |\n|",
+        "| URL path with params |\n|",
+        "| Target bounded context |\n|"
+      ]
+    }
+  },
+  {
+    "slug": "/next-steps/http-client-generation",
+    "title": "HTTP Client Generation",
+    "description": "Generate TypeScript-safe HTTP clients from schemas",
+    "content": "## Goal\n\nFrontend developers get auto-completed, type-safe API calls.\n\n***\n\n## Source of Truth\n\n* `presentation/http/{resource}/{endpoint}/request.dto.ts`\n* `presentation/http/{resource}/{endpoint}/response.dto.ts`\n\n***\n\n## Generated Output\n\n```typescript\n// packages/shared/clients/http/user.client.ts\n\nclass UserClient {\n  constructor(\n    private readonly baseUrl: string,\n    private readonly auth: AuthConfig,\n  ) {}\n\n  async getUser(userId: string): Promise<GetUserResponse> {\n    const response = await fetch(`${this.baseUrl}/users/${userId}`, {\n      headers: this.auth.headers(),\n    });\n    return getUserResponseSchema.parse(await response.json());\n  }\n\n  async createUser(data: CreateUserRequest['body']): Promise<CreateUserResponse> {\n    // ...\n  }\n}\n```\n\n***\n\n## Usage\n\n```typescript\nconst userClient = new UserClient('https://api.example.com', authConfig);\nconst user = await userClient.getUser('123');  // Fully typed!\n```\n",
+    "_searchMeta": {
+      "cleanContent": "goal frontend developers get auto-completed type-safe api calls source of truth presentation http resource endpoint request dto ts presentation http resource endpoint response dto ts generated output usage",
+      "headings": [
+        "Goal",
+        "Source of Truth",
+        "Generated Output",
+        "Usage"
+      ],
+      "keywords": [
+        "Goal",
+        "Source of Truth",
+        "Generated Output",
+        "Usage",
+        "## Generated Output\n\n```typescript\n// packages/shared/clients/http/user.client.ts\n\nclass UserClient {\n  constructor(\n    private readonly baseUrl: string,\n    private readonly auth: AuthConfig,\n  ) {}\n\n  async getUser(userId: string): Promise<GetUserResponse> {\n    const response = await fetch(`${this.baseUrl}/users/${userId}`, {\n      headers: this.auth.headers(),\n    });\n    return getUserResponseSchema.parse(await response.json());\n  }\n\n  async createUser(data: CreateUserRequest['body']): Promise<CreateUserResponse> {\n    // ...\n  }\n}\n```",
+        "presentation/http/{resource}/{endpoint}/request.dto.ts",
+        "presentation/http/{resource}/{endpoint}/response.dto.ts",
+        "typescript\n// packages/shared/clients/http/user.client.ts\n\nclass UserClient {\n  constructor(\n    private readonly baseUrl: string,\n    private readonly auth: AuthConfig,\n  ) {}\n\n  async getUser(userId: string): Promise<GetUserResponse> {\n    const response = await fetch(",
+        ", {\n      headers: this.auth.headers(),\n    });\n    return getUserResponseSchema.parse(await response.json());\n  }\n\n  async createUser(data: CreateUserRequest['body']): Promise<CreateUserResponse> {\n    // ...\n  }\n}",
+        "***\n\n## Usage",
+        "typescript\nconst userClient = new UserClient('https://api.example.com', authConfig);\nconst user = await userClient.getUser('123');  // Fully typed!"
+      ]
+    }
+  },
+  {
+    "slug": "/next-steps/linter-rules",
+    "title": "Linter Rules",
+    "description": "ESLint rules to enforce architecture constraints",
+    "content": "## Rules\n\n### One-Way Module Dependencies\n\nModules can import from each other, but only one direction.\n\n```typescript\n// ✅ OK: Module A imports from Module B\nimport { OrderReadModel } from '@modules/orders/shared';\n\n// ❌ ERROR: Module B also imports from Module A (creates cycle)\nimport { UserReadModel } from '@modules/users/shared';\n```\n\n### Layer Import Restrictions\n\n| From | Can Import |\n|------|------------|\n| BC | Shared only |\n| Infrastructure | BC ports, domain, shared |\n| Orchestrations | BC ports + use cases, shared |\n| Presentation | All inner layers |\n\n```typescript\n// In bounded-contexts/user/\n// ❌ ERROR: Cannot import from infrastructure\nimport { DrizzleUserRepository } from '@infra/repositories';\n```\n\n### No `implements` in Persistence/External\n\n```typescript\n// ❌ ERROR: Only implementations/ can use `implements`\nclass UserPersistence implements UserRepositoryOutboundPort { ... }\n```\n\n***\n\n## Configuration\n\n```javascript\n// eslint.config.js\nimport { onionLasagnaPlugin } from '@onion-lasagna/eslint-plugin';\n\nexport default [\n  onionLasagnaPlugin.configs.recommended,\n];\n```\n",
+    "_searchMeta": {
+      "cleanContent": "rules one-way module dependencies modules can import from each other but only one direction layer import restrictions from can import------ ------------bc shared onlyinfrastructure bc ports domain sharedorchestrations bc ports use cases sharedpresentation all inner layers no implements in persistence external configuration",
+      "headings": [
+        "Rules",
+        "Configuration"
+      ],
+      "keywords": [
+        "Rules",
+        "Configuration",
+        "typescript\n// ✅ OK: Module A imports from Module B\nimport { OrderReadModel } from '@modules/orders/shared';\n\n// ❌ ERROR: Module B also imports from Module A (creates cycle)\nimport { UserReadModel } from '@modules/users/shared';",
+        "### Layer Import Restrictions\n\n| From | Can Import |\n|------|------------|\n| BC | Shared only |\n| Infrastructure | BC ports, domain, shared |\n| Orchestrations | BC ports + use cases, shared |\n| Presentation | All inner layers |",
+        "typescript\n// In bounded-contexts/user/\n// ❌ ERROR: Cannot import from infrastructure\nimport { DrizzleUserRepository } from '@infra/repositories';",
+        "### No",
+        "in Persistence/External",
+        "typescript\n// ❌ ERROR: Only implementations/ can use",
+        "class UserPersistence implements UserRepositoryOutboundPort { ... }",
+        "***\n\n## Configuration",
+        "javascript\n// eslint.config.js\nimport { onionLasagnaPlugin } from '@onion-lasagna/eslint-plugin';\n\nexport default [\n  onionLasagnaPlugin.configs.recommended,\n];"
+      ]
+    }
+  },
+  {
+    "slug": "/patterns/aggregates",
+    "title": "Aggregates",
+    "description": "Entity clusters treated as a single unit. Enforce business invariants.",
+    "content": "## Structure\n\n```typescript\nclass OrderAggregate {\n  private constructor(\n    private readonly _id: OrderId,\n    private readonly _customerId: CustomerId,\n    private _items: OrderItem[],\n    private _status: OrderStatus,\n    private readonly _createdAt: Date,\n  ) {}\n\n  // Factory for NEW instances\n  static create(data: CreateOrderData): OrderAggregate {\n    return new OrderAggregate(\n      OrderId.generate(),\n      CustomerId.create(data.customerId),\n      [],\n      OrderStatus.DRAFT,\n      new Date(),\n    );\n  }\n\n  // Factory for EXISTING instances (from DB)\n  static reconstitute(data: OrderData): OrderAggregate {\n    return new OrderAggregate(\n      OrderId.create(data.id),\n      CustomerId.create(data.customerId),\n      data.items.map(OrderItem.reconstitute),\n      data.status,\n      data.createdAt,\n    );\n  }\n\n  // Domain methods (enforce invariants)\n  addItem(item: AddItemData): void {\n    if (this._status !== OrderStatus.DRAFT) {\n      throw new OrderNotEditableError('Cannot add items to non-draft order');\n    }\n    if (this._items.length >= 50) {\n      throw new OrderLimitExceededError('Maximum 50 items per order');\n    }\n    this._items.push(OrderItem.create(item));\n  }\n\n  submit(): void {\n    if (this._items.length === 0) {\n      throw new EmptyOrderError('Cannot submit empty order');\n    }\n    this._status = OrderStatus.PENDING;\n  }\n\n  // Getters (read-only access)\n  get id(): OrderId { return this._id; }\n  get status(): OrderStatus { return this._status; }\n  get items(): readonly OrderItem[] { return [...this._items]; }\n}\n```\n\n***\n\n## Rules\n\n* ✅ Use factory methods (`create`, `reconstitute`)\n* ✅ Enforce all invariants in domain methods\n* ✅ Return copies of collections from getters\n* ✅ Reference other aggregates by ID only\n* ✅ **Prefer partial loading** over full loading\n* ❌ Never create with `new` directly\n* ❌ Never reference other aggregates directly\n\n***\n\n## Hydration\n\nRepositories are responsible for hydrating aggregates:\n\n```typescript\n// In repository\nasync findById(id: OrderId): Promise<OrderAggregate | null> {\n  const row = await this.persistence.findById(id.value);\n  if (!row) return null;\n  return OrderAggregate.reconstitute(row);\n}\n```\n",
+    "_searchMeta": {
+      "cleanContent": "structure rules use factory methods create reconstitute enforce all invariants in domain methods return copies of collections from getters reference other aggregates by id only prefer partial loading over full loading never create with new directly never reference other aggregates directly hydration repositories are responsible for hydrating aggregates:",
+      "headings": [
+        "Structure",
+        "Rules",
+        "Hydration"
+      ],
+      "keywords": [
+        "Structure",
+        "Rules",
+        "Hydration",
+        "Prefer partial loading",
+        "typescript\nclass OrderAggregate {\n  private constructor(\n    private readonly _id: OrderId,\n    private readonly _customerId: CustomerId,\n    private _items: OrderItem[],\n    private _status: OrderStatus,\n    private readonly _createdAt: Date,\n  ) {}\n\n  // Factory for NEW instances\n  static create(data: CreateOrderData): OrderAggregate {\n    return new OrderAggregate(\n      OrderId.generate(),\n      CustomerId.create(data.customerId),\n      [],\n      OrderStatus.DRAFT,\n      new Date(),\n    );\n  }\n\n  // Factory for EXISTING instances (from DB)\n  static reconstitute(data: OrderData): OrderAggregate {\n    return new OrderAggregate(\n      OrderId.create(data.id),\n      CustomerId.create(data.customerId),\n      data.items.map(OrderItem.reconstitute),\n      data.status,\n      data.createdAt,\n    );\n  }\n\n  // Domain methods (enforce invariants)\n  addItem(item: AddItemData): void {\n    if (this._status !== OrderStatus.DRAFT) {\n      throw new OrderNotEditableError('Cannot add items to non-draft order');\n    }\n    if (this._items.length >= 50) {\n      throw new OrderLimitExceededError('Maximum 50 items per order');\n    }\n    this._items.push(OrderItem.create(item));\n  }\n\n  submit(): void {\n    if (this._items.length === 0) {\n      throw new EmptyOrderError('Cannot submit empty order');\n    }\n    this._status = OrderStatus.PENDING;\n  }\n\n  // Getters (read-only access)\n  get id(): OrderId { return this._id; }\n  get status(): OrderStatus { return this._status; }\n  get items(): readonly OrderItem[] { return [...this._items]; }\n}",
+        "***\n\n## Rules\n\n* ✅ Use factory methods (",
+        ",",
+        ")\n* ✅ Enforce all invariants in domain methods\n* ✅ Return copies of collections from getters\n* ✅ Reference other aggregates by ID only\n* ✅ **Prefer partial loading** over full loading\n* ❌ Never create with",
+        "directly\n* ❌ Never reference other aggregates directly\n\n***\n\n## Hydration\n\nRepositories are responsible for hydrating aggregates:",
+        "typescript\n// In repository\nasync findById(id: OrderId): Promise<OrderAggregate | null> {\n  const row = await this.persistence.findById(id.value);\n  if (!row) return null;\n  return OrderAggregate.reconstitute(row);\n}"
+      ]
+    }
+  },
+  {
+    "slug": "/patterns/dtos",
+    "title": "DTOs",
+    "description": "Data Transfer Objects for carrying data between layers. Immutable, validated at creation.",
+    "content": "## Types\n\n| DTO | Purpose | Location |\n|-----|---------|----------|\n| **Request DTO** | HTTP request shape | `presentation/http/{endpoint}/request.dto.ts` |\n| **Response DTO** | HTTP response shape | `presentation/http/{endpoint}/response.dto.ts` |\n| **Input DTO** | Use case input | `app/ports/inbound/{use-case}/` |\n| **Output DTO** | Use case output | `app/ports/inbound/{use-case}/` |\n\n***\n\n## Pattern\n\nUse Zod for schema definition and type inference.\n\n```typescript\n// Request DTO\nimport { z } from 'zod';\n\nconst createUserRequestSchema = z.object({\n  body: z.object({\n    email: z.string().email(),\n    name: z.string().min(1).max(100),\n    password: z.string().min(8),\n  }),\n});\n\ntype CreateUserRequest = z.infer<typeof createUserRequestSchema>;\n```\n\n```typescript\n// Use case input\nconst createUserInputSchema = z.object({\n  email: z.string().email(),\n  name: z.string(),\n  password: z.string(),\n});\n\ntype CreateUserInput = z.infer<typeof createUserInputSchema>;\n```\n\n***\n\n## Validation\n\nValidate at the boundary:\n\n* **Request DTOs** validated at controller level\n* **Input DTOs** validated when created from mapper\n\n```typescript\n// In controller\nconst validated = createUserRequestSchema.parse(request);\n```\n\n***\n\n## DTO vs Value Object\n\n| Aspect | DTO | Value Object |\n|--------|-----|--------------|\n| **Purpose** | Transfer data | Represent domain concept |\n| **Location** | Presentation / App layer | Domain layer |\n| **Behavior** | None (data only) | May have methods |\n| **Identity** | None | Compared by value |\n",
+    "_searchMeta": {
+      "cleanContent": "types dto purpose location----- --------- ----------request dto http request shape presentation http endpoint request dto tsresponse dto http response shape presentation http endpoint response dto tsinput dto use case input app ports inbound use-case output dto use case output app ports inbound use-case pattern use zod for schema definition and type inference validation validate at the boundary: request dtos validated at controller level input dtos validated when created from mapper dto vs value object aspect dto value object-------- ----- --------------purpose transfer data represent domain conceptlocation presentation app layer domain layerbehavior none data only may have methodsidentity none compared by value",
+      "headings": [
+        "Types",
+        "Pattern",
+        "Validation",
+        "DTO vs Value Object"
+      ],
+      "keywords": [
+        "Types",
+        "Pattern",
+        "Validation",
+        "DTO vs Value Object",
+        "Request DTO",
+        "Response DTO",
+        "Input DTO",
+        "Output DTO",
+        "## Pattern\n\nUse Zod for schema definition and type inference.\n\n```typescript\n// Request DTO\nimport { z } from 'zod';\n\nconst createUserRequestSchema = z.object({\n  body: z.object({\n    email: z.string().email(),\n    name: z.string().min(1).max(100),\n    password: z.string().min(8),\n  }),\n});\n\ntype CreateUserRequest = z.infer<typeof createUserRequestSchema>;\n```\n\n```typescript\n// Use case input\nconst createUserInputSchema = z.object({\n  email: z.string().email(),\n  name: z.string(),\n  password: z.string(),\n});\n\ntype CreateUserInput = z.infer<typeof createUserInputSchema>;\n```",
+        "Request DTOs",
+        "Input DTOs",
+        "## DTO vs Value Object\n\n| Aspect | DTO | Value Object |\n|--------|-----|--------------|\n|",
+        "| Transfer data | Represent domain concept |\n|",
+        "| Presentation / App layer | Domain layer |\n|",
+        "| None (data only) | May have methods |\n|",
+        "presentation/http/{endpoint}/request.dto.ts",
+        "presentation/http/{endpoint}/response.dto.ts",
+        "app/ports/inbound/{use-case}/",
+        "typescript\n// Request DTO\nimport { z } from 'zod';\n\nconst createUserRequestSchema = z.object({\n  body: z.object({\n    email: z.string().email(),\n    name: z.string().min(1).max(100),\n    password: z.string().min(8),\n  }),\n});\n\ntype CreateUserRequest = z.infer<typeof createUserRequestSchema>;",
+        "",
+        "typescript\n// Use case input\nconst createUserInputSchema = z.object({\n  email: z.string().email(),\n  name: z.string(),\n  password: z.string(),\n});\n\ntype CreateUserInput = z.infer<typeof createUserInputSchema>;",
+        "***\n\n## Validation\n\nValidate at the boundary:\n\n* **Request DTOs** validated at controller level\n* **Input DTOs** validated when created from mapper",
+        "typescript\n// In controller\nconst validated = createUserRequestSchema.parse(request);"
+      ]
+    }
+  },
+  {
+    "slug": "/patterns/repositories",
+    "title": "Repositories",
+    "description": "Povide access to aggregates and read models. Three types aligned with CQRS.",
+    "content": "## Types\n\n| Type | Returns | Used In |\n|------|---------|---------|\n| **Query Repository** | Read Models | Queries (display) |\n| **Read Repository** | Aggregates | Commands (before mutation) |\n| **Write Repository** | void / ID | Commands (persist) |\n\n***\n\n## Port Definition (Outbound)\n\n```typescript\n// ports/outbound/user.repository.outbound.ts\n\ninterface UserQueryRepositoryOutboundPort {\n  findPaginated(options: PaginationOptions): Promise<PaginatedResult<UserReadModel>>;\n}\n\ninterface UserReadRepositoryOutboundPort {\n  findById(id: UserId): Promise<UserAggregate | null>;\n  findByEmail(email: Email): Promise<UserAggregate | null>;\n}\n\ninterface UserWriteRepositoryOutboundPort {\n  save(user: UserAggregate): Promise<void>;\n  delete(id: UserId): Promise<void>;\n}\n```\n\n***\n\n## Implementation\n\n```typescript\n// infra/implementations/user/user.repository.ts\n\nclass UserRepository implements \n  UserQueryRepositoryOutboundPort,\n  UserReadRepositoryOutboundPort,\n  UserWriteRepositoryOutboundPort \n{\n  constructor(private readonly persistence: UserPersistence) {}\n\n  async findById(id: UserId): Promise<UserAggregate | null> {\n    const row = await this.persistence.findById(id.value);\n    if (!row) return null;\n    return UserAggregate.reconstitute(row);\n  }\n\n  async save(user: UserAggregate): Promise<void> {\n    await this.persistence.upsert({\n      id: user.id.value,\n      email: user.email.value,\n      name: user.name,\n    });\n  }\n}\n```\n\n***\n\n## Usage in Use Cases\n\n```typescript\n// Query use case\nclass FindUsersQuery {\n  constructor(private readonly queryRepo: UserQueryRepositoryOutboundPort) {}\n\n  async execute(input: FindUsersInput): Promise<FindUsersOutput> {\n    return this.queryRepo.findPaginated(input.pagination);\n  }\n}\n\n// Command use case\nclass CreateUserCommand {\n  constructor(\n    private readonly readRepo: UserReadRepositoryOutboundPort,\n    private readonly writeRepo: UserWriteRepositoryOutboundPort,\n  ) {}\n\n  async execute(input: CreateUserInput): Promise<void> {\n    const existing = await this.readRepo.findByEmail(Email.create(input.email));\n    if (existing) throw new EmailAlreadyExistsError(input.email);\n\n    const user = UserAggregate.create(input);\n    await this.writeRepo.save(user);\n  }\n}\n```\n\n***\n\n## Rules\n\n* ✅ Define ports in BC, implement in infrastructure\n* ✅ Return Aggregates from Read Repository\n* ✅ Return Read Models from Query Repository\n* ✅ Hydrate aggregates in repository (not caller)\n* ❌ Don't put business logic in repositories\n",
+    "_searchMeta": {
+      "cleanContent": "types type returns used in------ --------- ---------query repository read models queries display read repository aggregates commands before mutation write repository void id commands persist port definition outbound implementation usage in use cases rules define ports in bc implement in infrastructure return aggregates from read repository return read models from query repository hydrate aggregates in repository not caller don t put business logic in repositories",
+      "headings": [
+        "Types",
+        "Port Definition (Outbound)",
+        "Implementation",
+        "Usage in Use Cases",
+        "Rules"
+      ],
+      "keywords": [
+        "Types",
+        "Port Definition (Outbound)",
+        "Implementation",
+        "Usage in Use Cases",
+        "Rules",
+        "Query Repository",
+        "Read Repository",
+        "Write Repository",
+        "## Port Definition (Outbound)\n\n```typescript\n// ports/outbound/user.repository.outbound.ts\n\ninterface UserQueryRepositoryOutboundPort {\n  findPaginated(options: PaginationOptions): Promise<PaginatedResult<UserReadModel>>;\n}\n\ninterface UserReadRepositoryOutboundPort {\n  findById(id: UserId): Promise<UserAggregate | null>;\n  findByEmail(email: Email): Promise<UserAggregate | null>;\n}\n\ninterface UserWriteRepositoryOutboundPort {\n  save(user: UserAggregate): Promise<void>;\n  delete(id: UserId): Promise<void>;\n}\n```",
+        "## Usage in Use Cases\n\n```typescript\n// Query use case\nclass FindUsersQuery {\n  constructor(private readonly queryRepo: UserQueryRepositoryOutboundPort) {}\n\n  async execute(input: FindUsersInput): Promise<FindUsersOutput> {\n    return this.queryRepo.findPaginated(input.pagination);\n  }\n}\n\n// Command use case\nclass CreateUserCommand {\n  constructor(\n    private readonly readRepo: UserReadRepositoryOutboundPort,\n    private readonly writeRepo: UserWriteRepositoryOutboundPort,\n  ) {}\n\n  async execute(input: CreateUserInput): Promise<void> {\n    const existing = await this.readRepo.findByEmail(Email.create(input.email));\n    if (existing) throw new EmailAlreadyExistsError(input.email);\n\n    const user = UserAggregate.create(input);\n    await this.writeRepo.save(user);\n  }\n}\n```",
+        "typescript\n// ports/outbound/user.repository.outbound.ts\n\ninterface UserQueryRepositoryOutboundPort {\n  findPaginated(options: PaginationOptions): Promise<PaginatedResult<UserReadModel>>;\n}\n\ninterface UserReadRepositoryOutboundPort {\n  findById(id: UserId): Promise<UserAggregate | null>;\n  findByEmail(email: Email): Promise<UserAggregate | null>;\n}\n\ninterface UserWriteRepositoryOutboundPort {\n  save(user: UserAggregate): Promise<void>;\n  delete(id: UserId): Promise<void>;\n}",
+        "***\n\n## Implementation",
+        "typescript\n// infra/implementations/user/user.repository.ts\n\nclass UserRepository implements \n  UserQueryRepositoryOutboundPort,\n  UserReadRepositoryOutboundPort,\n  UserWriteRepositoryOutboundPort \n{\n  constructor(private readonly persistence: UserPersistence) {}\n\n  async findById(id: UserId): Promise<UserAggregate | null> {\n    const row = await this.persistence.findById(id.value);\n    if (!row) return null;\n    return UserAggregate.reconstitute(row);\n  }\n\n  async save(user: UserAggregate): Promise<void> {\n    await this.persistence.upsert({\n      id: user.id.value,\n      email: user.email.value,\n      name: user.name,\n    });\n  }\n}",
+        "***\n\n## Usage in Use Cases",
+        "typescript\n// Query use case\nclass FindUsersQuery {\n  constructor(private readonly queryRepo: UserQueryRepositoryOutboundPort) {}\n\n  async execute(input: FindUsersInput): Promise<FindUsersOutput> {\n    return this.queryRepo.findPaginated(input.pagination);\n  }\n}\n\n// Command use case\nclass CreateUserCommand {\n  constructor(\n    private readonly readRepo: UserReadRepositoryOutboundPort,\n    private readonly writeRepo: UserWriteRepositoryOutboundPort,\n  ) {}\n\n  async execute(input: CreateUserInput): Promise<void> {\n    const existing = await this.readRepo.findByEmail(Email.create(input.email));\n    if (existing) throw new EmailAlreadyExistsError(input.email);\n\n    const user = UserAggregate.create(input);\n    await this.writeRepo.save(user);\n  }\n}"
+      ]
+    }
+  },
+  {
+    "slug": "/patterns/value-objects",
+    "title": "Value Objects",
+    "description": "Immutable objects defined by their attributes, not identity. Used for type safety and validation.",
+    "content": "## Structure\n\n```typescript\nclass UserId {\n  private constructor(private readonly _value: string) {}\n\n  static create(value: string): UserId {\n    if (!isValidUUID(value)) {\n      throw new InvalidUserIdError(`Invalid user ID: ${value}`);\n    }\n    return new UserId(value);\n  }\n\n  static generate(): UserId {\n    return new UserId(crypto.randomUUID());\n  }\n\n  get value(): string {\n    return this._value;\n  }\n\n  equals(other: UserId): boolean {\n    return this._value === other._value;\n  }\n}\n```\n\n***\n\n## Common Value Objects\n\n### ID Value Objects\n\n```typescript\nclass UserId { ... }\nclass OrderId { ... }\nclass ProductId { ... }\n```\n\n### Email\n\n```typescript\nclass Email {\n  private constructor(private readonly _value: string) {}\n\n  static create(value: string): Email {\n    const normalized = value.toLowerCase().trim();\n    if (!isValidEmail(normalized)) throw new InvalidEmailError(value);\n    return new Email(normalized);\n  }\n\n  get value(): string { return this._value; }\n  get domain(): string { return this._value.split('@')[1]; }\n}\n```\n\n### Money\n\n```typescript\nclass Money {\n  private constructor(\n    private readonly _cents: number,\n    private readonly _currency: Currency,\n  ) {}\n\n  static create(amount: number, currency: Currency): Money {\n    if (amount < 0) throw new InvalidMoneyError('Amount cannot be negative');\n    return new Money(Math.round(amount * 100), currency);\n  }\n\n  get amount(): number { return this._cents / 100; }\n  get currency(): Currency { return this._currency; }\n\n  add(other: Money): Money {\n    if (this._currency !== other._currency) throw new CurrencyMismatchError();\n    return new Money(this._cents + other._cents, this._currency);\n  }\n}\n```\n\n***\n\n## Rules\n\n* ✅ Make immutable (no setters)\n* ✅ Use factory methods for validation\n* ✅ Implement `equals()` for comparisons\n* ✅ Throw domain exceptions on invalid data\n* ❌ Don't use for complex objects (use Entities/Aggregates)\n",
+    "_searchMeta": {
+      "cleanContent": "structure common value objects id value objects email money rules make immutable no setters use factory methods for validation implement equals for comparisons throw domain exceptions on invalid data don t use for complex objects use entities aggregates",
+      "headings": [
+        "Structure",
+        "Common Value Objects",
+        "Rules"
+      ],
+      "keywords": [
+        "Structure",
+        "Common Value Objects",
+        "Rules",
+        "typescript\nclass UserId {\n  private constructor(private readonly _value: string) {}\n\n  static create(value: string): UserId {\n    if (!isValidUUID(value)) {\n      throw new InvalidUserIdError(",
+        ");\n    }\n    return new UserId(value);\n  }\n\n  static generate(): UserId {\n    return new UserId(crypto.randomUUID());\n  }\n\n  get value(): string {\n    return this._value;\n  }\n\n  equals(other: UserId): boolean {\n    return this._value === other._value;\n  }\n}",
+        "***\n\n## Common Value Objects\n\n### ID Value Objects",
+        "typescript\nclass UserId { ... }\nclass OrderId { ... }\nclass ProductId { ... }",
+        "### Email",
+        "typescript\nclass Email {\n  private constructor(private readonly _value: string) {}\n\n  static create(value: string): Email {\n    const normalized = value.toLowerCase().trim();\n    if (!isValidEmail(normalized)) throw new InvalidEmailError(value);\n    return new Email(normalized);\n  }\n\n  get value(): string { return this._value; }\n  get domain(): string { return this._value.split('@')[1]; }\n}",
+        "### Money",
+        "typescript\nclass Money {\n  private constructor(\n    private readonly _cents: number,\n    private readonly _currency: Currency,\n  ) {}\n\n  static create(amount: number, currency: Currency): Money {\n    if (amount < 0) throw new InvalidMoneyError('Amount cannot be negative');\n    return new Money(Math.round(amount * 100), currency);\n  }\n\n  get amount(): number { return this._cents / 100; }\n  get currency(): Currency { return this._currency; }\n\n  add(other: Money): Money {\n    if (this._currency !== other._currency) throw new CurrencyMismatchError();\n    return new Money(this._cents + other._cents, this._currency);\n  }\n}",
+        "***\n\n## Rules\n\n* ✅ Make immutable (no setters)\n* ✅ Use factory methods for validation\n* ✅ Implement"
+      ]
+    }
+  },
+  {
+    "slug": "/philosophy",
+    "title": "Philosophy",
+    "description": "Why this architecture and when to use it",
+    "content": "## Core Principles\n\n### 1. Business Logic is Framework-Free\n\nDomain code never knows about:\n\n* HTTP frameworks (Express, Fastify, etc.)\n* Database clients (Drizzle, Prisma, etc.)\n* Cloud providers\n* Environment variables\n\n**Why?** Frameworks change. Your business rules shouldn't.\n\n### 2. Dependencies Flow Inward\n\n```\nPresentation → Infrastructure → Orchestrations → Bounded Contexts\n```\n\nInner layers never import from outer layers.\n\n### 3. Contracts are the Source of Truth\n\n* **Read Models** define shared data shapes\n* **Request/Response DTOs** define API contracts\n* Frontend and backend share the same schemas\n\n***\n\n## When to Use\n\n### Good Fit ✅\n\n* Medium to large applications\n* Multiple bounded contexts\n* Complex business rules\n* Long-term maintainability matters\n\n### Not a Good Fit ❌\n\n* Simple CRUD apps\n* Prototypes / MVPs\n* Minimal business logic\n\n***\n\n## Tradeoffs\n\n### What You Gain\n\n* **Testability** — Pure domain logic, easy mocking\n* **Flexibility** — Swap databases, frameworks\n* **Clarity** — Each layer has one job\n* **Scalability** — BCs can become services\n\n### What You Pay\n\n* **More files** — Ports, DTOs, mappers\n* **Learning curve** — New developers need onboarding\n* **Indirection** — Request flows through layers\n",
+    "_searchMeta": {
+      "cleanContent": "core principles business logic is framework-free domain code never knows about: http frameworks express fastify etc database clients drizzle prisma etc cloud providers environment variables why frameworks change your business rules shouldn t dependencies flow inward inner layers never import from outer layers contracts are the source of truth read models define shared data shapes request response dtos define api contracts frontend and backend share the same schemas when to use good fit medium to large applications multiple bounded contexts complex business rules long-term maintainability matters not a good fit simple crud apps prototypes mvps minimal business logic tradeoffs what you gain testability pure domain logic easy mocking flexibility swap databases frameworks clarity each layer has one job scalability bcs can become services what you pay more files ports dtos mappers learning curve new developers need onboarding indirection request flows through layers",
+      "headings": [
+        "Core Principles",
+        "When to Use",
+        "Tradeoffs"
+      ],
+      "keywords": [
+        "Core Principles",
+        "When to Use",
+        "Tradeoffs",
+        "Why?",
+        "Read Models",
+        "Request/Response DTOs",
+        "Testability",
+        "Flexibility",
+        "Clarity",
+        "Scalability",
+        "More files",
+        "Learning curve",
+        "Indirection",
+        "Presentation → Infrastructure → Orchestrations → Bounded Contexts"
+      ]
+    }
+  }
+]

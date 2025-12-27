@@ -1,0 +1,91 @@
+---
+title: "Aggregates"
+description: "Entity clusters treated as a single unit. Enforce business invariants."
+icon: "boxes-stacked"
+---
+
+## Structure
+
+```typescript
+class OrderAggregate {
+  private constructor(
+    private readonly _id: OrderId,
+    private readonly _customerId: CustomerId,
+    private _items: OrderItem[],
+    private _status: OrderStatus,
+    private readonly _createdAt: Date,
+  ) {}
+
+  // Factory for NEW instances
+  static create(data: CreateOrderData): OrderAggregate {
+    return new OrderAggregate(
+      OrderId.generate(),
+      CustomerId.create(data.customerId),
+      [],
+      OrderStatus.DRAFT,
+      new Date(),
+    );
+  }
+
+  // Factory for EXISTING instances (from DB)
+  static reconstitute(data: OrderData): OrderAggregate {
+    return new OrderAggregate(
+      OrderId.create(data.id),
+      CustomerId.create(data.customerId),
+      data.items.map(OrderItem.reconstitute),
+      data.status,
+      data.createdAt,
+    );
+  }
+
+  // Domain methods (enforce invariants)
+  addItem(item: AddItemData): void {
+    if (this._status !== OrderStatus.DRAFT) {
+      throw new OrderNotEditableError('Cannot add items to non-draft order');
+    }
+    if (this._items.length >= 50) {
+      throw new OrderLimitExceededError('Maximum 50 items per order');
+    }
+    this._items.push(OrderItem.create(item));
+  }
+
+  submit(): void {
+    if (this._items.length === 0) {
+      throw new EmptyOrderError('Cannot submit empty order');
+    }
+    this._status = OrderStatus.PENDING;
+  }
+
+  // Getters (read-only access)
+  get id(): OrderId { return this._id; }
+  get status(): OrderStatus { return this._status; }
+  get items(): readonly OrderItem[] { return [...this._items]; }
+}
+```
+
+---
+
+## Rules
+
+- ✅ Use factory methods (`create`, `reconstitute`)
+- ✅ Enforce all invariants in domain methods
+- ✅ Return copies of collections from getters
+- ✅ Reference other aggregates by ID only
+- ✅ **Prefer partial loading** over full loading
+- ❌ Never create with `new` directly
+- ❌ Never reference other aggregates directly
+
+---
+
+## Hydration
+
+Repositories are responsible for hydrating aggregates:
+
+```typescript
+// In repository
+async findById(id: OrderId): Promise<OrderAggregate | null> {
+  const row = await this.persistence.findById(id.value);
+  if (!row) return null;
+  return OrderAggregate.reconstitute(row);
+}
+```

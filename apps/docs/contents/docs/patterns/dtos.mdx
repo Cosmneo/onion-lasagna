@@ -1,0 +1,70 @@
+---
+title: "DTOs"
+description: "Data Transfer Objects for carrying data between layers. Immutable, validated at creation."
+icon: "box"
+---
+
+## Types
+
+| DTO | Purpose | Location |
+|-----|---------|----------|
+| **Request DTO** | HTTP request shape | `presentation/http/{endpoint}/request.dto.ts` |
+| **Response DTO** | HTTP response shape | `presentation/http/{endpoint}/response.dto.ts` |
+| **Input DTO** | Use case input | `app/ports/inbound/{use-case}/` |
+| **Output DTO** | Use case output | `app/ports/inbound/{use-case}/` |
+
+---
+
+## Pattern
+
+Use Zod for schema definition and type inference.
+
+```typescript
+// Request DTO
+import { z } from 'zod';
+
+const createUserRequestSchema = z.object({
+  body: z.object({
+    email: z.string().email(),
+    name: z.string().min(1).max(100),
+    password: z.string().min(8),
+  }),
+});
+
+type CreateUserRequest = z.infer<typeof createUserRequestSchema>;
+```
+
+```typescript
+// Use case input
+const createUserInputSchema = z.object({
+  email: z.string().email(),
+  name: z.string(),
+  password: z.string(),
+});
+
+type CreateUserInput = z.infer<typeof createUserInputSchema>;
+```
+
+---
+
+## Validation
+
+Validate at the boundary:
+- **Request DTOs** validated at controller level
+- **Input DTOs** validated when created from mapper
+
+```typescript
+// In controller
+const validated = createUserRequestSchema.parse(request);
+```
+
+---
+
+## DTO vs Value Object
+
+| Aspect | DTO | Value Object |
+|--------|-----|--------------|
+| **Purpose** | Transfer data | Represent domain concept |
+| **Location** | Presentation / App layer | Domain layer |
+| **Behavior** | None (data only) | May have methods |
+| **Identity** | None | Compared by value |
