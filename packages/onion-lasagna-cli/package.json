@@ -1,0 +1,27 @@
+{
+  "name": "onion-lasagna-cli",
+  "version": "0.1.0",
+  "description": "Development CLI for onion-lasagna projects",
+  "type": "module",
+  "bin": {
+    "onion-lasagna": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.9.1",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
