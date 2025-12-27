@@ -12,24 +12,31 @@ Implements outbound ports. Three-tier structure.
 ## Structure
 
 ```
-infra/ (or shared-infra/)
-├── implementations/           ← Outbound port implementations (uses `implements`)
+infra/
+├── outbound-adapters/         ← Outbound port implementations (uses `implements`)
 │   └── {resource}/
 │       └── {resource}.repository.ts
 ├── persistence/               ← Raw database access (NO `implements`)
 │   └── drizzle/
 │       └── {resource}/
-└── external/                  ← Raw API adapters (NO `implements`)
-    └── {service-name}/
+├── external-systems/          ← Raw API adapters (NO `implements`)
+│   └── {service-name}/
+├── schemas/                   ← Validation schemas
+│   ├── use-cases/
+│   │   ├── queries/{query}/
+│   │   └── commands/{command}/
+│   └── http/
+│       └── {resource}/{endpoint}/
+└── config/                    ← Configuration and environment
 ```
 
 ---
 
 ## Key Rule
 
-**Only `implementations/` uses the `implements` keyword.**
+**Only `outbound-adapters/` uses the `implements` keyword.**
 
-Persistence and external are plain classes that the implementations orchestrate.
+Persistence and external-systems are plain classes that the adapters orchestrate.
 
 ---
 
@@ -49,11 +56,18 @@ class UserPersistence {
 }
 ```
 
-### Implementation (Outbound Port)
+### Outbound Adapter (Port Implementation)
 
-```typescript:implementations/user/user.repository.ts
-class UserRepository implements UserRepositoryOutboundPort {
-  constructor(private readonly persistence: UserPersistence) {}
+```typescript:outbound-adapters/user/user.repository.ts
+import { BaseOutboundAdapter } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+class UserRepository
+  extends BaseOutboundAdapter
+  implements UserRepositoryOutboundPort
+{
+  constructor(private readonly persistence: UserPersistence) {
+    super();
+  }
 
   async findById(id: UserId): Promise<UserAggregate | null> {
     const row = await this.persistence.findById(id.value);
@@ -71,17 +85,19 @@ class UserRepository implements UserRepositoryOutboundPort {
 }
 ```
 
+**Note:** Extending `BaseOutboundAdapter` automatically wraps all methods with error handling, converting any thrown errors to `InfraError`.
+
 ---
 
-## Shared-Infra Scoping
+## Shared Infrastructure Scoping
 
 | Scope | Location | Use When |
 |-------|----------|----------|
-| Global | `/packages/backend/shared-infra/` | Shared across all modules |
-| Module | `/modules/{module}/shared-infra/` | Shared across BCs in one module |
+| Global | `/packages/backend/shared/infra/` | Shared across all modules |
+| Module | `/modules/{module}/shared/infra/` | Shared across BCs in one module |
 | BC | `/bounded-contexts/{bc}/infra/` | Scoped to single BC |
 
-Simple systems can share a single database + ORM via shared-infra.
+Simple systems can share a single database + ORM via `shared/infra/`.
 
 ---
 

@@ -81,14 +81,37 @@ packages/backend/
 │   ├── bounded-contexts/{bc}/
 │   │   ├── app/
 │   │   │   ├── ports/inbound/
+│   │   │   │   ├── queries/
+│   │   │   │   └── commands/
 │   │   │   ├── ports/outbound/
 │   │   │   └── use-cases/
+│   │   │       ├── queries/
+│   │   │       └── commands/
 │   │   ├── domain/
-│   │   └── infra/
-│   ├── orchestrations/
-│   ├── presentation/
-│   └── shared-infra/
-└── shared-infra/
+│   │   │   ├── aggregates/
+│   │   │   ├── events/
+│   │   │   └── services/
+│   │   ├── infra/
+│   │   │   ├── outbound-adapters/
+│   │   │   ├── persistence/
+│   │   │   ├── external-systems/
+│   │   │   ├── schemas/
+│   │   │   └── config/
+│   │   └── presentation/
+│   │       ├── bootstrap/
+│   │       └── http/
+│   ├── orchestrations/{orchestration}/
+│   │   ├── app/
+│   │   ├── infra/
+│   │   └── presentation/
+│   └── shared/
+│       ├── infra/
+│       ├── app/
+│       └── domain/
+└── shared/
+    ├── infra/
+    ├── app/
+    └── domain/
 ```
 
 ### Simple
@@ -96,7 +119,16 @@ packages/backend/
 ```
 packages/backend/
 ├── bounded-contexts/{bc}/
-├── orchestrations/
-├── presentation/
-└── shared-infra/
+│   ├── app/
+│   ├── domain/
+│   ├── infra/
+│   └── presentation/
+├── orchestrations/{orchestration}/
+│   ├── app/
+│   ├── infra/
+│   └── presentation/
+└── shared/
+    ├── infra/
+    ├── app/
+    └── domain/
 ```
