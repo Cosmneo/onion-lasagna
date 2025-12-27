@@ -1,0 +1,45 @@
+{
+  "name": "create-onion-lasagna-app",
+  "version": "0.1.0",
+  "description": "CLI to scaffold new onion-lasagna projects",
+  "type": "module",
+  "license": "MIT",
+  "author": "Cosmneo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cosmneo/onion-lasagna.git",
+    "directory": "packages/create-onion-lasagna-app"
+  },
+  "keywords": [
+    "cli",
+    "scaffold",
+    "onion-architecture",
+    "hexagonal-architecture",
+    "create-app"
+  ],
+  "bin": {
+    "create-onion-lasagna-app": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.9.1",
+    "degit": "^2.8.4",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/degit": "^2.8.6",
+    "@types/node": "^22.10.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  }
+}
