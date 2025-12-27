@@ -56,6 +56,7 @@ flowchart LR
 | `--use-pnpm` | - | Use pnpm package manager | - |
 | `--skip-git` | `-g` | Skip git initialization | `false` |
 | `--no-install` | - | Skip dependency installation | `false` |
+| `--dry-run` | `-d` | Preview what would be created | - |
 | `--yes` | `-y` | Skip prompts, use defaults | - |
 | `--version` | `-V` | Show version number | - |
 | `--help` | `-h` | Show help | - |
@@ -89,6 +90,67 @@ bunx create-onion-lasagna-app my-app
 # Skip git initialization
 bunx create-onion-lasagna-app my-app --skip-git
 ```
+
+## Dry Run Mode
+
+Preview what would be created without making any changes:
+
+```bash
+bunx create-onion-lasagna-app my-app --dry-run
+```
+
+Output includes:
+- Project configuration summary
+- Files that would be created
+- Actions that would be performed
+
+```
+DRY RUN  No changes will be made.
+
+Project Configuration:
+──────────────────────────────────────────────────
+  Name:           my-app
+  Directory:      /path/to/my-app
+  Structure:      simple
+  Starter:        simple-clean
+  ...
+
+Files that would be created:
+──────────────────────────────────────────────────
+  + my-app/
+  + my-app/package.json
+  + my-app/.onion-lasagna.json
+  ...
+```
+
+## Project Name Validation
+
+Project names follow npm package naming conventions:
+
+| Rule | Invalid | Suggestion |
+|------|---------|------------|
+| Lowercase only | `MyApp` | `myapp` |
+| No spaces | `my app` | `my-app` |
+| No leading numbers | `123-app` | `app-123-app` |
+| No leading dots/underscores | `_myapp` | `myapp` |
+| No reserved names | `node_modules` | `my-node_modules` |
+| Max 214 characters | (too long) | (truncated) |
+
+Invalid names are caught early with helpful suggestions.
+
+## Directory Conflict Handling
+
+If the target directory exists and isn't empty, interactive mode offers:
+
+```
+? Directory "my-app" already exists and is not empty.
+  How would you like to proceed?
+  ○ Overwrite     - Remove existing files and continue
+  ○ Choose a different name
+  ○ Cancel
+```
+
+In non-interactive mode (`--yes`), existing non-empty directories cause an error.
 
 ## Structures & Starters
 

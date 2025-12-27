@@ -7,6 +7,122 @@ export type Structure = 'simple' | 'modules';
 export type Starter = 'simple-clean' | 'modules-clean';
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun';
 
+// Reserved names that cannot be used as project names
+const RESERVED_NAMES = new Set([
+  'node_modules',
+  'favicon.ico',
+  'package.json',
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'bun.lockb',
+  '.git',
+  '.gitignore',
+  '.env',
+  'src',
+  'dist',
+  'build',
+  'test',
+  'tests',
+  'lib',
+  'bin',
+  'npm',
+  'npx',
+  'node',
+]);
+
+export interface NameValidationResult {
+  valid: boolean;
+  error?: string;
+  suggestion?: string;
+}
+
+export function validateProjectName(name: string): NameValidationResult {
+  // Empty check
+  if (!name || name.trim().length === 0) {
+    return { valid: false, error: 'Project name cannot be empty' };
+  }
+
+  // Length check (npm limit is 214 characters)
+  if (name.length > 214) {
+    return {
+      valid: false,
+      error: 'Project name must be 214 characters or fewer',
+      suggestion: name.slice(0, 50),
+    };
+  }
+
+  // Reserved name check
+  if (RESERVED_NAMES.has(name.toLowerCase())) {
+    return {
+      valid: false,
+      error: `"${name}" is a reserved name`,
+      suggestion: `my-${name}`,
+    };
+  }
+
+  // Cannot start with a dot or underscore
+  if (name.startsWith('.') || name.startsWith('_')) {
+    return {
+      valid: false,
+      error: 'Project name cannot start with a dot or underscore',
+      suggestion: name.replace(/^[._]+/, ''),
+    };
+  }
+
+  // Cannot start with a number
+  if (/^[0-9]/.test(name)) {
+    return {
+      valid: false,
+      error: 'Project name cannot start with a number',
+      suggestion: `app-${name}`,
+    };
+  }
+
+  // No uppercase letters (npm packages must be lowercase)
+  if (/[A-Z]/.test(name)) {
+    return {
+      valid: false,
+      error: 'Project name must be lowercase',
+      suggestion: name.toLowerCase(),
+    };
+  }
+
+  // No spaces
+  if (/\s/.test(name)) {
+    return {
+      valid: false,
+      error: 'Project name cannot contain spaces',
+      suggestion: name.replace(/\s+/g, '-'),
+    };
+  }
+
+  // Only allowed characters: lowercase letters, numbers, hyphens, underscores
+  if (!/^[a-z0-9][a-z0-9._-]*$/.test(name)) {
+    const sanitized = name
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]/g, '-')
+      .replace(/^[._-]+/, '')
+      .replace(/-+/g, '-');
+    return {
+      valid: false,
+      error: 'Project name can only contain lowercase letters, numbers, hyphens, and underscores',
+      suggestion: sanitized || 'my-app',
+    };
+  }
+
+  // Cannot end with certain characters
+  if (/[._-]$/.test(name)) {
+    return {
+      valid: false,
+      error: 'Project name cannot end with a dot, underscore, or hyphen',
+      suggestion: name.replace(/[._-]+$/, ''),
+    };
+  }
+
+  return { valid: true };
+}
+
 interface StarterConfig {
   structure: Structure;
   label: string;
