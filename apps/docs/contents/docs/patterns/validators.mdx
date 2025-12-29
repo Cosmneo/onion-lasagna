@@ -123,52 +123,30 @@ import { Dto } from '@cosmneo/onion-lasagna/backend/core/validators/typebox';
 
 ---
 
-## Using with BaseValueObject
+## Value Objects vs DTOs
 
-Inject validators into `BaseValueObject` constructors:
+**Value Objects** validate in their domain layer using plain TypeScript - they don't use external validators. This keeps domain invariants in the domain.
+
+**DTOs** use validators at boundaries (API input validation) where you need schema-based validation of untrusted data.
 
 ```typescript
-import { BaseValueObject } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-import { createZodValidator } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
-
+// Value Object - domain validation (plain TypeScript)
 class Email extends BaseValueObject<string> {
-  private constructor(value: string) {
-    super(value, createZodValidator(z.string().email()));
-  }
-
-  static create(value: string): Email {
+  static create(value: Email['value']): Email {
+    if (!Email.EMAIL_REGEX.test(value)) {
+      throw new InvariantViolationError({ message: 'Invalid email', code: 'INVALID_EMAIL' });
+    }
     return new Email(value);
   }
 }
+
+// DTO - boundary validation (schema-based)
+class CreateUserDto extends BaseDto<CreateUserData> {
+  private constructor(data: CreateUserData) {
+    super(data, createZodValidator(createUserSchema));
+  }
+}
 ```
-
----
-
-## Pre-built Value Objects
-
-Each validator exports ready-to-use value objects:
-
-```typescript
-import {
-  EmailVo,
-  UuidV4Vo,
-  UuidV7Vo,
-  ShortTextVo,
-  MediumTextVo,
-  LongTextVo,
-  PaginationVo,
-  AuditByVo,
-  AuditOnVo,
-  AuditInfoVo,
-} from '@cosmneo/onion-lasagna/backend/core/validators/zod';
-
-// Usage
-const email = EmailVo.create('user@example.com');
-const id = UuidV4Vo.generate();
-const name = ShortTextVo.create('John Doe');
-```
-
-All four validators (Zod, ArkType, Valibot, TypeBox) provide these same value objects with identical APIs.
 
 ---
 
@@ -218,7 +196,7 @@ const schema = v.object({ name: v.string() });
 const validator = createValibotValidator(schema);
 ```
 
-The `BoundValidator<T>` interface remains the same, so your `BaseDto` and `BaseValueObject` classes continue working without changes.
+The `BoundValidator<T>` interface remains the same, so your `BaseDto` classes continue working without changes.
 
 ---
 

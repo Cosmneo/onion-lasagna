@@ -1050,28 +1050,23 @@ Controllers automatically convert `ObjectValidationError` to `InvalidRequestErro
 
 ## BaseValueObject
 
-All value objects extend `BaseValueObject`:
+All value objects extend `BaseValueObject` and validate in their `create()` factory method:
 
 ```typescript
 
 
 
-
 class Email extends BaseValueObject {
-  private constructor(value: string, skipValidation = false) {
-    super(
-      value,
-      skipValidation ? SKIP_VALUE_OBJECT_VALIDATION : createZodValidator(z.string().email()),
-    );
-  }
+  private static readonly EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  static create(value: string): Email {
+  static create(value: Email['value']): Email {
+    if (!Email.EMAIL_REGEX.test(value)) {
+      throw new InvariantViolationError({
+        message: 'Invalid email format',
+        code: 'INVALID_EMAIL',
+      });
+    }
     return new Email(value);
-  }
-
-  // For reconstitution from trusted sources (e.g., database)
-  static fromPersistence(value: string): Email {
-    return new Email(value, true);
   }
 
   get domain(): string {
@@ -1082,8 +1077,9 @@ class Email extends BaseValueObject {
 
 Key features:
 - **Immutable**: Value is set at construction and cannot be changed
-- **Validated**: Validator runs at construction (unless skipped)
+- **Self-validating**: Validation runs in `create()` before construction
 - **Comparable**: Built-in `equals()` method with deep equality
+- **Type inference**: Use `ClassName['value']` for input type
 
 ---
 
@@ -1095,25 +1091,44 @@ The library provides base value objects you can extend:
 
 ```typescript
 
-  BaseShortTextVo,   // Suggested: 1-100 characters
-  BaseMediumTextVo,  // Suggested: 1-500 characters
-  BaseLongTextVo,    // Suggested: 1-2000 characters
+  BaseTextVo,        // Configurable text with static constraints
+  BaseShortTextVo,   // 1-100 characters
+  BaseMediumTextVo,  // 1-500 characters
+  BaseLongTextVo,    // 1-5000 characters
 } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+// Create custom text VO with constraints
+class ProductName extends BaseTextVo {
+  static override defaultMinLength = 1;
+  static override defaultMaxLength = 50;
+}
+
+class SkuCode extends BaseTextVo {
+  static override defaultMinLength = 3;
+  static override defaultMaxLength = 20;
+  static override defaultPattern = /^[A-Z0-9-]+$/;
+}
 ```
 
 ### Identifiers
 
 ```typescript
 
-  BaseUuidV4Vo,  // UUID v4 format
+  BaseUuidV4Vo,  // UUID v4 format (random)
   BaseUuidV7Vo,  // UUID v7 format (time-ordered)
 } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+// Usage
+const id = BaseUuidV4Vo.generate();           // Generate new
+const parsed = BaseUuidV4Vo.create(uuidStr);  // Validate existing
 ```
 
 ### Contact
 
 ```typescript
 
+
+const email = BaseEmailVo.create('user@example.com');
 ```
 
 ### Pagination
@@ -1121,64 +1136,57 @@ The library provides base value objects you can extend:
 ```typescript
 
 
-// Properties: page, pageSize
+const page = BasePaginationVo.create({ page: 1, pageSize: 20 });
+
+// Properties
+page.page;      // 1
+page.pageSize;  // 20
+page.offset;    // 0 (calculated: (page - 1) * pageSize)
+
+// Custom max page size
+class AdminPagination extends BasePaginationVo {
+  static override get maxPageSize(): number {
+    return 500;
+  }
+}
 ```
 
 ### Auditing
 
 ```typescript
 
-  BaseAuditInfoVo,  // Combines by + on
   BaseAuditByVo,    // createdBy, updatedBy (optional UUIDs)
   BaseAuditOnVo,    // createdAt, updatedAt (with invariant check)
 } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+// Create with current timestamp
+const auditOn = BaseAuditOnVo.now();
+
+// Create with specific dates
+const auditOn = BaseAuditOnVo.create({
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-15'),
+});
+
+// Update timestamp (returns new immutable instance)
+const updated = auditOn.update();
 ```
 
 **Note**: `BaseAuditOnVo` enforces that `updatedAt` cannot be before `createdAt`.
 
 ---
 
-## Ready-to-Use Value Objects
-
-Each validator provides ready-to-use value objects:
-
-```typescript
-// Zod (same exports for arktype, valibot, typebox)
-
-  EmailVo,
-  UuidV4Vo,
-  UuidV7Vo,
-  ShortTextVo,
-  MediumTextVo,
-  LongTextVo,
-  PaginationVo,
-  AuditByVo,
-  AuditOnVo,
-  AuditInfoVo,
-} from '@cosmneo/onion-lasagna/backend/core/validators/zod';
-
-// Usage
-const email = EmailVo.create('user@example.com');
-const id = UuidV4Vo.generate();          // Generate new UUID
-const existingId = UuidV4Vo.create(str); // Validate existing
-const name = ShortTextVo.create('John Doe');
-const page = PaginationVo.create({ page: 1, pageSize: 20 });
-```
-
----
-
 ## Creating Custom Value Objects
 
-### Simple Value Object
+### Simple Identifier
 
 ```typescript
-class UserId extends BaseUuidV4Vo {
-  static create(value: string): UserId {
-    return new UserId(value);
-  }
 
-  static generate(): UserId {
-    return UserId.create(crypto.randomUUID());
+
+
+class OrderId extends BaseUuidV7Vo {
+  static override generate(): OrderId {
+    return new OrderId(v7());
   }
 }
 ```
@@ -1186,14 +1194,19 @@ class UserId extends BaseUuidV4Vo {
 ### Value Object with Custom Validation
 
 ```typescript
-const phoneSchema = z.string().regex(/^\+[1-9]\d{1,14}$/);
+
+
 
 class PhoneNumber extends BaseValueObject {
-  private constructor(value: string) {
-    super(value, createZodValidator(phoneSchema));
-  }
+  private static readonly PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
 
-  static create(value: string): PhoneNumber {
+  static create(value: PhoneNumber['value']): PhoneNumber {
+    if (!PhoneNumber.PHONE_REGEX.test(value)) {
+      throw new InvariantViolationError({
+        message: 'Invalid phone number format (E.164 required)',
+        code: 'INVALID_PHONE',
+      });
+    }
     return new PhoneNumber(value);
   }
 
@@ -1206,6 +1219,9 @@ class PhoneNumber extends BaseValueObject {
 ### Composite Value Object
 
 ```typescript
+
+
+
 interface AddressData {
   street: string;
   city: string;
@@ -1213,19 +1229,20 @@ interface AddressData {
   country: string;
 }
 
-const addressSchema = z.object({
-  street: z.string().min(1),
-  city: z.string().min(1),
-  postalCode: z.string().min(1),
-  country: z.string().length(2),
-});
-
 class Address extends BaseValueObject {
-  private constructor(data: AddressData) {
-    super(data, createZodValidator(addressSchema));
-  }
-
-  static create(data: AddressData): Address {
+  static create(data: Address['value']): Address {
+    if (!data.street || data.street.trim().length === 0) {
+      throw new InvariantViolationError({
+        message: 'Street is required',
+        code: 'INVALID_ADDRESS',
+      });
+    }
+    if (!data.country || data.country.length !== 2) {
+      throw new InvariantViolationError({
+        message: 'Country must be 2-letter ISO code',
+        code: 'INVALID_COUNTRY',
+      });
+    }
     return new Address(data);
   }
 
@@ -1237,6 +1254,38 @@ class Address extends BaseValueObject {
 }
 ```
 
+### Enum-like Value Object
+
+```typescript
+
+
+type OrderStatusValue = 'pending' | 'confirmed' | 'shipped' | 'cancelled';
+
+class OrderStatus extends BaseValueObject {
+  static pending(): OrderStatus {
+    return new OrderStatus('pending');
+  }
+
+  static confirmed(): OrderStatus {
+    return new OrderStatus('confirmed');
+  }
+
+  static shipped(): OrderStatus {
+    return new OrderStatus('shipped');
+  }
+
+  static cancelled(): OrderStatus {
+    return new OrderStatus('cancelled');
+  }
+
+  isPending(): boolean { return this.value === 'pending'; }
+  isShipped(): boolean { return this.value === 'shipped'; }
+  isModifiable(): boolean {
+    return this.isPending() || this.value === 'confirmed';
+  }
+}
+```
+
 ---
 
 ## Equality Comparison
@@ -1244,9 +1293,9 @@ class Address extends BaseValueObject {
 `BaseValueObject` provides deep equality via `equals()`:
 
 ```typescript
-const email1 = EmailVo.create('user@example.com');
-const email2 = EmailVo.create('user@example.com');
-const email3 = EmailVo.create('other@example.com');
+const email1 = BaseEmailVo.create('user@example.com');
+const email2 = BaseEmailVo.create('user@example.com');
+const email3 = BaseEmailVo.create('other@example.com');
 
 email1.equals(email2); // true (same value)
 email1.equals(email3); // false (different value)
@@ -1262,13 +1311,13 @@ The comparison handles:
 
 ## Rules
 
-- ✅ Extend `BaseValueObject` for consistency
-- ✅ Use factory methods (`create`, `generate`)
-- ✅ Use `SKIP_VALUE_OBJECT_VALIDATION` for trusted sources
-- ✅ Add convenience getters for derived values
-- ✅ Throw `ObjectValidationError` on invalid data (automatic with validators)
-- ❌ Don't mutate after construction
-- ❌ Don't use for complex objects (use Entities/Aggregates)
+- Use factory methods (`create`, `generate`) - never call constructor directly
+- Validate in `create()` and throw `InvariantViolationError` for invalid data
+- Use `ClassName['value']` for type inference in create parameters
+- Add convenience getters for derived values
+- Extend built-in VOs when possible (BaseEmailVo, BaseUuidV7Vo, etc.)
+- Don't mutate after construction
+- Don't use for complex objects (use Entities/Aggregates)
 ---
 
 # Aggregates
@@ -1781,52 +1830,30 @@ Available in all validators:
 
 ---
 
-## Using with BaseValueObject
+## Value Objects vs DTOs
 
-Inject validators into `BaseValueObject` constructors:
+**Value Objects** validate in their domain layer using plain TypeScript - they don't use external validators. This keeps domain invariants in the domain.
+
+**DTOs** use validators at boundaries (API input validation) where you need schema-based validation of untrusted data.
 
 ```typescript
-
-
-
+// Value Object - domain validation (plain TypeScript)
 class Email extends BaseValueObject {
-  private constructor(value: string) {
-    super(value, createZodValidator(z.string().email()));
-  }
-
-  static create(value: string): Email {
+  static create(value: Email['value']): Email {
+    if (!Email.EMAIL_REGEX.test(value)) {
+      throw new InvariantViolationError({ message: 'Invalid email', code: 'INVALID_EMAIL' });
+    }
     return new Email(value);
   }
 }
+
+// DTO - boundary validation (schema-based)
+class CreateUserDto extends BaseDto {
+  private constructor(data: CreateUserData) {
+    super(data, createZodValidator(createUserSchema));
+  }
+}
 ```
-
----
-
-## Pre-built Value Objects
-
-Each validator exports ready-to-use value objects:
-
-```typescript
-
-  EmailVo,
-  UuidV4Vo,
-  UuidV7Vo,
-  ShortTextVo,
-  MediumTextVo,
-  LongTextVo,
-  PaginationVo,
-  AuditByVo,
-  AuditOnVo,
-  AuditInfoVo,
-} from '@cosmneo/onion-lasagna/backend/core/validators/zod';
-
-// Usage
-const email = EmailVo.create('user@example.com');
-const id = UuidV4Vo.generate();
-const name = ShortTextVo.create('John Doe');
-```
-
-All four validators (Zod, ArkType, Valibot, TypeBox) provide these same value objects with identical APIs.
 
 ---
 
@@ -1876,7 +1903,7 @@ const schema = v.object({ name: v.string() });
 const validator = createValibotValidator(schema);
 ```
 
-The `BoundValidator` interface remains the same, so your `BaseDto` and `BaseValueObject` classes continue working without changes.
+The `BoundValidator` interface remains the same, so your `BaseDto` classes continue working without changes.
 
 ---
 
