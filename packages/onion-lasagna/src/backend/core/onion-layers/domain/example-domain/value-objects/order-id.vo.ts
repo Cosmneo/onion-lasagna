@@ -1,5 +1,4 @@
 import { v7 } from 'uuid';
-import { SKIP_VALUE_OBJECT_VALIDATION } from '../../classes/base-value-object.class';
 import { BaseUuidV7Vo } from '../../value-objects/base-uuid-v7.vo';
 
 /**
@@ -17,11 +16,7 @@ import { BaseUuidV7Vo } from '../../value-objects/base-uuid-v7.vo';
  * ```
  */
 export class OrderId extends BaseUuidV7Vo {
-    static override create(value: string): OrderId {
-        return new OrderId(value, SKIP_VALUE_OBJECT_VALIDATION);
-    }
-
-    static override generate(): OrderId {
-        return new OrderId(v7(), SKIP_VALUE_OBJECT_VALIDATION);
-    }
+  static override generate(): OrderId {
+    return new OrderId(v7());
+  }
 }

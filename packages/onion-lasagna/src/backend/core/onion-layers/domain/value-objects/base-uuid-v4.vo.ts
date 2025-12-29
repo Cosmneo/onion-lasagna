@@ -5,75 +5,50 @@
  * time-ordering is not required. For time-sortable IDs, use {@link BaseUuidV7Vo}.
  *
  * **Use Cases:**
- * - User IDs (for audit tracking)
+ * - User IDs
  * - Session tokens
  * - Correlation IDs
  * - Any identifier where time-ordering doesn't matter
  *
- * @example Extending with validation (using validator wrappers)
+ * @example
  * ```typescript
- * import { UuidV4Vo } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
- *
- * const id = UuidV4Vo.generate();
- * const parsed = UuidV4Vo.create('550e8400-e29b-41d4-a716-446655440000');
- * ```
- *
- * @example Extending in domain layer (no validation)
- * ```typescript
- * import { v4 } from 'uuid';
- *
- * class UserId extends BaseUuidV4Vo {
- *   static create(value: string): UserId {
- *     return new UserId(value, SKIP_VALUE_OBJECT_VALIDATION);
- *   }
- *
- *   static generate(): UserId {
- *     return new UserId(v4(), SKIP_VALUE_OBJECT_VALIDATION);
- *   }
- * }
+ * const id = BaseUuidV4Vo.generate();
+ * const parsed = BaseUuidV4Vo.create('550e8400-e29b-41d4-a716-446655440000');
  * ```
  */
 import { v4 } from 'uuid';
-import {
-    BaseValueObject,
-    SKIP_VALUE_OBJECT_VALIDATION,
-    type VoClass,
-} from '../classes/base-value-object.class';
-
-/** Static interface for BaseUuidV4Vo factory. */
-export type BaseUuidV4VoStatic = VoClass<BaseUuidV4Vo>;
-
-/**
- * Interface for UUID v4 value object classes (static side).
- *
- * Extends VoClass with `generate()` for creating new UUIDs.
- */
-export interface UuidV4VoClass extends VoClass<BaseUuidV4Vo> {
-    generate(): BaseUuidV4Vo;
-}
+import { BaseValueObject } from '../classes/base-value-object.class';
+import { InvariantViolationError } from '../exceptions/invariant-violation.error';
 
 /**
  * Value object for UUID v4 identifiers.
  *
- * Provides `generate()` for creating new IDs. Subclasses should add
- * their own `create()` for parsing external input with appropriate validation.
- *
  * @extends BaseValueObject<string>
  */
 export class BaseUuidV4Vo extends BaseValueObject<string> {
-    /**
-     * Creates a UUID v4 value object. Must be implemented by subclass.
-     * @throws {Error} Always throws - subclasses must override this method
-     */
-    static create(_value: string): BaseUuidV4Vo {
-        throw new Error('create must be implemented by subclass');
-    }
+  private static readonly UUID_V4_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-    /**
-     * Generates a new UUID v4 value object.
-     * No validation needed since uuid library guarantees valid output.
-     */
-    static generate(): BaseUuidV4Vo {
-        return new BaseUuidV4Vo(v4(), SKIP_VALUE_OBJECT_VALIDATION);
+  /**
+   * Creates a UUID v4 value object from an existing UUID string.
+   * @param value - The UUID string to validate and wrap
+   * @throws {InvariantViolationError} When UUID format is invalid
+   */
+  static create(value: BaseUuidV4Vo['value']): BaseUuidV4Vo {
+    if (!BaseUuidV4Vo.UUID_V4_REGEX.test(value)) {
+      throw new InvariantViolationError({
+        message: 'Invalid UUID v4 format',
+        code: 'INVALID_UUID_V4',
+      });
     }
+    return new BaseUuidV4Vo(value);
+  }
+
+  /**
+   * Generates a new UUID v4 value object.
+   * No validation needed since uuid library guarantees valid output.
+   */
+  static generate(): BaseUuidV4Vo {
+    return new BaseUuidV4Vo(v4());
+  }
 }

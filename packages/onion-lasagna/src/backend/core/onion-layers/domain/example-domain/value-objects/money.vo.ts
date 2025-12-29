@@ -1,4 +1,4 @@
-import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../../classes';
+import { BaseValueObject } from '../../classes';
 import { InvariantViolationError } from '../../exceptions/invariant-violation.error';
 
 /**
@@ -36,7 +36,7 @@ export class Money extends BaseValueObject<MoneyValue> {
    * @param amount - The monetary amount
    */
   static usd(amount: number): Money {
-    return new Money({ amount, currency: 'USD' }, SKIP_VALUE_OBJECT_VALIDATION);
+    return new Money({ amount, currency: 'USD' });
   }
 
   /**
@@ -45,7 +45,7 @@ export class Money extends BaseValueObject<MoneyValue> {
    * @param amount - The monetary amount
    */
   static eur(amount: number): Money {
-    return new Money({ amount, currency: 'EUR' }, SKIP_VALUE_OBJECT_VALIDATION);
+    return new Money({ amount, currency: 'EUR' });
   }
 
   /**
@@ -54,7 +54,7 @@ export class Money extends BaseValueObject<MoneyValue> {
    * @param currency - The currency code (default: 'USD')
    */
   static zero(currency = 'USD'): Money {
-    return new Money({ amount: 0, currency }, SKIP_VALUE_OBJECT_VALIDATION);
+    return new Money({ amount: 0, currency });
   }
 
   /**
@@ -63,7 +63,7 @@ export class Money extends BaseValueObject<MoneyValue> {
    * @param value - The money value from persistence
    */
   static fromPersistence(value: MoneyValue): Money {
-    return new Money(value, SKIP_VALUE_OBJECT_VALIDATION);
+    return new Money(value);
   }
 
   /**
@@ -88,10 +88,7 @@ export class Money extends BaseValueObject<MoneyValue> {
    */
   add(other: Money): Money {
     this.assertSameCurrency(other);
-    return new Money(
-      { amount: this.amount + other.amount, currency: this.currency },
-      SKIP_VALUE_OBJECT_VALIDATION,
-    );
+    return new Money({ amount: this.amount + other.amount, currency: this.currency });
   }
 
   /**
@@ -102,10 +99,7 @@ export class Money extends BaseValueObject<MoneyValue> {
    */
   subtract(other: Money): Money {
     this.assertSameCurrency(other);
-    return new Money(
-      { amount: this.amount - other.amount, currency: this.currency },
-      SKIP_VALUE_OBJECT_VALIDATION,
-    );
+    return new Money({ amount: this.amount - other.amount, currency: this.currency });
   }
 
   /**
@@ -114,10 +108,7 @@ export class Money extends BaseValueObject<MoneyValue> {
    * @param factor - The multiplication factor
    */
   multiply(factor: number): Money {
-    return new Money(
-      { amount: this.amount * factor, currency: this.currency },
-      SKIP_VALUE_OBJECT_VALIDATION,
-    );
+    return new Money({ amount: this.amount * factor, currency: this.currency });
   }
 
   /**

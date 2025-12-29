@@ -1,4 +1,4 @@
-import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../../classes';
+import { BaseValueObject } from '../../classes';
 
 /**
  * Possible values for an order's status.
@@ -30,7 +30,7 @@ export class OrderStatus extends BaseValueObject<OrderStatusValue> {
    * Use when creating new orders.
    */
   static pending(): OrderStatus {
-    return new OrderStatus('pending', SKIP_VALUE_OBJECT_VALIDATION);
+    return new OrderStatus('pending');
   }
 
   /**
@@ -38,7 +38,7 @@ export class OrderStatus extends BaseValueObject<OrderStatusValue> {
    * Use when payment is received.
    */
   static confirmed(): OrderStatus {
-    return new OrderStatus('confirmed', SKIP_VALUE_OBJECT_VALIDATION);
+    return new OrderStatus('confirmed');
   }
 
   /**
@@ -46,7 +46,7 @@ export class OrderStatus extends BaseValueObject<OrderStatusValue> {
    * Use when order is dispatched.
    */
   static shipped(): OrderStatus {
-    return new OrderStatus('shipped', SKIP_VALUE_OBJECT_VALIDATION);
+    return new OrderStatus('shipped');
   }
 
   /**
@@ -54,7 +54,7 @@ export class OrderStatus extends BaseValueObject<OrderStatusValue> {
    * Use when order is cancelled by customer or system.
    */
   static cancelled(): OrderStatus {
-    return new OrderStatus('cancelled', SKIP_VALUE_OBJECT_VALIDATION);
+    return new OrderStatus('cancelled');
   }
 
   /**
@@ -63,7 +63,7 @@ export class OrderStatus extends BaseValueObject<OrderStatusValue> {
    * @param value - The status value from persistence
    */
   static fromPersistence(value: OrderStatusValue): OrderStatus {
-    return new OrderStatus(value, SKIP_VALUE_OBJECT_VALIDATION);
+    return new OrderStatus(value);
   }
 
   /**

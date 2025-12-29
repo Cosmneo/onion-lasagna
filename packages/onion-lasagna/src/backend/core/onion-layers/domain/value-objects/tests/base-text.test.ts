@@ -1,118 +1,135 @@
-import { describe, it, expect, vi } from 'vitest';
-import { BaseShortTextVo } from '../base-short-text.vo';
-import { BaseMediumTextVo } from '../base-medium-text.vo';
-import { BaseLongTextVo } from '../base-long-text.vo';
+import { describe, it, expect } from 'vitest';
 import {
-  BaseValueObject,
-  SKIP_VALUE_OBJECT_VALIDATION,
-} from '../../classes/base-value-object.class';
-import type { BoundValidator } from '../../../../global/interfaces/ports/object-validator.port';
+  BaseTextVo,
+  BaseShortTextVo,
+  BaseMediumTextVo,
+  BaseLongTextVo,
+} from '../base-text.vo';
+import { BaseValueObject } from '../../classes/base-value-object.class';
+import { InvariantViolationError } from '../../exceptions/invariant-violation.error';
 
-// Concrete implementations for testing
-class ShortText extends BaseShortTextVo {
-  static create(value: string): ShortText {
-    return new ShortText(value, SKIP_VALUE_OBJECT_VALIDATION);
-  }
-
-  static createWithValidator(value: string, validator: BoundValidator<string>): ShortText {
-    return new ShortText(value, validator);
-  }
-}
-
-class MediumText extends BaseMediumTextVo {
-  static create(value: string): MediumText {
-    return new MediumText(value, SKIP_VALUE_OBJECT_VALIDATION);
-  }
-
-  static createWithValidator(value: string, validator: BoundValidator<string>): MediumText {
-    return new MediumText(value, validator);
-  }
-}
-
-class LongText extends BaseLongTextVo {
-  static create(value: string): LongText {
-    return new LongText(value, SKIP_VALUE_OBJECT_VALIDATION);
-  }
-
-  static createWithValidator(value: string, validator: BoundValidator<string>): LongText {
-    return new LongText(value, validator);
-  }
-}
-
-describe('BaseShortTextVo', () => {
+describe('BaseTextVo', () => {
   describe('create', () => {
-    it('should create with string value', () => {
-      const text = ShortText.create('Hello World');
+    it('should create with string value (no constraints by default)', () => {
+      const text = BaseTextVo.create('Hello World');
 
       expect(text.value).toBe('Hello World');
     });
 
-    it('should accept empty string', () => {
-      const text = ShortText.create('');
+    it('should accept empty string when no min constraint', () => {
+      const text = BaseTextVo.create('');
 
       expect(text.value).toBe('');
-    });
-
-    it('should handle short text content', () => {
-      const value = 'Product Name';
-      const text = ShortText.create(value);
-
-      expect(text.value).toBe(value);
-      expect(text.value.length).toBeLessThanOrEqual(100);
     });
   });
 
   describe('inheritance', () => {
     it('should extend BaseValueObject', () => {
-      const text = ShortText.create('Test');
+      const text = BaseTextVo.create('Test');
 
       expect(text).toBeInstanceOf(BaseValueObject);
     });
   });
 
-  describe('with validator', () => {
-    it('should validate using provided validator', () => {
-      const mockValidator: BoundValidator<string> = {
-        validate: vi.fn().mockReturnValue('trimmed value'),
-      };
-
-      const text = ShortText.createWithValidator('  input  ', mockValidator);
-
-      expect(mockValidator.validate).toHaveBeenCalledWith('  input  ');
-      expect(text.value).toBe('trimmed value');
-    });
-
-    it('should throw when validation fails', () => {
-      const mockValidator: BoundValidator<string> = {
-        validate: vi.fn().mockImplementation(() => {
-          throw new Error('Text too long');
-        }),
-      };
-
-      expect(() => ShortText.createWithValidator('x'.repeat(200), mockValidator)).toThrow(
-        'Text too long',
-      );
-    });
-  });
-
   describe('equals', () => {
     it('should return true for same values', () => {
-      const text1 = ShortText.create('Same Value');
-      const text2 = ShortText.create('Same Value');
+      const text1 = BaseTextVo.create('Same Value');
+      const text2 = BaseTextVo.create('Same Value');
 
       expect(text1.equals(text2)).toBe(true);
     });
 
     it('should return false for different values', () => {
-      const text1 = ShortText.create('Value 1');
-      const text2 = ShortText.create('Value 2');
+      const text1 = BaseTextVo.create('Value 1');
+      const text2 = BaseTextVo.create('Value 2');
 
       expect(text1.equals(text2)).toBe(false);
     });
 
     it('should be case sensitive', () => {
-      const text1 = ShortText.create('Hello');
-      const text2 = ShortText.create('hello');
+      const text1 = BaseTextVo.create('Hello');
+      const text2 = BaseTextVo.create('hello');
+
+      expect(text1.equals(text2)).toBe(false);
+    });
+  });
+
+  describe('subclass with constraints', () => {
+    class SkuVo extends BaseTextVo {
+      static override defaultMinLength = 3;
+      static override defaultMaxLength = 20;
+      static override defaultPattern = /^[A-Z0-9-]+$/;
+    }
+
+    it('should validate min length', () => {
+      expect(() => SkuVo.create('AB')).toThrow(InvariantViolationError);
+      expect(() => SkuVo.create('AB')).toThrow('Text must be at least 3 characters');
+    });
+
+    it('should validate max length', () => {
+      expect(() => SkuVo.create('A'.repeat(21))).toThrow(InvariantViolationError);
+      expect(() => SkuVo.create('A'.repeat(21))).toThrow('Text must be at most 20 characters');
+    });
+
+    it('should validate pattern', () => {
+      expect(() => SkuVo.create('abc')).toThrow(InvariantViolationError);
+      expect(() => SkuVo.create('abc')).toThrow('Text does not match required pattern');
+    });
+
+    it('should accept valid values', () => {
+      const sku = SkuVo.create('SKU-123-ABC');
+      expect(sku.value).toBe('SKU-123-ABC');
+    });
+  });
+});
+
+describe('BaseShortTextVo', () => {
+  describe('create', () => {
+    it('should create with string value', () => {
+      const text = BaseShortTextVo.create('Hello World');
+
+      expect(text.value).toBe('Hello World');
+    });
+
+    it('should throw for empty string (min length 1)', () => {
+      expect(() => BaseShortTextVo.create('')).toThrow(InvariantViolationError);
+      expect(() => BaseShortTextVo.create('')).toThrow('Text must be at least 1 characters');
+    });
+
+    it('should throw for text over 100 characters', () => {
+      expect(() => BaseShortTextVo.create('A'.repeat(101))).toThrow(InvariantViolationError);
+      expect(() => BaseShortTextVo.create('A'.repeat(101))).toThrow(
+        'Text must be at most 100 characters',
+      );
+    });
+
+    it('should accept text at max length', () => {
+      const text = BaseShortTextVo.create('A'.repeat(100));
+
+      expect(text.value.length).toBe(100);
+    });
+  });
+
+  describe('inheritance', () => {
+    it('should extend BaseTextVo', () => {
+      const text = BaseShortTextVo.create('Test');
+
+      expect(text).toBeInstanceOf(BaseTextVo);
+      expect(text).toBeInstanceOf(BaseValueObject);
+    });
+  });
+
+  describe('equals', () => {
+    it('should return true for same values', () => {
+      const text1 = BaseShortTextVo.create('Same Value');
+      const text2 = BaseShortTextVo.create('Same Value');
+
+      expect(text1.equals(text2)).toBe(true);
+    });
+
+    it('should return false for different values', () => {
+      const text1 = BaseShortTextVo.create('Value 1');
+      const text2 = BaseShortTextVo.create('Value 2');
 
       expect(text1.equals(text2)).toBe(false);
     });
@@ -123,52 +140,49 @@ describe('BaseMediumTextVo', () => {
   describe('create', () => {
     it('should create with string value', () => {
       const description = 'This is a product description that explains the features.';
-      const text = MediumText.create(description);
+      const text = BaseMediumTextVo.create(description);
 
       expect(text.value).toBe(description);
     });
 
-    it('should handle medium-length content', () => {
-      const value = 'A'.repeat(500);
-      const text = MediumText.create(value);
+    it('should throw for empty string (min length 1)', () => {
+      expect(() => BaseMediumTextVo.create('')).toThrow(InvariantViolationError);
+    });
 
-      expect(text.value).toBe(value);
+    it('should throw for text over 500 characters', () => {
+      expect(() => BaseMediumTextVo.create('A'.repeat(501))).toThrow(InvariantViolationError);
+      expect(() => BaseMediumTextVo.create('A'.repeat(501))).toThrow(
+        'Text must be at most 500 characters',
+      );
+    });
+
+    it('should accept text at max length', () => {
+      const text = BaseMediumTextVo.create('A'.repeat(500));
+
       expect(text.value.length).toBe(500);
     });
   });
 
   describe('inheritance', () => {
-    it('should extend BaseValueObject', () => {
-      const text = MediumText.create('Description');
+    it('should extend BaseTextVo', () => {
+      const text = BaseMediumTextVo.create('Description');
 
+      expect(text).toBeInstanceOf(BaseTextVo);
       expect(text).toBeInstanceOf(BaseValueObject);
-    });
-  });
-
-  describe('with validator', () => {
-    it('should validate using provided validator', () => {
-      const mockValidator: BoundValidator<string> = {
-        validate: vi.fn().mockReturnValue('processed description'),
-      };
-
-      const text = MediumText.createWithValidator('input', mockValidator);
-
-      expect(mockValidator.validate).toHaveBeenCalledWith('input');
-      expect(text.value).toBe('processed description');
     });
   });
 
   describe('equals', () => {
     it('should return true for same values', () => {
-      const text1 = MediumText.create('Same description');
-      const text2 = MediumText.create('Same description');
+      const text1 = BaseMediumTextVo.create('Same description');
+      const text2 = BaseMediumTextVo.create('Same description');
 
       expect(text1.equals(text2)).toBe(true);
     });
 
     it('should return false for different values', () => {
-      const text1 = MediumText.create('Description 1');
-      const text2 = MediumText.create('Description 2');
+      const text1 = BaseMediumTextVo.create('Description 1');
+      const text2 = BaseMediumTextVo.create('Description 2');
 
       expect(text1.equals(text2)).toBe(false);
     });
@@ -179,22 +193,31 @@ describe('BaseLongTextVo', () => {
   describe('create', () => {
     it('should create with string value', () => {
       const article = 'This is a long article content...'.repeat(100);
-      const text = LongText.create(article);
+      const text = BaseLongTextVo.create(article);
 
       expect(text.value).toBe(article);
     });
 
-    it('should handle long-form content', () => {
-      const value = 'A'.repeat(5000);
-      const text = LongText.create(value);
+    it('should throw for empty string (min length 1)', () => {
+      expect(() => BaseLongTextVo.create('')).toThrow(InvariantViolationError);
+    });
 
-      expect(text.value).toBe(value);
+    it('should throw for text over 5000 characters', () => {
+      expect(() => BaseLongTextVo.create('A'.repeat(5001))).toThrow(InvariantViolationError);
+      expect(() => BaseLongTextVo.create('A'.repeat(5001))).toThrow(
+        'Text must be at most 5000 characters',
+      );
+    });
+
+    it('should accept text at max length', () => {
+      const text = BaseLongTextVo.create('A'.repeat(5000));
+
       expect(text.value.length).toBe(5000);
     });
 
     it('should handle multiline content', () => {
       const multiline = 'Line 1\nLine 2\nLine 3\n\nParagraph 2';
-      const text = LongText.create(multiline);
+      const text = BaseLongTextVo.create(multiline);
 
       expect(text.value).toBe(multiline);
       expect(text.value).toContain('\n');
@@ -202,38 +225,26 @@ describe('BaseLongTextVo', () => {
   });
 
   describe('inheritance', () => {
-    it('should extend BaseValueObject', () => {
-      const text = LongText.create('Article content');
+    it('should extend BaseTextVo', () => {
+      const text = BaseLongTextVo.create('Article content');
 
+      expect(text).toBeInstanceOf(BaseTextVo);
       expect(text).toBeInstanceOf(BaseValueObject);
-    });
-  });
-
-  describe('with validator', () => {
-    it('should validate using provided validator', () => {
-      const mockValidator: BoundValidator<string> = {
-        validate: vi.fn().mockReturnValue('sanitized content'),
-      };
-
-      const text = LongText.createWithValidator('<script>alert(1)</script>content', mockValidator);
-
-      expect(mockValidator.validate).toHaveBeenCalled();
-      expect(text.value).toBe('sanitized content');
     });
   });
 
   describe('equals', () => {
     it('should return true for same values', () => {
       const content = 'Long article content here...';
-      const text1 = LongText.create(content);
-      const text2 = LongText.create(content);
+      const text1 = BaseLongTextVo.create(content);
+      const text2 = BaseLongTextVo.create(content);
 
       expect(text1.equals(text2)).toBe(true);
     });
 
     it('should return false for different values', () => {
-      const text1 = LongText.create('Article 1 content');
-      const text2 = LongText.create('Article 2 content');
+      const text1 = BaseLongTextVo.create('Article 1 content');
+      const text2 = BaseLongTextVo.create('Article 2 content');
 
       expect(text1.equals(text2)).toBe(false);
     });
@@ -242,24 +253,23 @@ describe('BaseLongTextVo', () => {
 
 describe('text value objects comparison', () => {
   it('should be different types despite similar content', () => {
-    const shortText = ShortText.create('Hello');
-    const mediumText = MediumText.create('Hello');
-    const longText = LongText.create('Hello');
+    const shortText = BaseShortTextVo.create('Hello');
+    const mediumText = BaseMediumTextVo.create('Hello');
+    const longText = BaseLongTextVo.create('Hello');
 
     expect(shortText).toBeInstanceOf(BaseShortTextVo);
     expect(mediumText).toBeInstanceOf(BaseMediumTextVo);
     expect(longText).toBeInstanceOf(BaseLongTextVo);
-
-    // Each is its own type
-    expect(shortText).not.toBeInstanceOf(BaseMediumTextVo);
-    expect(mediumText).not.toBeInstanceOf(BaseLongTextVo);
-    expect(longText).not.toBeInstanceOf(BaseShortTextVo);
   });
 
-  it('should all extend BaseValueObject', () => {
-    const shortText = ShortText.create('Short');
-    const mediumText = MediumText.create('Medium');
-    const longText = LongText.create('Long');
+  it('should all extend BaseTextVo and BaseValueObject', () => {
+    const shortText = BaseShortTextVo.create('Short');
+    const mediumText = BaseMediumTextVo.create('Medium');
+    const longText = BaseLongTextVo.create('Long');
+
+    expect(shortText).toBeInstanceOf(BaseTextVo);
+    expect(mediumText).toBeInstanceOf(BaseTextVo);
+    expect(longText).toBeInstanceOf(BaseTextVo);
 
     expect(shortText).toBeInstanceOf(BaseValueObject);
     expect(mediumText).toBeInstanceOf(BaseValueObject);
