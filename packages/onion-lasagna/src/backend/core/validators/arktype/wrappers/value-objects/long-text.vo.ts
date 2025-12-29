@@ -9,7 +9,7 @@ export class LongTextVo extends BaseLongTextVo {
     super(value, createArkTypeValidator(schema(max)));
   }
 
-  static create(value: string, maxLength: number = 2000): LongTextVo {
+  static override create(value: string, maxLength: number = BaseLongTextVo.defaultMaxLength): LongTextVo {
     return new LongTextVo(value, maxLength);
   }
 }

@@ -9,7 +9,7 @@ export class ShortTextVo extends BaseShortTextVo {
     super(value, createValibotValidator(schema(max)));
   }
 
-  static create(value: string, maxLength: number = 100): ShortTextVo {
+  static override create(value: string, maxLength: number = BaseShortTextVo.defaultMaxLength): ShortTextVo {
     return new ShortTextVo(value, maxLength);
   }
 }

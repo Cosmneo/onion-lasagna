@@ -1,5 +1,4 @@
 export * from './base-audit-by.vo';
-export * from './base-audit-info.vo';
 export * from './base-audit-on.vo';
 export * from './base-email.vo';
 export * from './base-long-text.vo';

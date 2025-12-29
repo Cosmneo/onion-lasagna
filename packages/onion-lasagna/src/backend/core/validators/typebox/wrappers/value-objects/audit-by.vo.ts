@@ -30,7 +30,7 @@ export class AuditByVo extends BaseAuditByVo {
     });
   }
 
-  update(updatedBy: BaseUuidV4Vo): AuditByVo {
-    return new AuditByVo({ createdBy: this.createdBy, updatedBy });
+  override update(updatedBy: BaseUuidV4Vo): AuditByVo {
+    return new AuditByVo({ createdBy: this.value.createdBy, updatedBy });
   }
 }

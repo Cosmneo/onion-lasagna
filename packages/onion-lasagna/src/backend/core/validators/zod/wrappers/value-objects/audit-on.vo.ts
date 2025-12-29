@@ -28,7 +28,7 @@ export class AuditOnVo extends BaseAuditOnVo {
     });
   }
 
-  update(): AuditOnVo {
-    return new AuditOnVo({ createdAt: this.createdAt, updatedAt: new Date() });
+  override update(): AuditOnVo {
+    return new AuditOnVo({ createdAt: this.value.createdAt, updatedAt: new Date() });
   }
 }

@@ -110,7 +110,8 @@ describe('BaseDomainEvent', () => {
 
   describe('Date handling', () => {
     it('should clone Date objects in payload', () => {
-      const originalDate = new Date('2024-01-01');
+      // Use mid-year date to avoid timezone boundary issues
+      const originalDate = new Date('2024-06-15T12:00:00Z');
       const originalPayload: TestPayload = {
         id: '123',
         name: 'test',
@@ -124,10 +125,10 @@ describe('BaseDomainEvent', () => {
       const event = new TestEvent(originalPayload);
 
       // Modifying original date should not affect event payload
-      originalDate.setFullYear(2025);
+      originalDate.setUTCFullYear(2025);
 
-      expect(event.payload.createdAt.getFullYear()).toBe(2024);
-      expect(originalDate.getFullYear()).toBe(2025);
+      expect(event.payload.createdAt.getUTCFullYear()).toBe(2024);
+      expect(originalDate.getUTCFullYear()).toBe(2025);
     });
   });
 

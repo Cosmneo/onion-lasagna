@@ -1,5 +1,4 @@
 export * from './audit-by.vo';
-export * from './audit-info.vo';
 export * from './audit-on.vo';
 export * from './email.vo';
 export * from './long-text.vo';

@@ -59,6 +59,10 @@ export class BaseDto<T> {
     this._data = validator === SKIP_DTO_VALIDATION ? data : validator.validate(data);
   }
 
+  static create<T>(data: T, validator: BoundValidator<T> | typeof SKIP_DTO_VALIDATION): BaseDto<T> {
+    return new BaseDto(data, validator);
+  }
+
   /**
    * The validated data payload.
    *

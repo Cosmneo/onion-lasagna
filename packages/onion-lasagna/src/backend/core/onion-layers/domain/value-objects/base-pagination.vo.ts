@@ -39,9 +39,13 @@
  * }
  * ```
  */
-import type { BoundValidator } from '../../../global/interfaces/ports/object-validator.port';
-import type { SKIP_VALUE_OBJECT_VALIDATION } from '../classes/base-value-object.class';
-import { BaseValueObject } from '../classes/base-value-object.class';
+import {
+    BaseValueObject,
+    type VoClass,
+} from '../classes/base-value-object.class';
+
+/** Static interface for BasePaginationVo factory. */
+export type BasePaginationVoStatic = VoClass<BasePaginationVo>;
 
 /**
  * Value object for pagination parameters.
@@ -49,34 +53,11 @@ import { BaseValueObject } from '../classes/base-value-object.class';
  * @extends BaseValueObject<{ page: number; pageSize: number }>
  */
 export class BasePaginationVo extends BaseValueObject<{ page: number; pageSize: number }> {
-  /**
-   * Creates a new BasePaginationVo instance.
-   *
-   * @param value - The pagination parameters
-   * @param value.page - The page number (typically 1-indexed)
-   * @param value.pageSize - The number of items per page
-   * @param validator - Bound validator or skip validation symbol
-   */
-  protected constructor(
-    value: { page: number; pageSize: number },
-    validator:
-      | BoundValidator<{ page: number; pageSize: number }>
-      | typeof SKIP_VALUE_OBJECT_VALIDATION,
-  ) {
-    super(value, validator);
-  }
-
-  /**
-   * The current page number.
-   */
-  get page(): number {
-    return this.value.page;
-  }
-
-  /**
-   * The number of items per page.
-   */
-  get pageSize(): number {
-    return this.value.pageSize;
-  }
+    /**
+     * Creates a pagination value object. Must be implemented by subclass.
+     * @throws {Error} Always throws - subclasses must override this method
+     */
+    static create(_value: { page: number; pageSize: number; maxPageSize?: number }): BasePaginationVo {
+        throw new Error('create must be implemented by subclass');
+    }
 }

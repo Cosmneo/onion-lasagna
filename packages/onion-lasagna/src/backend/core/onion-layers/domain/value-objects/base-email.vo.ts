@@ -25,9 +25,13 @@
  * console.log(email.value); // "user@example.com"
  * ```
  */
-import type { BoundValidator } from '../../../global/interfaces/ports/object-validator.port';
-import type { SKIP_VALUE_OBJECT_VALIDATION } from '../classes/base-value-object.class';
-import { BaseValueObject } from '../classes/base-value-object.class';
+import {
+    BaseValueObject,
+    type VoClass,
+} from '../classes/base-value-object.class';
+
+/** Static interface for BaseEmailVo factory. */
+export type BaseEmailVoStatic = VoClass<BaseEmailVo>;
 
 /**
  * Value object for email addresses.
@@ -35,16 +39,11 @@ import { BaseValueObject } from '../classes/base-value-object.class';
  * @extends BaseValueObject<string>
  */
 export class BaseEmailVo extends BaseValueObject<string> {
-  /**
-   * Creates a new BaseEmailVo instance.
-   *
-   * @param value - The email address string
-   * @param validator - Bound validator or skip validation symbol
-   */
-  protected constructor(
-    value: string,
-    validator: BoundValidator<string> | typeof SKIP_VALUE_OBJECT_VALIDATION,
-  ) {
-    super(value, validator);
-  }
+    /**
+     * Creates an email value object. Must be implemented by subclass.
+     * @throws {Error} Always throws - subclasses must override this method
+     */
+    static create(_value: string): BaseEmailVo {
+        throw new Error('create must be implemented by subclass');
+    }
 }

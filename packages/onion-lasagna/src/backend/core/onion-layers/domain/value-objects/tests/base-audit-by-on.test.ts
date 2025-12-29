@@ -23,6 +23,14 @@ class TestAuditBy extends BaseAuditByVo {
     );
   }
 
+  get createdBy(): TestUserId | undefined {
+    return this.value.createdBy as TestUserId | undefined;
+  }
+
+  get updatedBy(): TestUserId | undefined {
+    return this.value.updatedBy as TestUserId | undefined;
+  }
+
   update(updatedBy: BaseUuidV4Vo): TestAuditBy {
     return new TestAuditBy(
       { createdBy: this.createdBy, updatedBy: updatedBy as TestUserId },
@@ -38,6 +46,14 @@ class TestAuditOn extends BaseAuditOnVo {
       { createdAt: opts?.createdAt ?? now, updatedAt: opts?.updatedAt ?? now },
       SKIP_VALUE_OBJECT_VALIDATION,
     );
+  }
+
+  get createdAt(): Date {
+    return new Date(this.value.createdAt);
+  }
+
+  get updatedAt(): Date {
+    return new Date(this.value.updatedAt);
   }
 
   update(): TestAuditOn {

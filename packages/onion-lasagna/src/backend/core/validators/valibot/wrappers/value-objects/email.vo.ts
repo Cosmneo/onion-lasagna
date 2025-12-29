@@ -9,7 +9,7 @@ export class EmailVo extends BaseEmailVo {
     super(value, createValibotValidator(schema));
   }
 
-  static create(value: string): EmailVo {
+  static override create(value: string): EmailVo {
     return new EmailVo(value);
   }
 }

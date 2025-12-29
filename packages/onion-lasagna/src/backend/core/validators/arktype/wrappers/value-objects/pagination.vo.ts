@@ -19,7 +19,7 @@ export class PaginationVo extends BasePaginationVo {
     super(value, SKIP_VALUE_OBJECT_VALIDATION);
   }
 
-  static create({
+  static override create({
     page,
     pageSize,
     maxPageSize = 100,

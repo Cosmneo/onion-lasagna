@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../base-value-object.class';
+import {
+  BaseValueObject,
+  SKIP_VALUE_OBJECT_VALIDATION,
+  assertStaticMethods,
+} from '../base-value-object.class';
 import type { BoundValidator } from '../../../../global/interfaces/ports/object-validator.port';
+import type { VoClass } from '../base-value-object.class';
 
 // Concrete implementation for testing
 class TestValueObject extends BaseValueObject<string> {
@@ -218,6 +223,119 @@ describe('BaseValueObject', () => {
   describe('SKIP_VALUE_OBJECT_VALIDATION', () => {
     it('should be a specific string constant', () => {
       expect(SKIP_VALUE_OBJECT_VALIDATION).toBe('skip value object validation');
+    });
+  });
+});
+
+describe('assertStaticMethods', () => {
+  // Test class with create method
+  class ValidVoClass extends BaseValueObject<string> {
+    static create(value: string): ValidVoClass {
+      return new ValidVoClass(value, SKIP_VALUE_OBJECT_VALIDATION);
+    }
+  }
+
+  // Test class with multiple static methods
+  class ExtendedVoClass extends BaseValueObject<string> {
+    static create(value: string): ExtendedVoClass {
+      return new ExtendedVoClass(value, SKIP_VALUE_OBJECT_VALIDATION);
+    }
+
+    static generate(): ExtendedVoClass {
+      return new ExtendedVoClass('generated', SKIP_VALUE_OBJECT_VALIDATION);
+    }
+
+    static fromString(value: string): ExtendedVoClass {
+      return new ExtendedVoClass(value, SKIP_VALUE_OBJECT_VALIDATION);
+    }
+  }
+
+  // Test class without create method
+  class InvalidVoClass extends BaseValueObject<string> {
+    static fromRaw(value: string): InvalidVoClass {
+      return new InvalidVoClass(value, SKIP_VALUE_OBJECT_VALIDATION);
+    }
+  }
+
+  describe('with valid classes', () => {
+    it('should return class with default create method', () => {
+      const result = assertStaticMethods<VoClass<ValidVoClass>>(ValidVoClass);
+
+      expect(result).toBe(ValidVoClass);
+    });
+
+    it('should return class with custom methods', () => {
+      const result = assertStaticMethods<VoClass<ExtendedVoClass>>(
+        ExtendedVoClass,
+        ['create', 'generate', 'fromString'],
+      );
+
+      expect(result).toBe(ExtendedVoClass);
+    });
+
+    it('should work with actual VO classes', () => {
+      const result = assertStaticMethods<VoClass<TestValueObject>>(TestValueObject);
+
+      expect(result).toBe(TestValueObject);
+    });
+  });
+
+  describe('with invalid classes', () => {
+    it('should throw for missing create method', () => {
+      expect(() => assertStaticMethods(InvalidVoClass)).toThrow(
+        'InvalidVoClass must implement static create()',
+      );
+    });
+
+    it('should throw for missing custom method', () => {
+      expect(() => assertStaticMethods(ValidVoClass, ['create', 'generate'])).toThrow(
+        'ValidVoClass must implement static generate()',
+      );
+    });
+
+    it('should include class name in error', () => {
+      expect(() => assertStaticMethods(InvalidVoClass)).toThrow('InvalidVoClass');
+    });
+
+    it('should include method name in error', () => {
+      expect(() => assertStaticMethods(ValidVoClass, ['nonexistent'])).toThrow('nonexistent');
+    });
+
+    it('should use Unknown for unnamed classes', () => {
+      const anonymousClass = { someMethod: () => {} };
+
+      expect(() => assertStaticMethods(anonymousClass)).toThrow(
+        'Unknown must implement static create()',
+      );
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should pass any class with empty methods array', () => {
+      const anyObject = { notACreateMethod: true };
+      const result = assertStaticMethods(anyObject, []);
+
+      expect(result).toBe(anyObject);
+    });
+
+    it('should throw for null input', () => {
+      expect(() => assertStaticMethods(null)).toThrow();
+    });
+
+    it('should throw for undefined input', () => {
+      expect(() => assertStaticMethods(undefined)).toThrow();
+    });
+
+    it('should work with plain objects that have methods', () => {
+      const plainObject = {
+        name: 'MyFactory',
+        create: () => ({}),
+        generate: () => ({}),
+      };
+
+      const result = assertStaticMethods(plainObject, ['create', 'generate']);
+
+      expect(result).toBe(plainObject);
     });
   });
 });
