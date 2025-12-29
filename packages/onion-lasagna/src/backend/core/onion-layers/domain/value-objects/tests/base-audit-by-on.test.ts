@@ -2,89 +2,30 @@ import { describe, it, expect } from 'vitest';
 import { BaseAuditByVo } from '../base-audit-by.vo';
 import { BaseAuditOnVo } from '../base-audit-on.vo';
 import { BaseUuidV4Vo } from '../base-uuid-v4.vo';
-import {
-  BaseValueObject,
-  SKIP_VALUE_OBJECT_VALIDATION,
-} from '../../classes/base-value-object.class';
+import { BaseValueObject } from '../../classes/base-value-object.class';
 import { InvariantViolationError } from '../../exceptions/invariant-violation.error';
-
-// Concrete implementations for testing
-class TestUserId extends BaseUuidV4Vo {
-  static override create(value: string): TestUserId {
-    return new TestUserId(value, SKIP_VALUE_OBJECT_VALIDATION);
-  }
-}
-
-class TestAuditBy extends BaseAuditByVo {
-  static create(opts?: { createdBy?: TestUserId; updatedBy?: TestUserId }): TestAuditBy {
-    return new TestAuditBy(
-      { createdBy: opts?.createdBy, updatedBy: opts?.updatedBy ?? opts?.createdBy },
-      SKIP_VALUE_OBJECT_VALIDATION,
-    );
-  }
-
-  get createdBy(): TestUserId | undefined {
-    return this.value.createdBy as TestUserId | undefined;
-  }
-
-  get updatedBy(): TestUserId | undefined {
-    return this.value.updatedBy as TestUserId | undefined;
-  }
-
-  update(updatedBy: BaseUuidV4Vo): TestAuditBy {
-    return new TestAuditBy(
-      { createdBy: this.createdBy, updatedBy: updatedBy as TestUserId },
-      SKIP_VALUE_OBJECT_VALIDATION,
-    );
-  }
-}
-
-class TestAuditOn extends BaseAuditOnVo {
-  static create(opts?: { createdAt?: Date; updatedAt?: Date }): TestAuditOn {
-    const now = new Date();
-    return new TestAuditOn(
-      { createdAt: opts?.createdAt ?? now, updatedAt: opts?.updatedAt ?? now },
-      SKIP_VALUE_OBJECT_VALIDATION,
-    );
-  }
-
-  get createdAt(): Date {
-    return new Date(this.value.createdAt);
-  }
-
-  get updatedAt(): Date {
-    return new Date(this.value.updatedAt);
-  }
-
-  update(): TestAuditOn {
-    return new TestAuditOn(
-      { createdAt: this.createdAt, updatedAt: new Date() },
-      SKIP_VALUE_OBJECT_VALIDATION,
-    );
-  }
-}
 
 describe('BaseAuditByVo', () => {
   describe('create', () => {
     it('should create with user IDs', () => {
-      const createdBy = TestUserId.create('creator-id');
-      const updatedBy = TestUserId.create('updater-id');
-      const auditBy = TestAuditBy.create({ createdBy, updatedBy });
+      const createdBy = BaseUuidV4Vo.generate();
+      const updatedBy = BaseUuidV4Vo.generate();
+      const auditBy = BaseAuditByVo.create({ createdBy, updatedBy });
 
-      expect(auditBy.createdBy?.value).toBe('creator-id');
-      expect(auditBy.updatedBy?.value).toBe('updater-id');
+      expect(auditBy.createdBy?.value).toBe(createdBy.value);
+      expect(auditBy.updatedBy?.value).toBe(updatedBy.value);
     });
 
     it('should create with only createdBy', () => {
-      const createdBy = TestUserId.create('creator-id');
-      const auditBy = TestAuditBy.create({ createdBy });
+      const createdBy = BaseUuidV4Vo.generate();
+      const auditBy = BaseAuditByVo.create({ createdBy });
 
-      expect(auditBy.createdBy?.value).toBe('creator-id');
-      expect(auditBy.updatedBy?.value).toBe('creator-id');
+      expect(auditBy.createdBy?.value).toBe(createdBy.value);
+      expect(auditBy.updatedBy?.value).toBe(createdBy.value);
     });
 
     it('should create without user IDs (system operation)', () => {
-      const auditBy = TestAuditBy.create();
+      const auditBy = BaseAuditByVo.create({});
 
       expect(auditBy.createdBy).toBeUndefined();
       expect(auditBy.updatedBy).toBeUndefined();
@@ -93,14 +34,14 @@ describe('BaseAuditByVo', () => {
 
   describe('createdBy getter', () => {
     it('should return the creator user ID', () => {
-      const userId = TestUserId.create('user-123');
-      const auditBy = TestAuditBy.create({ createdBy: userId });
+      const userId = BaseUuidV4Vo.generate();
+      const auditBy = BaseAuditByVo.create({ createdBy: userId });
 
-      expect(auditBy.createdBy?.value).toBe('user-123');
+      expect(auditBy.createdBy?.value).toBe(userId.value);
     });
 
     it('should return undefined when not set', () => {
-      const auditBy = TestAuditBy.create();
+      const auditBy = BaseAuditByVo.create({});
 
       expect(auditBy.createdBy).toBeUndefined();
     });
@@ -108,38 +49,41 @@ describe('BaseAuditByVo', () => {
 
   describe('updatedBy getter', () => {
     it('should return the updater user ID', () => {
-      const createdBy = TestUserId.create('creator');
-      const updatedBy = TestUserId.create('updater');
-      const auditBy = TestAuditBy.create({ createdBy, updatedBy });
+      const createdBy = BaseUuidV4Vo.generate();
+      const updatedBy = BaseUuidV4Vo.generate();
+      const auditBy = BaseAuditByVo.create({ createdBy, updatedBy });
 
-      expect(auditBy.updatedBy?.value).toBe('updater');
+      expect(auditBy.updatedBy?.value).toBe(updatedBy.value);
     });
   });
 
   describe('update method', () => {
     it('should create new instance with updated user', () => {
-      const createdBy = TestUserId.create('original-creator');
-      const auditBy = TestAuditBy.create({ createdBy });
-      const newUpdater = TestUserId.create('new-updater');
+      const createdBy = BaseUuidV4Vo.generate();
+      const auditBy = BaseAuditByVo.create({ createdBy });
+      const newUpdater = BaseUuidV4Vo.generate();
 
       const updated = auditBy.update(newUpdater);
 
-      expect(updated.createdBy?.value).toBe('original-creator');
-      expect(updated.updatedBy?.value).toBe('new-updater');
+      expect(updated.createdBy?.value).toBe(createdBy.value);
+      expect(updated.updatedBy?.value).toBe(newUpdater.value);
     });
 
     it('should preserve immutability', () => {
-      const auditBy = TestAuditBy.create({ createdBy: TestUserId.create('creator') });
-      const updated = auditBy.update(TestUserId.create('updater'));
+      const createdBy = BaseUuidV4Vo.generate();
+      const auditBy = BaseAuditByVo.create({ createdBy });
+      const updater = BaseUuidV4Vo.generate();
+
+      const updated = auditBy.update(updater);
 
       expect(updated).not.toBe(auditBy);
-      expect(auditBy.updatedBy?.value).toBe('creator');
+      expect(auditBy.updatedBy?.value).toBe(createdBy.value);
     });
   });
 
   describe('inheritance', () => {
     it('should extend BaseValueObject', () => {
-      const auditBy = TestAuditBy.create();
+      const auditBy = BaseAuditByVo.create({});
 
       expect(auditBy).toBeInstanceOf(BaseValueObject);
     });
@@ -147,12 +91,9 @@ describe('BaseAuditByVo', () => {
 
   describe('equals', () => {
     it('should return true for same user IDs', () => {
-      const userId = TestUserId.create('same-id');
-      const auditBy1 = TestAuditBy.create({ createdBy: userId, updatedBy: userId });
-      const auditBy2 = TestAuditBy.create({
-        createdBy: TestUserId.create('same-id'),
-        updatedBy: TestUserId.create('same-id'),
-      });
+      const userId = BaseUuidV4Vo.generate();
+      const auditBy1 = BaseAuditByVo.create({ createdBy: userId, updatedBy: userId });
+      const auditBy2 = BaseAuditByVo.create({ createdBy: userId, updatedBy: userId });
 
       // Note: equals compares by value, deep equality
       expect(auditBy1.value.createdBy?.value).toBe(auditBy2.value.createdBy?.value);
@@ -165,15 +106,17 @@ describe('BaseAuditOnVo', () => {
     it('should create with timestamps', () => {
       const createdAt = new Date('2024-01-15T10:00:00.000Z');
       const updatedAt = new Date('2024-01-16T15:30:00.000Z');
-      const auditOn = TestAuditOn.create({ createdAt, updatedAt });
+      const auditOn = BaseAuditOnVo.create({ createdAt, updatedAt });
 
       expect(auditOn.createdAt.toISOString()).toBe('2024-01-15T10:00:00.000Z');
       expect(auditOn.updatedAt.toISOString()).toBe('2024-01-16T15:30:00.000Z');
     });
+  });
 
-    it('should default to current time', () => {
+  describe('now factory', () => {
+    it('should create with current time', () => {
       const before = new Date();
-      const auditOn = TestAuditOn.create();
+      const auditOn = BaseAuditOnVo.now();
       const after = new Date();
 
       expect(auditOn.createdAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
@@ -187,21 +130,21 @@ describe('BaseAuditOnVo', () => {
       const createdAt = new Date('2024-01-16T10:00:00.000Z');
       const updatedAt = new Date('2024-01-15T10:00:00.000Z'); // Before createdAt
 
-      expect(() => TestAuditOn.create({ createdAt, updatedAt })).toThrow(InvariantViolationError);
+      expect(() => BaseAuditOnVo.create({ createdAt, updatedAt })).toThrow(InvariantViolationError);
     });
 
     it('should throw with correct error message', () => {
       const createdAt = new Date('2024-01-16T10:00:00.000Z');
       const updatedAt = new Date('2024-01-15T10:00:00.000Z');
 
-      expect(() => TestAuditOn.create({ createdAt, updatedAt })).toThrow(
+      expect(() => BaseAuditOnVo.create({ createdAt, updatedAt })).toThrow(
         'UpdatedAt cannot be earlier than createdAt',
       );
     });
 
     it('should allow equal timestamps', () => {
       const timestamp = new Date('2024-01-15T10:00:00.000Z');
-      const auditOn = TestAuditOn.create({
+      const auditOn = BaseAuditOnVo.create({
         createdAt: timestamp,
         updatedAt: new Date(timestamp.getTime()),
       });
@@ -213,7 +156,7 @@ describe('BaseAuditOnVo', () => {
       const createdAt = new Date('2024-01-15T10:00:00.000Z');
       const updatedAt = new Date('2024-01-16T10:00:00.000Z');
 
-      const auditOn = TestAuditOn.create({ createdAt, updatedAt });
+      const auditOn = BaseAuditOnVo.create({ createdAt, updatedAt });
 
       expect(auditOn.updatedAt.getTime()).toBeGreaterThan(auditOn.createdAt.getTime());
     });
@@ -222,13 +165,13 @@ describe('BaseAuditOnVo', () => {
   describe('createdAt getter', () => {
     it('should return the creation timestamp', () => {
       const createdAt = new Date('2024-01-15T10:00:00.000Z');
-      const auditOn = TestAuditOn.create({ createdAt, updatedAt: createdAt });
+      const auditOn = BaseAuditOnVo.create({ createdAt, updatedAt: createdAt });
 
       expect(auditOn.createdAt.toISOString()).toBe('2024-01-15T10:00:00.000Z');
     });
 
     it('should return a cloned Date', () => {
-      const auditOn = TestAuditOn.create();
+      const auditOn = BaseAuditOnVo.now();
       const date1 = auditOn.createdAt;
       const date2 = auditOn.createdAt;
 
@@ -237,7 +180,7 @@ describe('BaseAuditOnVo', () => {
     });
 
     it('should not be affected by external mutation', () => {
-      const auditOn = TestAuditOn.create();
+      const auditOn = BaseAuditOnVo.now();
       const date = auditOn.createdAt;
       const originalTime = date.getTime();
 
@@ -250,7 +193,7 @@ describe('BaseAuditOnVo', () => {
   describe('updatedAt getter', () => {
     it('should return the update timestamp', () => {
       const updatedAt = new Date('2024-01-16T15:30:00.000Z');
-      const auditOn = TestAuditOn.create({
+      const auditOn = BaseAuditOnVo.create({
         createdAt: new Date('2024-01-15T10:00:00.000Z'),
         updatedAt,
       });
@@ -259,7 +202,7 @@ describe('BaseAuditOnVo', () => {
     });
 
     it('should return a cloned Date', () => {
-      const auditOn = TestAuditOn.create();
+      const auditOn = BaseAuditOnVo.now();
       const date1 = auditOn.updatedAt;
       const date2 = auditOn.updatedAt;
 
@@ -270,7 +213,7 @@ describe('BaseAuditOnVo', () => {
 
   describe('update method', () => {
     it('should create new instance with updated timestamp', async () => {
-      const original = TestAuditOn.create();
+      const original = BaseAuditOnVo.now();
       const originalUpdatedAt = original.updatedAt.getTime();
       const originalCreatedAt = original.createdAt.getTime();
 
@@ -283,7 +226,7 @@ describe('BaseAuditOnVo', () => {
     });
 
     it('should preserve immutability', () => {
-      const auditOn = TestAuditOn.create();
+      const auditOn = BaseAuditOnVo.now();
       const updated = auditOn.update();
 
       expect(updated).not.toBe(auditOn);
@@ -292,7 +235,7 @@ describe('BaseAuditOnVo', () => {
 
   describe('inheritance', () => {
     it('should extend BaseValueObject', () => {
-      const auditOn = TestAuditOn.create();
+      const auditOn = BaseAuditOnVo.now();
 
       expect(auditOn).toBeInstanceOf(BaseValueObject);
     });
@@ -301,29 +244,29 @@ describe('BaseAuditOnVo', () => {
 
 describe('BaseAuditByVo and BaseAuditOnVo composition', () => {
   it('should work together for complete audit tracking', () => {
-    const userId = TestUserId.create('user-123');
+    const userId = BaseUuidV4Vo.generate();
     const now = new Date();
 
-    const auditBy = TestAuditBy.create({ createdBy: userId });
-    const auditOn = TestAuditOn.create({ createdAt: now, updatedAt: now });
+    const auditBy = BaseAuditByVo.create({ createdBy: userId });
+    const auditOn = BaseAuditOnVo.create({ createdAt: now, updatedAt: now });
 
-    expect(auditBy.createdBy?.value).toBe('user-123');
+    expect(auditBy.createdBy?.value).toBe(userId.value);
     expect(auditOn.createdAt.getTime()).toBe(now.getTime());
   });
 
   it('should update independently', async () => {
-    const creatorId = TestUserId.create('creator');
-    const auditBy = TestAuditBy.create({ createdBy: creatorId });
-    const auditOn = TestAuditOn.create();
+    const creatorId = BaseUuidV4Vo.generate();
+    const auditBy = BaseAuditByVo.create({ createdBy: creatorId });
+    const auditOn = BaseAuditOnVo.now();
 
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    const updaterId = TestUserId.create('updater');
+    const updaterId = BaseUuidV4Vo.generate();
     const updatedBy = auditBy.update(updaterId);
     const updatedOn = auditOn.update();
 
-    expect(updatedBy.createdBy?.value).toBe('creator');
-    expect(updatedBy.updatedBy?.value).toBe('updater');
+    expect(updatedBy.createdBy?.value).toBe(creatorId.value);
+    expect(updatedBy.updatedBy?.value).toBe(updaterId.value);
     expect(updatedOn.updatedAt.getTime()).toBeGreaterThan(auditOn.createdAt.getTime());
   });
 });

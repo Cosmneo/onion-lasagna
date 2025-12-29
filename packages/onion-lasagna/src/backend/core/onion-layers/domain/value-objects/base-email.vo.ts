@@ -1,37 +1,17 @@
 /**
  * Base email value object.
  *
- * Represents a validated email address. Extend this class and provide
- * a validator that enforces email format rules.
+ * Represents a validated email address. Validates email format
+ * in the factory method before construction.
  *
- * @example Extending with Zod validation
+ * @example
  * ```typescript
- * import { z } from 'zod';
- * import { createZodValidator } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
- *
- * const emailSchema = z.string().email();
- * const emailValidator = createZodValidator(emailSchema);
- *
- * class EmailVo extends BaseEmailVo {
- *   static create(value: string): EmailVo {
- *     return new EmailVo(value, emailValidator);
- *   }
- * }
- * ```
- *
- * @example Usage
- * ```typescript
- * const email = EmailVo.create('user@example.com');
+ * const email = BaseEmailVo.create('user@example.com');
  * console.log(email.value); // "user@example.com"
  * ```
  */
-import {
-    BaseValueObject,
-    type VoClass,
-} from '../classes/base-value-object.class';
-
-/** Static interface for BaseEmailVo factory. */
-export type BaseEmailVoStatic = VoClass<BaseEmailVo>;
+import { BaseValueObject } from '../classes/base-value-object.class';
+import { InvariantViolationError } from '../exceptions/invariant-violation.error';
 
 /**
  * Value object for email addresses.
@@ -39,11 +19,20 @@ export type BaseEmailVoStatic = VoClass<BaseEmailVo>;
  * @extends BaseValueObject<string>
  */
 export class BaseEmailVo extends BaseValueObject<string> {
-    /**
-     * Creates an email value object. Must be implemented by subclass.
-     * @throws {Error} Always throws - subclasses must override this method
-     */
-    static create(_value: string): BaseEmailVo {
-        throw new Error('create must be implemented by subclass');
+  private static readonly EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  /**
+   * Creates an email value object.
+   * @param value - The email address string
+   * @throws {InvariantViolationError} When email format is invalid
+   */
+  static create(value: BaseEmailVo['value']): BaseEmailVo {
+    if (!BaseEmailVo.EMAIL_REGEX.test(value)) {
+      throw new InvariantViolationError({
+        message: 'Invalid email format',
+        code: 'INVALID_EMAIL',
+      });
     }
+    return new BaseEmailVo(value);
+  }
 }

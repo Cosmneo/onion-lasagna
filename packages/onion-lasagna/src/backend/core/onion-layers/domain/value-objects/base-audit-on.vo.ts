@@ -5,79 +5,81 @@
  * domain invariant that `updatedAt` cannot be earlier than `createdAt`.
  *
  * **Domain Invariant:**
- * The constructor throws {@link InvariantViolationError} if
- * `updatedAt < createdAt`, ensuring timestamps are always valid.
+ * Throws {@link InvariantViolationError} if `updatedAt < createdAt`.
  *
- * **Immutability:**
- * Date getters return cloned Date objects to prevent external mutation.
- *
- * @example Extending for a validator-specific implementation
+ * @example
  * ```typescript
- * class AuditOnVo extends BaseAuditOnVo {
- *   static create(opts?: { createdAt?: Date; updatedAt?: Date }): AuditOnVo {
- *     const now = new Date();
- *     return new AuditOnVo({
- *       createdAt: opts?.createdAt ?? now,
- *       updatedAt: opts?.updatedAt ?? now,
- *     }, SKIP_VALUE_OBJECT_VALIDATION);
- *   }
+ * // Create with current timestamp
+ * const audit = BaseAuditOnVo.now();
  *
- *   update(): AuditOnVo {
- *     return new AuditOnVo({
- *       createdAt: this.createdAt,
- *       updatedAt: new Date(),
- *     }, SKIP_VALUE_OBJECT_VALIDATION);
- *   }
- * }
+ * // Create with specific dates
+ * const audit = BaseAuditOnVo.create({
+ *   createdAt: new Date('2024-01-01'),
+ *   updatedAt: new Date('2024-01-15'),
+ * });
+ *
+ * // Update timestamp
+ * const updated = audit.update();
  * ```
  */
-import type { BoundValidator } from '../../../global/interfaces/ports/object-validator.port';
-import {
-    BaseValueObject,
-    type SkipValueObjectValidation,
-    type VoClass,
-} from '../classes/base-value-object.class';
+import { BaseValueObject } from '../classes/base-value-object.class';
 import { InvariantViolationError } from '../exceptions/invariant-violation.error';
 
-/** Static interface for BaseAuditOnVo factory. */
-export type BaseAuditOnVoStatic = VoClass<BaseAuditOnVo>;
-
 /**
- * Abstract base class for audit timestamp value objects.
+ * Value object for audit timestamps.
  *
  * @extends BaseValueObject
  * @throws {InvariantViolationError} When `updatedAt` is earlier than `createdAt`
  */
-export abstract class BaseAuditOnVo extends BaseValueObject<{
-    createdAt: Date;
-    updatedAt: Date;
+export class BaseAuditOnVo extends BaseValueObject<{
+  createdAt: Date;
+  updatedAt: Date;
 }> {
-    /**
-     * Creates a new BaseAuditOnVo instance.
-     *
-     * @param value - The timestamp values
-     * @param value.createdAt - When the entity was created
-     * @param value.updatedAt - When the entity was last updated
-     * @param validator - Bound validator or skip validation symbol
-     * @throws {InvariantViolationError} When `updatedAt < createdAt`
-     */
-    protected constructor(
-        value: { createdAt: Date; updatedAt: Date },
-        validator: BoundValidator<{ createdAt: Date; updatedAt: Date }> | SkipValueObjectValidation,
-    ) {
-        if (value.updatedAt < value.createdAt) {
-            throw new InvariantViolationError({
-                message: 'UpdatedAt cannot be earlier than createdAt',
-                code: 'INVALID_AUDIT_TIMESTAMPS',
-            });
-        }
-        super(value, validator);
+  /**
+   * Creates an audit timestamp value object.
+   * @param value - The timestamp values
+   * @param value.createdAt - When the entity was created
+   * @param value.updatedAt - When the entity was last updated
+   * @throws {InvariantViolationError} When `updatedAt < createdAt`
+   */
+  static create(value: BaseAuditOnVo['value']): BaseAuditOnVo {
+    if (value.updatedAt < value.createdAt) {
+      throw new InvariantViolationError({
+        message: 'UpdatedAt cannot be earlier than createdAt',
+        code: 'INVALID_AUDIT_TIMESTAMPS',
+      });
     }
+    return new BaseAuditOnVo(value);
+  }
 
-    /**
-     * Creates a new audit timestamp with current time as updatedAt.
-     *
-     * @returns A new immutable audit timestamp instance
-     */
-    abstract update(): BaseAuditOnVo;
+  /**
+   * Creates an audit timestamp with current time for both fields.
+   * Convenience factory for new entities.
+   */
+  static now(): BaseAuditOnVo {
+    const now = new Date();
+    return new BaseAuditOnVo({ createdAt: now, updatedAt: now });
+  }
+
+  /** When the entity was created. Returns a clone to prevent mutation. */
+  get createdAt(): Date {
+    return new Date(this.value.createdAt);
+  }
+
+  /** When the entity was last updated. Returns a clone to prevent mutation. */
+  get updatedAt(): Date {
+    return new Date(this.value.updatedAt);
+  }
+
+  /**
+   * Creates a new audit timestamp with current time as updatedAt.
+   *
+   * @returns A new immutable audit timestamp instance
+   */
+  update(): BaseAuditOnVo {
+    return new BaseAuditOnVo({
+      createdAt: this.value.createdAt,
+      updatedAt: new Date(),
+    });
+  }
 }
