@@ -10,98 +10,70 @@
  * - **Globally unique**: Same uniqueness guarantees as other UUID versions
  * - **Timestamp extractable**: Creation time can be derived from the ID
  *
- * @example Generating a new ID
+ * @example Extending with validation (using validator wrappers)
  * ```typescript
- * const id = BaseUuidV7Vo.generate();
- * console.log(id.value); // e.g., "018f3b1c-5e7d-7000-8000-000000000001"
+ * import { UuidV7Vo } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+ *
+ * const id = UuidV7Vo.generate();
+ * const parsed = UuidV7Vo.create('018f3b1c-5e7d-7000-8000-000000000001');
  * ```
  *
- * @example Extending for validation
+ * @example Extending in domain layer (no validation)
  * ```typescript
- * class EntityIdVo extends BaseUuidV7Vo {
- *   static create(value: string): EntityIdVo {
- *     return new EntityIdVo(value, uuidValidator);
+ * import { v7 } from 'uuid';
+ *
+ * class OrderId extends BaseUuidV7Vo {
+ *   static create(value: string): OrderId {
+ *     return new OrderId(value, SKIP_VALUE_OBJECT_VALIDATION);
  *   }
  *
- *   static generate(): EntityIdVo {
- *     return new EntityIdVo(v7(), SKIP_VALUE_OBJECT_VALIDATION);
- *   }
- * }
- * ```
- *
- * @example Using as entity primary key
- * ```typescript
- * class User {
- *   constructor(
- *     public readonly id: EntityIdVo,
- *     public readonly name: string,
- *   ) {}
- *
- *   static create(name: string): User {
- *     return new User(EntityIdVo.generate(), name);
+ *   static generate(): OrderId {
+ *     return new OrderId(v7(), SKIP_VALUE_OBJECT_VALIDATION);
  *   }
  * }
  * ```
  */
-import type { BoundValidator } from '../../../global/interfaces/ports/object-validator.port';
-import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../classes/base-value-object.class';
 import { v7 } from 'uuid';
+import {
+    BaseValueObject,
+    SKIP_VALUE_OBJECT_VALIDATION,
+    type VoClass,
+} from '../classes/base-value-object.class';
+
+/** Static interface for BaseUuidV7Vo factory. */
+export type BaseUuidV7VoStatic = VoClass<BaseUuidV7Vo>;
+
+/**
+ * Interface for UUID v7 value object classes (static side).
+ *
+ * Extends VoClass with `generate()` for creating new UUIDs.
+ */
+export interface UuidV7VoClass extends VoClass<BaseUuidV7Vo> {
+    generate(): BaseUuidV7Vo;
+}
 
 /**
  * Value object for UUID v7 identifiers.
  *
- * Provides a `generate()` factory method that creates new time-ordered UUIDs.
+ * Provides `generate()` for creating new IDs. Subclasses should add
+ * their own `create()` for parsing external input with appropriate validation.
  *
  * @extends BaseValueObject<string>
  */
 export class BaseUuidV7Vo extends BaseValueObject<string> {
-  /**
-   * Creates a new BaseUuidV7Vo instance.
-   *
-   * @param value - The UUID v7 string value
-   * @param validator - Bound validator or skip validation symbol
-   */
-  protected constructor(
-    value: string,
-    validator: BoundValidator<string> | typeof SKIP_VALUE_OBJECT_VALIDATION,
-  ) {
-    super(value, validator);
-  }
+    /**
+     * Creates a UUID v7 value object. Must be implemented by subclass.
+     * @throws {Error} Always throws - subclasses must override this method
+     */
+    static create(_value: string): BaseUuidV7Vo {
+        throw new Error('create must be implemented by subclass');
+    }
 
-  /**
-   * Generates a new UUID v7 value object.
-   *
-   * Creates a time-ordered UUID using the current timestamp,
-   * skipping validation since the `uuid` library guarantees format.
-   *
-   * @returns A new BaseUuidV7Vo with a freshly generated UUID
-   */
-  static generate(): BaseUuidV7Vo {
-    return new this(v7(), SKIP_VALUE_OBJECT_VALIDATION);
-  }
-
-  /**
-   * Creates a UUID v7 value object from an existing string.
-   *
-   * **Important:** This base implementation skips validation and accepts
-   * any string value. Subclasses should override this method with a
-   * validator to ensure UUID format correctness.
-   *
-   * @param value - The UUID v7 string value (not validated at base level)
-   * @returns A new BaseUuidV7Vo with the provided value
-   *
-   * @example Subclass with validation (recommended)
-   * ```typescript
-   * class OrderId extends BaseUuidV7Vo {
-   *   static override create(value: string): OrderId {
-   *     return new OrderId(value, uuidV7Validator);
-   *   }
-   * }
-   * ```
-   *
-   * @see generate - For creating new UUIDs (always valid)
-   */
-  static create(value: string): BaseUuidV7Vo {
-    return new this(value, SKIP_VALUE_OBJECT_VALIDATION);
-  }
+    /**
+     * Generates a new UUID v7 value object.
+     * No validation needed since uuid library guarantees valid output.
+     */
+    static generate(): BaseUuidV7Vo {
+        return new BaseUuidV7Vo(v7(), SKIP_VALUE_OBJECT_VALIDATION);
+    }
 }

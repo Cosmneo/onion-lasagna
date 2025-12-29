@@ -136,6 +136,18 @@ describe('Valibot Value Object Wrappers', () => {
       expect(text.value).toBe(maxText);
     });
 
+    it('should accept text one below max length', () => {
+      const text = ShortTextVo.create('a'.repeat(99));
+
+      expect(text.value).toHaveLength(99);
+    });
+
+    it('should accept single character (min boundary)', () => {
+      const text = ShortTextVo.create('a');
+
+      expect(text.value).toBe('a');
+    });
+
     it('should support custom max length', () => {
       const text = ShortTextVo.create('a'.repeat(200), 200);
       expect(text.value).toHaveLength(200);
@@ -161,6 +173,18 @@ describe('Valibot Value Object Wrappers', () => {
       expect(mediumText.value).toBe(text);
     });
 
+    it('should accept text one below max length', () => {
+      const text = MediumTextVo.create('a'.repeat(499));
+
+      expect(text.value).toHaveLength(499);
+    });
+
+    it('should accept single character (min boundary)', () => {
+      const text = MediumTextVo.create('a');
+
+      expect(text.value).toBe('a');
+    });
+
     it('should throw for text exceeding max length', () => {
       // MediumText default max is 500 characters
       const longText = 'a'.repeat(501);
@@ -181,16 +205,28 @@ describe('Valibot Value Object Wrappers', () => {
     });
 
     it('should accept text at max length boundary', () => {
-      // LongText default max is 2000 characters
-      const text = 'a'.repeat(2000);
+      // LongText default max is 5000 characters
+      const text = 'a'.repeat(5000);
       const longText = LongTextVo.create(text);
 
       expect(longText.value).toBe(text);
     });
 
+    it('should accept text one below max length', () => {
+      const text = LongTextVo.create('a'.repeat(4999));
+
+      expect(text.value).toHaveLength(4999);
+    });
+
+    it('should accept single character (min boundary)', () => {
+      const text = LongTextVo.create('a');
+
+      expect(text.value).toBe('a');
+    });
+
     it('should throw for text exceeding max length', () => {
-      // LongText default max is 2000 characters
-      const veryLongText = 'a'.repeat(2001);
+      // LongText default max is 5000 characters
+      const veryLongText = 'a'.repeat(5001);
 
       expect(() => LongTextVo.create(veryLongText)).toThrow(ObjectValidationError);
     });

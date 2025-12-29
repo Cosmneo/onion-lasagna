@@ -9,7 +9,7 @@ export class MediumTextVo extends BaseMediumTextVo {
     super(value, createTypeBoxValidator<string>(schema(max)));
   }
 
-  static create(value: string, maxLength: number = 500): MediumTextVo {
+  static override create(value: string, maxLength: number = BaseMediumTextVo.defaultMaxLength): MediumTextVo {
     return new MediumTextVo(value, maxLength);
   }
 }

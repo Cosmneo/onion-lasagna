@@ -9,7 +9,7 @@ export class ShortTextVo extends BaseShortTextVo {
     super(value, createTypeBoxValidator<string>(schema(max)));
   }
 
-  static create(value: string, maxLength: number = 100): ShortTextVo {
+  static override create(value: string, maxLength: number = BaseShortTextVo.defaultMaxLength): ShortTextVo {
     return new ShortTextVo(value, maxLength);
   }
 }

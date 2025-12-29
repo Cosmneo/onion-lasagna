@@ -27,11 +27,13 @@
  * }
  * ```
  */
-import type { BoundValidator } from '../../../global/interfaces/ports/object-validator.port';
 import {
-  BaseValueObject,
-  SKIP_VALUE_OBJECT_VALIDATION,
+    BaseValueObject,
+    type VoClass,
 } from '../classes/base-value-object.class';
+
+/** Static interface for BaseLongTextVo factory. */
+export type BaseLongTextVoStatic = VoClass<BaseLongTextVo>;
 
 /**
  * Value object for long-form text strings.
@@ -39,17 +41,15 @@ import {
  * @extends BaseValueObject<string>
  */
 export class BaseLongTextVo extends BaseValueObject<string> {
-  /**
-   * Creates a new BaseLongTextVo instance.
-   *
-   * @param value - The long text string
-   * @param validator - Bound validator or skip validation symbol
-   */
-  protected constructor(
-    value: string,
-    validator: BoundValidator<string> | typeof SKIP_VALUE_OBJECT_VALIDATION,
-  ) {
-    super(value, validator);
-  }
+    static readonly defaultMaxLength = 5000;
 
+    /**
+     * Creates a long text value object. Must be implemented by subclass.
+     * @param value - The text value
+     * @param maxLength - Optional maximum length (default: 5000)
+     * @throws {Error} Always throws - subclasses must override this method
+     */
+    static create(_value: string, _maxLength?: number): BaseLongTextVo {
+        throw new Error('create must be implemented by subclass');
+    }
 }

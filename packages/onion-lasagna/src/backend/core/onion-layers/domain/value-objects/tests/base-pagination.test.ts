@@ -8,7 +8,7 @@ import type { BoundValidator } from '../../../../global/interfaces/ports/object-
 
 // Concrete implementation for testing
 class Pagination extends BasePaginationVo {
-  static create(page: number, pageSize: number): Pagination {
+  static override create(page: number, pageSize: number): Pagination {
     return new Pagination({ page, pageSize }, SKIP_VALUE_OBJECT_VALIDATION);
   }
 
@@ -18,6 +18,14 @@ class Pagination extends BasePaginationVo {
     validator: BoundValidator<{ page: number; pageSize: number }>,
   ): Pagination {
     return new Pagination({ page, pageSize }, validator);
+  }
+
+  get page(): number {
+    return this.value.page;
+  }
+
+  get pageSize(): number {
+    return this.value.pageSize;
   }
 
   get offset(): number {
@@ -207,6 +215,53 @@ describe('BasePaginationVo', () => {
         const pagination = Pagination.create(1, size);
         expect(pagination.pageSize).toBe(size);
       });
+    });
+  });
+
+  describe('invalid input handling (base class behavior)', () => {
+    it('should accept zero page (validation delegated to validator)', () => {
+      // Base class accepts any value - validators should enforce business rules
+      const pagination = Pagination.create(0, 10);
+
+      expect(pagination.page).toBe(0);
+      expect(pagination.offset).toBe(-10); // (0-1) * 10 = -10
+    });
+
+    it('should accept negative page (validation delegated to validator)', () => {
+      const pagination = Pagination.create(-1, 10);
+
+      expect(pagination.page).toBe(-1);
+      expect(pagination.offset).toBe(-20); // (-1-1) * 10 = -20
+    });
+
+    it('should accept zero pageSize (validation delegated to validator)', () => {
+      const pagination = Pagination.create(1, 0);
+
+      expect(pagination.pageSize).toBe(0);
+      expect(pagination.offset).toBe(0); // (1-1) * 0 = 0
+    });
+
+    it('should accept negative pageSize (validation delegated to validator)', () => {
+      const pagination = Pagination.create(1, -10);
+
+      expect(pagination.pageSize).toBe(-10);
+    });
+
+    it('should reject invalid input when validator enforces rules', () => {
+      const strictValidator: BoundValidator<{ page: number; pageSize: number }> = {
+        validate: vi.fn().mockImplementation(({ page, pageSize }) => {
+          if (page < 1) throw new Error('Page must be at least 1');
+          if (pageSize < 1) throw new Error('Page size must be at least 1');
+          return { page, pageSize };
+        }),
+      };
+
+      expect(() => Pagination.createWithValidator(0, 10, strictValidator)).toThrow(
+        'Page must be at least 1',
+      );
+      expect(() => Pagination.createWithValidator(1, 0, strictValidator)).toThrow(
+        'Page size must be at least 1',
+      );
     });
   });
 });
