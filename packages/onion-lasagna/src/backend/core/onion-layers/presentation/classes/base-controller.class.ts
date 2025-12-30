@@ -20,12 +20,14 @@ import { InvalidRequestError } from '../exceptions/invalid-request.error';
  * @typeParam TInDto - Input DTO type for the use case (or void)
  * @typeParam TOutDto - Output DTO type from the use case (or void)
  */
+/* eslint-disable @typescript-eslint/no-invalid-void-type */
 export interface BaseControllerConfig<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown> | undefined,
-  TOutDto extends BaseDto<unknown> | undefined,
+  TInDto extends BaseDto<unknown> | void,
+  TOutDto extends BaseDto<unknown> | void,
 > {
+  /* eslint-enable @typescript-eslint/no-invalid-void-type */
   /** Maps the validated request DTO to a use case input DTO. For void use cases, returns undefined. */
   requestMapper: (request: TRequestDto) => TInDto;
   /** The use case to execute. */
@@ -112,12 +114,14 @@ export interface BaseControllerConfig<
  * }
  * ```
  */
+/* eslint-disable @typescript-eslint/no-invalid-void-type */
 export class BaseController<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown> | undefined,
-  TOutDto extends BaseDto<unknown> | undefined,
+  TInDto extends BaseDto<unknown> | void,
+  TOutDto extends BaseDto<unknown> | void,
 > {
+  /* eslint-enable @typescript-eslint/no-invalid-void-type */
   /**
    * Creates a new BaseController instance.
    *
@@ -137,12 +141,14 @@ export class BaseController<
    * @param config - Controller configuration
    * @returns A new BaseController instance
    */
+  /* eslint-disable @typescript-eslint/no-invalid-void-type */
   static create<
     TRequestDto extends BaseDto<unknown>,
     TResponseDto extends BaseDto<unknown>,
-    TInDto extends BaseDto<unknown> | undefined,
-    TOutDto extends BaseDto<unknown> | undefined,
+    TInDto extends BaseDto<unknown> | void,
+    TOutDto extends BaseDto<unknown> | void,
   >(
+    /* eslint-enable @typescript-eslint/no-invalid-void-type */
     config: BaseControllerConfig<TRequestDto, TResponseDto, TInDto, TOutDto>,
   ): BaseController<TRequestDto, TResponseDto, TInDto, TOutDto> {
     return new BaseController(config.requestMapper, config.useCase, config.responseMapper);

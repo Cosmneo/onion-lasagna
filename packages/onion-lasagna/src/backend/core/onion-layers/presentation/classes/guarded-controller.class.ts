@@ -15,12 +15,14 @@ import { AccessDeniedError } from '../exceptions/access-denied.error';
  * @typeParam TInDto - Input DTO type for the use case (or void)
  * @typeParam TOutDto - Output DTO type from the use case (or void)
  */
+/* eslint-disable @typescript-eslint/no-invalid-void-type */
 export interface GuardedControllerConfig<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown> | undefined,
-  TOutDto extends BaseDto<unknown> | undefined,
+  TInDto extends BaseDto<unknown> | void,
+  TOutDto extends BaseDto<unknown> | void,
 > {
+  /* eslint-enable @typescript-eslint/no-invalid-void-type */
   /** Maps the validated request DTO to a use case input DTO. */
   requestMapper: (request: TRequestDto) => TInDto;
   /** The use case to execute. */
@@ -68,12 +70,14 @@ function createAllowAllGuard<T>(): AccessGuard<T> {
  * });
  * ```
  */
+/* eslint-disable @typescript-eslint/no-invalid-void-type */
 export class GuardedController<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown> | undefined,
-  TOutDto extends BaseDto<unknown> | undefined,
+  TInDto extends BaseDto<unknown> | void,
+  TOutDto extends BaseDto<unknown> | void,
 > extends BaseController<TRequestDto, TResponseDto, TInDto, TOutDto> {
+  /* eslint-enable @typescript-eslint/no-invalid-void-type */
   /** The access guard function for this controller. */
   protected readonly accessGuard: AccessGuard<TRequestDto>;
 
@@ -101,12 +105,14 @@ export class GuardedController<
    * @param config - Controller configuration including optional access guard
    * @returns A new GuardedController instance
    */
+  /* eslint-disable @typescript-eslint/no-invalid-void-type */
   static override create<
     TRequestDto extends BaseDto<unknown>,
     TResponseDto extends BaseDto<unknown>,
-    TInDto extends BaseDto<unknown> | undefined,
-    TOutDto extends BaseDto<unknown> | undefined,
+    TInDto extends BaseDto<unknown> | void,
+    TOutDto extends BaseDto<unknown> | void,
   >(
+    /* eslint-enable @typescript-eslint/no-invalid-void-type */
     config: GuardedControllerConfig<TRequestDto, TResponseDto, TInDto, TOutDto>,
   ): GuardedController<TRequestDto, TResponseDto, TInDto, TOutDto> {
     return new GuardedController(
