@@ -66,6 +66,23 @@ class SkuCode extends BaseTextVo {
 }
 ```
 
+<Callout type="info">
+Text VOs use `new this(value)` internally, so subclass instances are created correctly at runtime. However, TypeScript still infers the return type as the base class. For strict type safety, you can override `create()`:
+
+```typescript
+class ProductName extends BaseTextVo {
+  static override defaultMinLength = 1;
+  static override defaultMaxLength = 50;
+
+  static override create(value: ProductName['value']): ProductName {
+    // Let parent validate, then cast to correct type
+    BaseTextVo.create.call(this, value);
+    return new ProductName(value);
+  }
+}
+```
+</Callout>
+
 ### Identifiers
 
 ```typescript
@@ -141,11 +158,22 @@ import { v7 } from 'uuid';
 import { BaseUuidV7Vo } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
 
 class OrderId extends BaseUuidV7Vo {
+  // Override generate() to return correct type
   static override generate(): OrderId {
     return new OrderId(v7());
   }
+
+  // IMPORTANT: Override create() to return correct type
+  static override create(value: OrderId['value']): OrderId {
+    const validated = BaseUuidV7Vo.create(value);
+    return new OrderId(validated.value);
+  }
 }
 ```
+
+<Callout type="warning">
+**Always override `create()` for UUID subclasses.** Without this override, `OrderId.create(uuid)` returns `BaseUuidV7Vo` instead of `OrderId`, breaking type safety and `instanceof` checks.
+</Callout>
 
 ### Value Object with Custom Validation
 

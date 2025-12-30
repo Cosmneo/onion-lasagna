@@ -21,7 +21,7 @@ class TestEntity extends BaseEntity<TestId, TestEntityProps> {
     return new TestEntity(TestId.create(id), { name, active });
   }
 
-  static fromPersistence(id: string, props: TestEntityProps, version: number): TestEntity {
+  static reconstitute(id: string, props: TestEntityProps, version: number): TestEntity {
     return new TestEntity(TestId.create(id), props, version);
   }
 
@@ -63,7 +63,7 @@ describe('BaseEntity', () => {
     });
 
     it('should accept custom version', () => {
-      const entity = TestEntity.fromPersistence('123', { name: 'Test', active: true }, 5);
+      const entity = TestEntity.reconstitute('123', { name: 'Test', active: true }, 5);
 
       expect(entity.version).toBe(5);
     });
@@ -80,7 +80,7 @@ describe('BaseEntity', () => {
 
   describe('version getter', () => {
     it('should return the current version', () => {
-      const entity = TestEntity.fromPersistence('123', { name: 'Test', active: true }, 10);
+      const entity = TestEntity.reconstitute('123', { name: 'Test', active: true }, 10);
 
       expect(entity.version).toBe(10);
     });
@@ -88,7 +88,7 @@ describe('BaseEntity', () => {
 
   describe('nextVersion', () => {
     it('should return version + 1', () => {
-      const entity = TestEntity.fromPersistence('123', { name: 'Test', active: true }, 5);
+      const entity = TestEntity.reconstitute('123', { name: 'Test', active: true }, 5);
 
       expect(entity.getNextVersion()).toBe(6);
     });
@@ -103,7 +103,7 @@ describe('BaseEntity', () => {
   describe('equals', () => {
     it('should return true for same id', () => {
       const entity1 = TestEntity.create('same-id', 'Entity 1');
-      const entity2 = TestEntity.fromPersistence('same-id', { name: 'Entity 2', active: false }, 1);
+      const entity2 = TestEntity.reconstitute('same-id', { name: 'Entity 2', active: false }, 1);
 
       expect(entity1.equals(entity2)).toBe(true);
     });
@@ -126,7 +126,7 @@ describe('BaseEntity', () => {
       entity1.changeName('Updated Name');
       entity1.deactivate();
 
-      const entity2 = TestEntity.fromPersistence('123', { name: 'Different', active: true }, 5);
+      const entity2 = TestEntity.reconstitute('123', { name: 'Different', active: true }, 5);
 
       expect(entity1.equals(entity2)).toBe(true);
     });
@@ -164,7 +164,7 @@ describe('BaseEntity', () => {
     });
 
     it('should maintain version after props changes', () => {
-      const entity = TestEntity.fromPersistence('123', { name: 'Test', active: true }, 5);
+      const entity = TestEntity.reconstitute('123', { name: 'Test', active: true }, 5);
 
       entity.changeName('Changed');
 

@@ -34,7 +34,7 @@ class TestAggregate extends BaseAggregateRoot<TestId, TestAggregateProps> {
     return aggregate;
   }
 
-  static fromPersistence(id: string, props: TestAggregateProps, version: number): TestAggregate {
+  static reconstitute(id: string, props: TestAggregateProps, version: number): TestAggregate {
     return new TestAggregate(TestId.create(id), props, version);
   }
 
@@ -64,7 +64,7 @@ class TestAggregate extends BaseAggregateRoot<TestId, TestAggregateProps> {
 describe('BaseAggregateRoot', () => {
   describe('constructor', () => {
     it('should create aggregate with id, props, and empty events', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
 
       expect(aggregate.id.value).toBe('123');
       expect(aggregate.name).toBe('Test');
@@ -72,7 +72,7 @@ describe('BaseAggregateRoot', () => {
     });
 
     it('should inherit from BaseEntity', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 5);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 5);
 
       expect(aggregate.version).toBe(5);
     });
@@ -80,7 +80,7 @@ describe('BaseAggregateRoot', () => {
 
   describe('addDomainEvent', () => {
     it('should add event to pending events', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
       const event = new TestEvent('123', { message: 'Test message' });
 
       aggregate.addEvent(event);
@@ -89,7 +89,7 @@ describe('BaseAggregateRoot', () => {
     });
 
     it('should allow multiple events', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
 
       aggregate.addEvent(new TestEvent('123', { message: 'Event 1' }));
       aggregate.addEvent(new TestEvent('123', { message: 'Event 2' }));
@@ -102,7 +102,7 @@ describe('BaseAggregateRoot', () => {
 
   describe('pullDomainEvents', () => {
     it('should return all pending events', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
       aggregate.addEvent(new TestEvent('123', { message: 'Event 1' }));
       aggregate.addEvent(new TestEvent('123', { message: 'Event 2' }));
 
@@ -114,7 +114,7 @@ describe('BaseAggregateRoot', () => {
     });
 
     it('should clear events after pulling', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
       aggregate.addEvent(new TestEvent('123', { message: 'Event' }));
 
       aggregate.pullDomainEvents();
@@ -124,7 +124,7 @@ describe('BaseAggregateRoot', () => {
     });
 
     it('should return empty array when no events', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
 
       const events = aggregate.pullDomainEvents();
 
@@ -134,7 +134,7 @@ describe('BaseAggregateRoot', () => {
 
   describe('peekDomainEvents', () => {
     it('should return events without clearing them', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
       aggregate.addEvent(new TestEvent('123', { message: 'Event' }));
 
       const peeked = aggregate.peekDomainEvents();
@@ -144,7 +144,7 @@ describe('BaseAggregateRoot', () => {
     });
 
     it('should return a copy of the events array', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
       aggregate.addEvent(new TestEvent('123', { message: 'Event' }));
 
       const peeked1 = aggregate.peekDomainEvents();
@@ -157,20 +157,20 @@ describe('BaseAggregateRoot', () => {
 
   describe('hasDomainEvents', () => {
     it('should return false when no events', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
 
       expect(aggregate.hasDomainEvents).toBe(false);
     });
 
     it('should return true when events are pending', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
       aggregate.addEvent(new TestEvent('123', { message: 'Event' }));
 
       expect(aggregate.hasDomainEvents).toBe(true);
     });
 
     it('should return false after pulling all events', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
       aggregate.addEvent(new TestEvent('123', { message: 'Event' }));
       aggregate.pullDomainEvents();
 
@@ -180,7 +180,7 @@ describe('BaseAggregateRoot', () => {
 
   describe('clearDomainEvents', () => {
     it('should remove all pending events', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
       aggregate.addEvent(new TestEvent('123', { message: 'Event 1' }));
       aggregate.addEvent(new TestEvent('123', { message: 'Event 2' }));
 
@@ -203,7 +203,7 @@ describe('BaseAggregateRoot', () => {
     });
 
     it('should preserve event order', () => {
-      const aggregate = TestAggregate.fromPersistence('123', { name: 'Test', status: 'active' }, 0);
+      const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
 
       aggregate.addEvent(new TestEvent('123', { message: 'First' }));
       aggregate.addEvent(new TestEvent('123', { message: 'Second' }));
@@ -219,7 +219,7 @@ describe('BaseAggregateRoot', () => {
   describe('equality (inherited from BaseEntity)', () => {
     it('should compare by id', () => {
       const aggregate1 = TestAggregate.create('same-id', 'Name 1');
-      const aggregate2 = TestAggregate.fromPersistence(
+      const aggregate2 = TestAggregate.reconstitute(
         'same-id',
         { name: 'Name 2', status: 'inactive' },
         5,

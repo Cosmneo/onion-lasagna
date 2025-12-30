@@ -62,7 +62,7 @@ export class OrderStatus extends BaseValueObject<OrderStatusValue> {
    *
    * @param value - The status value from persistence
    */
-  static fromPersistence(value: OrderStatusValue): OrderStatus {
+  static reconstitute(value: OrderStatusValue): OrderStatus {
     return new OrderStatus(value);
   }
 

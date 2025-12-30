@@ -62,7 +62,7 @@ export class Money extends BaseValueObject<MoneyValue> {
    *
    * @param value - The money value from persistence
    */
-  static fromPersistence(value: MoneyValue): Money {
+  static reconstitute(value: MoneyValue): Money {
     return new Money(value);
   }
 

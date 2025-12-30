@@ -14,17 +14,117 @@ HTTP layer: handlers, controllers, access guards, mappers.
 ```
 presentation/
 └── http/
-    ├── service.metadata.ts
-    └── {resource}/
-        ├── route.metadata.ts
-        └── {endpoint}/
-            ├── endpoint.metadata.ts
-            ├── request.dto.ts         ← Source of truth
-            ├── response.dto.ts        ← Source of truth
-            ├── access-guard.ts
-            ├── to-use-case.mapper.ts
-            └── to-response.mapper.ts
+    ├── service.metadata.ts          ← Service-level config (basePath)
+    ├── resources/
+    │   └── {resource}.metadata.ts   ← Resource metadata
+    ├── endpoints/
+    │   └── {resource}/
+    │       └── {action}.metadata.ts ← Endpoint metadata
+    └── {resource}/{endpoint}/
+        ├── dtos.ts                  ← Request & Response DTOs
+        ├── schemas.ts               ← Zod/validation schemas
+        ├── mappers.ts               ← DTO transformations
+        └── endpoint.metadata.ts     ← (alternative location)
 ```
+
+<Callout type="info">
+You can organize files as `dtos.ts` + `mappers.ts` (combined) or `request.dto.ts` + `response.dto.ts` + `to-use-case.mapper.ts` + `to-response.mapper.ts` (separate). Choose one pattern and use it consistently.
+</Callout>
+
+---
+
+## Route Composition
+
+Routes are built by composing three metadata levels:
+
+### 1. Service Metadata
+
+Defines the base path for the entire bounded context:
+
+```typescript:service.metadata.ts
+import type { ServiceMetadata } from '@cosmneo/onion-lasagna/backend/core/presentation';
+
+export const projectManagementServiceMetadata: ServiceMetadata = {
+  id: 'project-management-service',
+  shortId: 'pms',
+  name: 'Project Management',
+  description: 'Manages projects, tasks, and statuses',
+  basePath: '/api/projects',
+  openApi: {
+    title: 'Project Management API',
+    description: 'API for managing projects',
+  },
+};
+```
+
+### 2. Resource Metadata
+
+Defines a resource within the service:
+
+```typescript:resources/projects.metadata.ts
+import type { ResourceMetadata } from '@cosmneo/onion-lasagna/backend/core/presentation';
+
+export const projectsResourceMetadata: ResourceMetadata = {
+  id: 'projects',
+  shortId: 'prj',
+  name: 'Projects',
+  description: 'Project management endpoints',
+  path: '',  // Empty = at service root
+  order: 1,
+  openApi: {
+    tag: 'Projects',
+    tagDescription: 'Project operations',
+  },
+};
+```
+
+### 3. Endpoint Metadata
+
+Defines a specific endpoint:
+
+```typescript:endpoints/projects/create-project.metadata.ts
+import type { HttpEndpointMetadata } from '@cosmneo/onion-lasagna/backend/core/presentation';
+
+export const createProjectEndpointMetadata: HttpEndpointMetadata = {
+  id: 'create-project',
+  shortId: 'cp',
+  name: 'createProject',
+  description: 'Creates a new project',
+  method: 'POST',
+  path: '',  // Empty = at resource root
+  openApi: {
+    summary: 'Create a new project',
+    successStatus: 201,
+  },
+};
+```
+
+### computeRoutePath
+
+Combines metadata into a full path:
+
+```typescript
+import { computeRoutePath } from '@cosmneo/onion-lasagna/backend/core/presentation';
+
+// Result: '/api/projects'
+const path = computeRoutePath(
+  projectManagementServiceMetadata,  // basePath: '/api/projects'
+  projectsResourceMetadata,          // path: ''
+  createProjectEndpointMetadata      // path: ''
+);
+
+// For nested resources with path params
+// Result: '/api/projects/{projectId}/tasks'
+const tasksPath = computeRoutePath(
+  projectManagementServiceMetadata,  // basePath: '/api/projects'
+  tasksResourceMetadata,             // path: '/{projectId}/tasks'
+  listTasksEndpointMetadata          // path: ''
+);
+```
+
+<Callout type="info">
+Paths use `{param}` syntax which is framework-agnostic. Framework integrations convert to the appropriate format (e.g., `:param` for Hono/Express).
+</Callout>
 
 ---
 
