@@ -24,10 +24,12 @@ import type { BaseDto } from '../../../../global/classes/base-dto.class';
  * interface SeedDatabasePort extends BaseInboundPort<void, void> {}
  * ```
  */
+/* eslint-disable @typescript-eslint/no-invalid-void-type */
 export interface BaseInboundPort<
-  TInDto extends BaseDto<unknown> | undefined = undefined,
-  TOutDto extends BaseDto<unknown> | undefined = undefined,
+  TInDto extends BaseDto<unknown> | void = void,
+  TOutDto extends BaseDto<unknown> | void = void,
 > {
+  /* eslint-enable @typescript-eslint/no-invalid-void-type */
   /**
    * Executes the use case with the provided input.
    *
