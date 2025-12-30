@@ -245,7 +245,7 @@ export interface RegisterContextualRoutesOptions<TContext> extends RegisterRoute
  * registerHonoRoutes(app, publicRoutes);
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function registerHonoRoutes(
   app: Hono<any, any, any>,
   routes: RouteInputOrArray,
@@ -300,7 +300,7 @@ export function registerHonoRoutes(
  * });
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function registerHonoRoutes<TContext>(
   app: Hono<any, any, any>,
   routes: ContextualRouteInputOrArray<TContext>,
@@ -308,7 +308,7 @@ export function registerHonoRoutes<TContext>(
 ): void;
 
 // Implementation
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function registerHonoRoutes<TContext = void>(
   app: Hono<any, any, any>,
   routes: RouteInputOrArray | ContextualRouteInputOrArray<TContext>,

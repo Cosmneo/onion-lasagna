@@ -18,8 +18,8 @@ import { AccessDeniedError } from '../exceptions/access-denied.error';
 export interface GuardedControllerConfig<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown> | void,
-  TOutDto extends BaseDto<unknown> | void,
+  TInDto extends BaseDto<unknown> | undefined,
+  TOutDto extends BaseDto<unknown> | undefined,
 > {
   /** Maps the validated request DTO to a use case input DTO. */
   requestMapper: (request: TRequestDto) => TInDto;
@@ -71,8 +71,8 @@ function createAllowAllGuard<T>(): AccessGuard<T> {
 export class GuardedController<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown> | void,
-  TOutDto extends BaseDto<unknown> | void,
+  TInDto extends BaseDto<unknown> | undefined,
+  TOutDto extends BaseDto<unknown> | undefined,
 > extends BaseController<TRequestDto, TResponseDto, TInDto, TOutDto> {
   /** The access guard function for this controller. */
   protected readonly accessGuard: AccessGuard<TRequestDto>;
@@ -104,8 +104,8 @@ export class GuardedController<
   static override create<
     TRequestDto extends BaseDto<unknown>,
     TResponseDto extends BaseDto<unknown>,
-    TInDto extends BaseDto<unknown> | void,
-    TOutDto extends BaseDto<unknown> | void,
+    TInDto extends BaseDto<unknown> | undefined,
+    TOutDto extends BaseDto<unknown> | undefined,
   >(
     config: GuardedControllerConfig<TRequestDto, TResponseDto, TInDto, TOutDto>,
   ): GuardedController<TRequestDto, TResponseDto, TInDto, TOutDto> {

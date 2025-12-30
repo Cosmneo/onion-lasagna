@@ -192,7 +192,7 @@ export interface RegisterContextualRoutesOptions<TContext> extends RegisterRoute
  * @param routes - Routes using plain HttpRequest
  * @param options - Optional configuration (prefix, middlewares)
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function registerFastifyRoutes(
   app: FastifyInstance<any, any, any, any, any>,
   routes: RouteInputOrArray,
@@ -225,7 +225,7 @@ export function registerFastifyRoutes(
  * });
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function registerFastifyRoutes<TContext>(
   app: FastifyInstance<any, any, any, any, any>,
   routes: ContextualRouteInputOrArray<TContext>,
@@ -233,7 +233,7 @@ export function registerFastifyRoutes<TContext>(
 ): void;
 
 // Implementation
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function registerFastifyRoutes<TContext = void>(
   app: FastifyInstance<any, any, any, any, any>,
   routes: RouteInputOrArray | ContextualRouteInputOrArray<TContext>,
