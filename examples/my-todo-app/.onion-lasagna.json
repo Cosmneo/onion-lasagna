@@ -1,0 +1,8 @@
+{
+  "structure": "simple",
+  "starter": "simple-clean",
+  "validator": "zod",
+  "framework": "hono",
+  "packageManager": "bun",
+  "createdAt": "2025-12-27T19:34:31.061Z"
+}
