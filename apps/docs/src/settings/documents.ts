@@ -69,6 +69,10 @@ export const Documents: Paths[] = [
     href: "/patterns/error-handling",
   },
   {
+    title: "Bootstrap",
+    href: "/patterns/bootstrap",
+  },
+  {
     spacer: true,
   },
   {

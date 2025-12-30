@@ -2704,6 +2704,262 @@ app.setErrorHandler(onionErrorHandler);
 ```
 ---
 
+# Bootstrap Pattern
+> Wiring dependencies together with a layered bootstrap architecture.
+
+## Overview
+
+The bootstrap pattern orchestrates dependency injection across layers. It creates instances in the correct order: **adapters → use cases → controllers → routes**.
+
+```
+bootstrap/
+├── index.ts                 # Main orchestration
+├── adapters.bootstrap.ts    # Infrastructure adapters
+├── use-cases.bootstrap.ts   # Application use cases
+├── validators.bootstrap.ts  # DTO validators
+├── controller.bootstrap.ts  # Presentation controllers
+└── routes.bootstrap.ts      # Route definitions
+```
+
+---
+
+## Main Orchestration
+
+The entry point creates all dependencies in order:
+
+```typescript:bootstrap/index.ts
+
+
+
+
+
+
+  // 1. Create adapters (infrastructure layer)
+  const adapters = createAdapters();
+
+  // 2. Create use cases with adapters (application layer)
+  const useCases = createUseCases(adapters);
+
+  // 3. Create controllers with use cases (presentation layer)
+  const controllers = createControllers(useCases);
+
+  // 4. Create routes with controllers
+  const routes = createRoutes(controllers);
+
+  return { adapters, useCases, controllers, routes };
+}
+
+// Type export for consumers
+
+```
+
+---
+
+## Adapters Bootstrap
+
+Creates infrastructure adapters (repositories, external services):
+
+```typescript:bootstrap/adapters.bootstrap.ts
+
+
+
+
+  return {
+    projectRepository: new ProjectRepository(),
+    projectQueryRepository: new ProjectQueryRepository(),
+  };
+}
+
+
+```
+
+---
+
+## Use Cases Bootstrap
+
+Creates use cases with injected adapters:
+
+```typescript:bootstrap/use-cases.bootstrap.ts
+
+
+
+
+
+
+  return {
+    createProjectUseCase: new CreateProjectUseCase(adapters.projectRepository),
+    getProjectQuery: new GetProjectQuery(adapters.projectQueryRepository),
+    listProjectsQuery: new ListProjectsQuery(adapters.projectQueryRepository),
+  };
+}
+
+
+```
+
+---
+
+## Validators Bootstrap
+
+Creates validators for DTOs in one place:
+
+```typescript:bootstrap/validators.bootstrap.ts
+
+
+  createProjectRequestSchema,
+  createProjectResponseSchema,
+  listProjectsRequestSchema,
+  listProjectsResponseSchema,
+} from '../presentation/http/projects/schemas';
+
+// Request validators (used at route level)
+
+
+
+// Response validators (used in response mappers)
+
+
+```
+
+---
+
+## Controllers Bootstrap
+
+Creates controllers with use cases and mappers:
+
+```typescript:bootstrap/controller.bootstrap.ts
+
+
+
+
+
+
+
+  return {
+    createProjectController: BaseController.create({
+      requestMapper: (req: CreateProjectRequestDto) =>
+        createProjectToInputMapper(req, SKIP_DTO_VALIDATION),
+      useCase: useCases.createProjectUseCase,
+      responseMapper: (out: CreateProjectOutputDto) =>
+        createProjectToResponseMapper(out, createProjectResponseValidator),
+    }),
+
+    listProjectsController: BaseController.create({
+      requestMapper: (req: ListProjectsRequestDto) =>
+        listProjectsToInputMapper(req, SKIP_DTO_VALIDATION),
+      useCase: useCases.listProjectsQuery,
+      responseMapper: (out: ListProjectsOutputDto) =>
+        listProjectsToResponseMapper(out, listProjectsResponseValidator),
+    }),
+  };
+}
+
+
+```
+
+
+**SKIP_DTO_VALIDATION** is used for request→input mapping because the request DTO has already been validated at the HTTP layer. Response mappers typically use validators to ensure the response matches the expected schema.
+
+
+---
+
+## Routes Bootstrap
+
+Creates route definitions with metadata and controllers:
+
+```typescript:bootstrap/routes.bootstrap.ts
+
+
+
+
+
+
+
+
+
+  const service = projectManagementServiceMetadata;
+
+  return [
+    {
+      metadata: {
+        path: computeRoutePath(service, projectsResourceMetadata, createProjectEndpointMetadata),
+        method: createProjectEndpointMetadata.method,
+      },
+      controller: controllers.createProjectController,
+      requestDtoFactory: (req) =>
+        new CreateProjectRequestDto(req as CreateProjectRequestData, createProjectRequestValidator),
+    },
+    {
+      metadata: {
+        path: computeRoutePath(service, projectsResourceMetadata, listProjectsEndpointMetadata),
+        method: listProjectsEndpointMetadata.method,
+      },
+      controller: controllers.listProjectsController,
+      requestDtoFactory: (req) =>
+        new ListProjectsRequestDto(req as ListProjectsRequestData, listProjectsRequestValidator),
+    },
+  ];
+}
+```
+
+---
+
+## Using the Bootstrap
+
+In your application entry point:
+
+```typescript:index.ts
+
+
+
+
+// Bootstrap the bounded context
+const { routes } = bootstrapProjectManagement();
+
+// Create Hono app
+const app = new Hono();
+app.onError(onionErrorHandler);
+
+// Register routes
+registerHonoRoutes(app, routes);
+
+
+```
+
+---
+
+## Directory Structure
+
+The bootstrap folder should be at the root of your bounded context:
+
+```
+bounded-contexts/project-management/
+├── bootstrap/                    # Dependency wiring
+│   ├── index.ts
+│   ├── adapters.bootstrap.ts
+│   ├── use-cases.bootstrap.ts
+│   ├── validators.bootstrap.ts
+│   ├── controller.bootstrap.ts
+│   └── routes.bootstrap.ts
+├── app/                          # Application layer
+│   ├── ports/
+│   └── use-cases/
+├── domain/                       # Domain layer
+├── infra/                        # Infrastructure layer
+└── presentation/                 # Presentation layer
+    └── http/
+```
+
+---
+
+## Benefits
+
+- **Clear dependency flow**: Adapters → Use Cases → Controllers → Routes
+- **Testability**: Each layer can be tested independently with mocks
+- **Type safety**: TypeScript infers types through the chain
+- **Single entry point**: `bootstrapProjectManagement()` returns everything needed
+- **Separation of concerns**: Each bootstrap file handles one layer
+---
+
 # Hono Integration
 > Register routes and handle errors with Hono framework.
 
