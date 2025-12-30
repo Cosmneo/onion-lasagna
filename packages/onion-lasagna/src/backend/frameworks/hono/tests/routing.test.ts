@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Hono } from 'hono';
-import type { Context, MiddlewareHandler } from 'hono';
+import type { MiddlewareHandler } from 'hono';
 import { registerHonoRoutes } from '../routing';
 import type { HttpRequest } from '../../../core/onion-layers/presentation/interfaces/types/http/http-request';
 import type { HttpResponse } from '../../../core/onion-layers/presentation/interfaces/types/http/http-response';

@@ -25,8 +25,8 @@ import type { BaseDto } from '../../../../global/classes/base-dto.class';
  * ```
  */
 export interface BaseInboundPort<
-  TInDto extends BaseDto<unknown> | void = void,
-  TOutDto extends BaseDto<unknown> | void = void,
+  TInDto extends BaseDto<unknown> | undefined = undefined,
+  TOutDto extends BaseDto<unknown> | undefined = undefined,
 > {
   /**
    * Executes the use case with the provided input.

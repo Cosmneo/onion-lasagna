@@ -23,8 +23,8 @@ import { InvalidRequestError } from '../exceptions/invalid-request.error';
 export interface BaseControllerConfig<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown> | void,
-  TOutDto extends BaseDto<unknown> | void,
+  TInDto extends BaseDto<unknown> | undefined,
+  TOutDto extends BaseDto<unknown> | undefined,
 > {
   /** Maps the validated request DTO to a use case input DTO. For void use cases, returns undefined. */
   requestMapper: (request: TRequestDto) => TInDto;
@@ -115,8 +115,8 @@ export interface BaseControllerConfig<
 export class BaseController<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown> | void,
-  TOutDto extends BaseDto<unknown> | void,
+  TInDto extends BaseDto<unknown> | undefined,
+  TOutDto extends BaseDto<unknown> | undefined,
 > {
   /**
    * Creates a new BaseController instance.
@@ -140,8 +140,8 @@ export class BaseController<
   static create<
     TRequestDto extends BaseDto<unknown>,
     TResponseDto extends BaseDto<unknown>,
-    TInDto extends BaseDto<unknown> | void,
-    TOutDto extends BaseDto<unknown> | void,
+    TInDto extends BaseDto<unknown> | undefined,
+    TOutDto extends BaseDto<unknown> | undefined,
   >(
     config: BaseControllerConfig<TRequestDto, TResponseDto, TInDto, TOutDto>,
   ): BaseController<TRequestDto, TResponseDto, TInDto, TOutDto> {
