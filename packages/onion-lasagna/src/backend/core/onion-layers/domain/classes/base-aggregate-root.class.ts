@@ -56,7 +56,7 @@ import type { BaseDomainEvent } from './base-domain-event.class';
  *     return order;
  *   }
  *
- *   static fromPersistence(id: OrderId, props: OrderProps, version: number): Order {
+ *   static reconstitute(id: OrderId, props: OrderProps, version: number): Order {
  *     return new Order(id, props, version);
  *   }
  *

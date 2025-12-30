@@ -292,17 +292,117 @@ HTTP layer: handlers, controllers, access guards, mappers.
 ```
 presentation/
 └── http/
-    ├── service.metadata.ts
-    └── {resource}/
-        ├── route.metadata.ts
-        └── {endpoint}/
-            ├── endpoint.metadata.ts
-            ├── request.dto.ts         ← Source of truth
-            ├── response.dto.ts        ← Source of truth
-            ├── access-guard.ts
-            ├── to-use-case.mapper.ts
-            └── to-response.mapper.ts
+    ├── service.metadata.ts          ← Service-level config (basePath)
+    ├── resources/
+    │   └── {resource}.metadata.ts   ← Resource metadata
+    ├── endpoints/
+    │   └── {resource}/
+    │       └── {action}.metadata.ts ← Endpoint metadata
+    └── {resource}/{endpoint}/
+        ├── dtos.ts                  ← Request & Response DTOs
+        ├── schemas.ts               ← Zod/validation schemas
+        ├── mappers.ts               ← DTO transformations
+        └── endpoint.metadata.ts     ← (alternative location)
 ```
+
+
+You can organize files as `dtos.ts` + `mappers.ts` (combined) or `request.dto.ts` + `response.dto.ts` + `to-use-case.mapper.ts` + `to-response.mapper.ts` (separate). Choose one pattern and use it consistently.
+
+
+---
+
+## Route Composition
+
+Routes are built by composing three metadata levels:
+
+### 1. Service Metadata
+
+Defines the base path for the entire bounded context:
+
+```typescript:service.metadata.ts
+
+
+
+  id: 'project-management-service',
+  shortId: 'pms',
+  name: 'Project Management',
+  description: 'Manages projects, tasks, and statuses',
+  basePath: '/api/projects',
+  openApi: {
+    title: 'Project Management API',
+    description: 'API for managing projects',
+  },
+};
+```
+
+### 2. Resource Metadata
+
+Defines a resource within the service:
+
+```typescript:resources/projects.metadata.ts
+
+
+
+  id: 'projects',
+  shortId: 'prj',
+  name: 'Projects',
+  description: 'Project management endpoints',
+  path: '',  // Empty = at service root
+  order: 1,
+  openApi: {
+    tag: 'Projects',
+    tagDescription: 'Project operations',
+  },
+};
+```
+
+### 3. Endpoint Metadata
+
+Defines a specific endpoint:
+
+```typescript:endpoints/projects/create-project.metadata.ts
+
+
+
+  id: 'create-project',
+  shortId: 'cp',
+  name: 'createProject',
+  description: 'Creates a new project',
+  method: 'POST',
+  path: '',  // Empty = at resource root
+  openApi: {
+    summary: 'Create a new project',
+    successStatus: 201,
+  },
+};
+```
+
+### computeRoutePath
+
+Combines metadata into a full path:
+
+```typescript
+
+
+// Result: '/api/projects'
+const path = computeRoutePath(
+  projectManagementServiceMetadata,  // basePath: '/api/projects'
+  projectsResourceMetadata,          // path: ''
+  createProjectEndpointMetadata      // path: ''
+);
+
+// For nested resources with path params
+// Result: '/api/projects/{projectId}/tasks'
+const tasksPath = computeRoutePath(
+  projectManagementServiceMetadata,  // basePath: '/api/projects'
+  tasksResourceMetadata,             // path: '/{projectId}/tasks'
+  listTasksEndpointMetadata          // path: ''
+);
+```
+
+
+Paths use `{param}` syntax which is framework-agnostic. Framework integrations convert to the appropriate format (e.g., `:param` for Hono/Express).
+
 
 ---
 
@@ -586,6 +686,116 @@ Simple systems can share a single database + ORM via `shared/infra/`.
 
 ---
 
+## Infrastructure Mappers
+
+For complex domain-to-persistence mappings, use dedicated mapper objects:
+
+```typescript:persistence/drizzle/mappers/project.mapper.ts
+
+
+
+
+
+
+  /**
+   * Converts database rows to domain aggregate
+   */
+  toDomain(row: ProjectRow, statusRows: StatusRow[], taskRows: TaskRow[]): Project {
+    const statuses = statusRows.map(StatusMapper.toDomain);
+    const tasks = taskRows.map(TaskMapper.toDomain);
+
+    return Project.reconstitute(
+      ProjectId.create(row.id),
+      ProjectName.create(row.name),
+      ProjectDescription.create(row.description ?? ''),
+      statuses,
+      tasks,
+      row.createdAt,
+      row.version,
+    );
+  },
+
+  /**
+   * Converts domain aggregate to database row
+   */
+  toRow(project: Project): NewProjectRow {
+    return {
+      id: project.id.value,
+      name: project.name.value,
+      description: project.description.value || null,
+      createdAt: project.createdAt,
+      version: project.version,
+    };
+  },
+};
+```
+
+### Using Mappers in Repositories
+
+```typescript:outbound-adapters/persistence/drizzle/project/project.repository.adapter.ts
+
+
+
+class ProjectRepository extends BaseOutboundAdapter implements ProjectRepositoryPort {
+  async findById(id: ProjectId): Promise {
+    const row = await this.db.query.projects.findFirst({
+      where: eq(projects.id, id.value),
+    });
+    if (!row) return null;
+
+    const statusRows = await this.db.query.statuses.findMany({
+      where: eq(statuses.projectId, id.value),
+    });
+    const taskRows = await this.db.query.tasks.findMany({
+      where: eq(tasks.projectId, id.value),
+    });
+
+    return ProjectMapper.toDomain(row, statusRows, taskRows);
+  }
+
+  async save(project: Project): Promise {
+    const row = ProjectMapper.toRow(project);
+    await this.db.insert(projects).values(row).onConflictDoUpdate({
+      target: projects.id,
+      set: row,
+    });
+
+    // Save child entities
+    for (const status of project.statuses) {
+      const statusRow = StatusMapper.toRow(status, project.id.value);
+      await this.db.insert(statuses).values(statusRow).onConflictDoUpdate({
+        target: statuses.id,
+        set: statusRow,
+      });
+    }
+  }
+}
+```
+
+### Mapper Directory Structure
+
+```
+infra/
+└── outbound-adapters/
+    └── persistence/
+        └── drizzle/
+            ├── mappers/                ← Shared mappers
+            │   ├── project.mapper.ts
+            │   ├── status.mapper.ts
+            │   └── task.mapper.ts
+            ├── project/                ← Repository implementations
+            │   └── project.repository.adapter.ts
+            └── project-query/
+                └── project-query.repository.adapter.ts
+```
+
+
+**toDomain** converts persistence (row) → domain (aggregate/entity)
+**toRow** converts domain (aggregate/entity) → persistence (row)
+
+
+---
+
 ## Aggregate Hydration
 
 Repositories are responsible for hydrating aggregates using `Aggregate.reconstitute()`.
@@ -736,37 +946,56 @@ Pure domain logic, completely framework-free.
 
 ```
 bounded-contexts/{bc-name}/
+├── bootstrap/                   ← Dependency wiring (at BC root!)
+│   ├── index.ts                 ← Main orchestration
+│   ├── adapters.bootstrap.ts
+│   ├── use-cases.bootstrap.ts
+│   ├── validators.bootstrap.ts
+│   ├── controller.bootstrap.ts
+│   └── routes.bootstrap.ts
 ├── app/
 │   ├── ports/
 │   │   ├── inbound/
-│   │   │   ├── queries/       ← Query port interfaces
-│   │   │   └── commands/      ← Command port interfaces
-│   │   └── outbound/          ← Repository interfaces
+│   │   │   ├── {resource}/      ← Ports grouped by resource
+│   │   │   │   ├── create-{resource}.command.port.ts
+│   │   │   │   ├── get-{resource}.query.port.ts
+│   │   │   │   └── list-{resources}.query.port.ts
+│   │   └── outbound/            ← Repository interfaces
 │   └── use-cases/
-│       ├── queries/           ← Query implementations
-│       └── commands/          ← Command implementations
+│       └── {resource}/          ← Use cases grouped by resource
+│           ├── create-{resource}.command.ts
+│           ├── get-{resource}.query.ts
+│           └── list-{resources}.query.ts
 ├── domain/
 │   ├── aggregates/
 │   │   └── {aggregate}/
 │   │       └── policies/
 │   ├── entities/
 │   ├── value-objects/
-│   ├── events/                ← Domain events
-│   ├── services/              ← Domain services
+│   ├── events/                  ← Domain events
+│   ├── services/                ← Domain services
 │   └── exceptions/
 ├── infra/
-│   ├── outbound-adapters/     ← Port implementations
-│   ├── persistence/
-│   ├── external-systems/
-│   ├── schemas/
-│   └── config/
-└── presentation/              ← BC-specific HTTP layer
-    ├── bootstrap/
-    │   ├── controller.bootstrap.ts
-    │   └── dto.bootstrap.ts
+│   └── outbound-adapters/       ← Port implementations
+│       └── persistence/
+│           └── drizzle/
+│               ├── mappers/     ← Domain ↔ persistence mappers
+│               └── {resource}/  ← Repository implementations
+└── presentation/                ← BC-specific HTTP layer
     └── http/
+        ├── service.metadata.ts
+        ├── resources/           ← Resource metadata
+        ├── endpoints/           ← Endpoint metadata
         └── {resource}/{endpoint}/
+            ├── dtos.ts          ← Request/Response DTOs
+            ├── schemas.ts       ← Validation schemas
+            ├── mappers.ts       ← DTO transformations
+            └── endpoint.metadata.ts
 ```
+
+
+The **bootstrap** folder is at the BC root, not under presentation. See [Bootstrap Pattern](/docs/patterns/bootstrap) for details.
+
 
 ---
 
@@ -789,12 +1018,25 @@ interface FindUserByIdQueryInboundPort {
 }
 ```
 
-### Naming
+### Naming Conventions
 
+Two patterns are acceptable:
+
+**Full naming (explicit):**
 | Type | Interface | File |
 |------|-----------|------|
-| Query | `{Name}QueryInboundPort` | `queries/{name}.port.ts` |
-| Command | `{Name}CommandInboundPort` | `commands/{name}.port.ts` |
+| Query | `{Name}QueryInboundPort` | `{resource}/{name}.query.port.ts` |
+| Command | `{Name}CommandInboundPort` | `{resource}/{name}.command.port.ts` |
+
+**Short naming (concise):**
+| Type | Interface | File |
+|------|-----------|------|
+| Query | `{Name}Port` | `{resource}/{name}.query.port.ts` |
+| Command | `{Name}Port` | `{resource}/{name}.command.port.ts` |
+
+
+Choose one convention and use it consistently throughout your project. The short naming works well when file names already indicate the type (`.query.port.ts` vs `.command.port.ts`).
+
 
 ---
 
@@ -872,7 +1114,7 @@ class UserId {
 }
 ```
 
-See [Aggregates](../patterns/aggregates.md) and [Value Objects](../patterns/value-objects.md) for details.
+See [Aggregates](/docs/patterns/aggregates) and [Value Objects](/docs/patterns/value-objects) for details.
 ---
 
 # DTOs
@@ -1034,6 +1276,80 @@ Controllers automatically convert `ObjectValidationError` to `InvalidRequestErro
 
 ---
 
+## Centralized Validators (Recommended)
+
+For larger projects, create validators in a central bootstrap file and inject them:
+
+```typescript:bootstrap/validators.bootstrap.ts
+
+
+
+// Create validators once, reuse everywhere
+
+
+```
+
+Then inject into mappers:
+
+```typescript:presentation/http/projects/create-project/mappers.ts
+
+
+
+// Request mapper - validator injected at runtime
+
+  request: CreateProjectRequestDto,
+  validator: DtoValidator,
+): CreateProjectInputDto {
+  return new CreateProjectInputDto(
+    {
+      name: request.data.body.name,
+      description: request.data.body.description,
+    },
+    validator,  // Validator injected here
+  );
+}
+
+// Response mapper with validator
+
+  output: CreateProjectOutputDto,
+  validator: DtoValidator,
+): CreateProjectResponseDto {
+  return new CreateProjectResponseDto(
+    { statusCode: 201, body: { projectId: output.data.projectId } },
+    validator,
+  );
+}
+```
+
+Wire in controllers:
+
+```typescript:bootstrap/controller.bootstrap.ts
+
+
+
+const createProjectController = BaseController.create({
+  // Input already validated at HTTP layer, skip re-validation
+  requestMapper: (req: CreateProjectRequestDto) =>
+    createProjectToInputMapper(req, SKIP_DTO_VALIDATION),
+  useCase: createProjectUseCase,
+  // Response needs validation before sending to client
+  responseMapper: (out: CreateProjectOutputDto) =>
+    createProjectToResponseMapper(out, createProjectResponseValidator),
+});
+```
+
+
+**When to skip validation:**
+- Request → Input mapping: Request DTO already validated at HTTP boundary
+- Internal mappings: Data comes from trusted sources (database, other validated DTOs)
+
+**When to validate:**
+- Response → HTTP: Ensure response matches expected schema before sending
+- External data: Data from third-party APIs or user input
+
+
+---
+
 ## DTO vs Value Object
 
 | Aspect | DTO | Value Object |
@@ -1110,6 +1426,23 @@ class SkuCode extends BaseTextVo {
 }
 ```
 
+
+Text VOs use `new this(value)` internally, so subclass instances are created correctly at runtime. However, TypeScript still infers the return type as the base class. For strict type safety, you can override `create()`:
+
+```typescript
+class ProductName extends BaseTextVo {
+  static override defaultMinLength = 1;
+  static override defaultMaxLength = 50;
+
+  static override create(value: ProductName['value']): ProductName {
+    // Let parent validate, then cast to correct type
+    BaseTextVo.create.call(this, value);
+    return new ProductName(value);
+  }
+}
+```
+
+
 ### Identifiers
 
 ```typescript
@@ -1185,11 +1518,22 @@ const updated = auditOn.update();
 
 
 class OrderId extends BaseUuidV7Vo {
+  // Override generate() to return correct type
   static override generate(): OrderId {
     return new OrderId(v7());
   }
+
+  // IMPORTANT: Override create() to return correct type
+  static override create(value: OrderId['value']): OrderId {
+    const validated = BaseUuidV7Vo.create(value);
+    return new OrderId(validated.value);
+  }
 }
 ```
+
+
+**Always override `create()` for UUID subclasses.** Without this override, `OrderId.create(uuid)` returns `BaseUuidV7Vo` instead of `OrderId`, breaking type safety and `instanceof` checks.
+
 
 ### Value Object with Custom Validation
 
@@ -1345,16 +1689,19 @@ Entities have identity and can be compared by ID:
 abstract class BaseEntity,
   TProps extends object,
 > {
-  protected readonly _id: TId;
-  protected _version: number;
-  protected readonly _props: TProps;
+  private readonly _id: TId;
+  private readonly _version: number;
+  protected _props: TProps;
 
+  // Public API
   get id(): TId;
   get version(): number;
-  get props(): TProps;
-
   equals(other: BaseEntity): boolean;
-  nextVersion(): number;
+
+  // Protected (for subclasses)
+  protected get props(): TProps;
+  protected idEquals(a: TId, b: TId): boolean;
+  protected nextVersion(): number;
 }
 ```
 
@@ -1421,7 +1768,11 @@ class OrderAggregate extends BaseAggregateRoot {
     );
 
     // Emit creation event
-    order.addDomainEvent(new OrderCreatedEvent(order.id.value, data.customerId));
+    order.addDomainEvent(new OrderCreatedEvent({
+      orderId: order.id.value,
+      customerId: data.customerId,
+      totalAmount: 0,
+    }));
 
     return order;
   }
@@ -1456,7 +1807,11 @@ class OrderAggregate extends BaseAggregateRoot {
     }
 
     this._props.items.push(OrderItem.create(item));
-    this.addDomainEvent(new OrderItemAddedEvent(this.id.value, item));
+    this.addDomainEvent(new OrderItemAddedEvent({
+      orderId: this.id.value,
+      productId: item.productId,
+      quantity: item.quantity,
+    }));
   }
 
   submit(): void {
@@ -1468,7 +1823,10 @@ class OrderAggregate extends BaseAggregateRoot {
     }
 
     this._props.status = OrderStatus.PENDING;
-    this.addDomainEvent(new OrderSubmittedEvent(this.id.value));
+    this.addDomainEvent(new OrderSubmittedEvent({
+      orderId: this.id.value,
+      submittedAt: new Date(),
+    }));
   }
 
   // Getters
@@ -1482,31 +1840,38 @@ class OrderAggregate extends BaseAggregateRoot {
 
 ## Domain Events
 
-Create domain events by extending `BaseDomainEvent`:
+Create domain events by extending `BaseDomainEvent`. Use a **payload object** for type-safe construction:
 
 ```typescript
 
 
 interface OrderCreatedPayload {
+  orderId: string;
   customerId: string;
+  totalAmount: number;
 }
 
 class OrderCreatedEvent extends BaseDomainEvent {
-  constructor(aggregateId: string, customerId: string) {
-    super('OrderCreated', aggregateId, { customerId });
+  constructor(payload: OrderCreatedPayload) {
+    super('OrderCreated', payload.orderId, payload);
   }
 }
 
 interface OrderSubmittedPayload {
+  orderId: string;
   submittedAt: Date;
 }
 
 class OrderSubmittedEvent extends BaseDomainEvent {
-  constructor(aggregateId: string) {
-    super('OrderSubmitted', aggregateId, { submittedAt: new Date() });
+  constructor(payload: OrderSubmittedPayload) {
+    super('OrderSubmitted', payload.orderId, payload);
   }
 }
 ```
+
+
+The payload object pattern ensures all event data is self-contained. The `aggregateId` is extracted from the payload rather than passed separately.
+
 
 `BaseDomainEvent` provides:
 - `eventId` - Unique ID for the event
@@ -1562,6 +1927,43 @@ class OrderRepository {
   }
 }
 ```
+
+---
+
+## Protected Utility Methods
+
+`BaseEntity` provides utility methods for subclasses:
+
+### idEquals
+
+Compares two IDs for equality using the Value Object's `equals` method:
+
+```typescript
+class OrderAggregate extends BaseAggregateRoot {
+  // Use idEquals when comparing entity IDs
+  hasItem(itemId: OrderItemId): boolean {
+    return this._props.items.some((item) => this.idEquals(item.id, itemId));
+  }
+}
+```
+
+### nextVersion
+
+Returns the next version number for optimistic locking:
+
+```typescript
+// In repository
+async save(order: OrderAggregate): Promise {
+  await this.db.update({
+    ...this.toRow(order),
+    version: order.nextVersion(),
+  }).where({ id: order.id.value, version: order.version });
+}
+```
+
+
+`nextVersion()` is protected and returns `version + 1`. Call it when persisting to implement optimistic locking.
+
 
 ---
 
@@ -2149,6 +2551,21 @@ throw new ObjectValidationError({
 });
 ```
 
+
+The HTTP response transforms `field` to `item` and `code` to `errorCode`:
+
+```json
+{
+  "message": "Validation failed",
+  "errorCode": "VALIDATION_ERROR",
+  "errorItems": [
+    { "item": "email", "message": "Invalid email format" },
+    { "item": "password", "message": "Password must be at least 8 characters" }
+  ]
+}
+```
+
+
 ---
 
 ## HTTP Status Code Mapping
@@ -2169,6 +2586,67 @@ Framework integrations map errors to HTTP status codes:
 | Unknown Error | 500 Internal Server Error | Masked |
 
 Internal errors (Domain, Infra, Controller) are masked in responses to prevent leaking implementation details.
+
+
+**Masked errors** return HTTP 500 with `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Your custom error message and code are not exposed to clients.
+
+
+---
+
+## Translating Domain Errors
+
+Since `DomainError` is masked, you must translate business rule violations to `UseCaseError` in the use-case layer if you want clients to see them:
+
+```typescript
+
+
+class DeleteStatusUseCase extends BaseInboundAdapter {
+  protected async handle(input: DeleteStatusInputDto): Promise {
+    const project = await this.projectRepository.findById(input.data.projectId);
+    if (!project) {
+      throw new NotFoundError({ message: 'Project not found' });
+    }
+
+    try {
+      project.deleteStatus(input.data.statusId);
+    } catch (error) {
+      // Translate domain errors to use-case errors
+      if (error instanceof StatusNotFoundError) {
+        throw new NotFoundError({
+          message: error.message,
+          code: 'STATUS_NOT_FOUND'
+        });
+      }
+      if (error instanceof StatusInUseError) {
+        throw new ConflictError({
+          message: error.message,
+          code: 'STATUS_IN_USE'
+        });
+      }
+      if (error instanceof LastStatusError) {
+        throw new UnprocessableError({
+          message: error.message,
+          code: 'LAST_STATUS'
+        });
+      }
+      throw error; // Re-throw unknown errors
+    }
+
+    await this.projectRepository.save(project);
+  }
+}
+```
+
+
+**When to translate:**
+- `NotFoundError` (404) - Resource doesn't exist
+- `ConflictError` (409) - State conflict preventing action
+- `UnprocessableError` (422) - Business rule violation
+
+**When to keep masked:**
+- Invariant violations that indicate bugs
+- Internal consistency errors
+
 
 ---
 
@@ -2308,7 +2786,7 @@ Paths use `{param}` syntax which is automatically converted to Hono's `:param` f
 
 ```typescript
 interface RegisterRoutesOptions {
-  prefix?: string;              // Route prefix (e.g., '/api/v1')
+  prefix?: string;                // Route prefix (e.g., '/api/v1')
   middlewares?: HonoMiddleware[]; // Middlewares to apply to all routes
 }
 
@@ -2318,6 +2796,66 @@ registerHonoRoutes(app, routes, {
   middlewares: [authMiddleware, loggingMiddleware],
 });
 ```
+
+---
+
+## Contextual Routes (Protected Routes)
+
+For routes that need authentication context (user ID, roles, etc.), use `ContextualRouteInput` with a `contextExtractor`:
+
+```typescript
+
+  ContextualRouteInput,
+  ContextualHttpRequest,
+} from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+
+// Define your auth context type
+interface AuthContext {
+  userId: string;
+  roles: string[];
+}
+
+// Define contextual routes
+const protectedRoutes: ContextualRouteInput[] = [
+  {
+    metadata: { method: 'GET', path: '/profile' },
+    controller: getProfileController,
+    requestDtoFactory: (req: ContextualHttpRequest) =>
+      GetProfileRequestDto.create(req),
+  },
+];
+
+// Register with contextExtractor
+registerHonoRoutes(app, protectedRoutes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (c): AuthContext => ({
+    userId: c.get('userId'),
+    roles: c.get('roles') ?? [],
+  }),
+});
+```
+
+The `contextExtractor` runs after middlewares, extracting auth data set by your auth middleware:
+
+```typescript
+// Auth middleware sets context
+const authMiddleware: MiddlewareHandler = async (c, next) => {
+  const token = c.req.header('Authorization');
+  const payload = verifyToken(token);
+  c.set('userId', payload.userId);
+  c.set('roles', payload.roles);
+  await next();
+};
+```
+
+### Route Input Types
+
+| Type | Use Case |
+|------|----------|
+| `HttpRouteInput` | Public routes (no auth context) |
+| `ContextualRouteInput` | Protected routes with auth context |
+| `RouteInputOrArray` | Single or array of public routes |
+| `ContextualRouteInputOrArray` | Single or array of protected routes |
 
 ---
 
@@ -2333,17 +2871,19 @@ app.onError(onionErrorHandler);
 
 | Error Type | HTTP Status | Body |
 |------------|-------------|------|
-| `ObjectValidationError` | 400 | `{ code, message, errors }` |
-| `InvalidRequestError` | 400 | `{ code, message, errors }` |
-| `AccessDeniedError` | 403 | `{ code, message }` |
-| `NotFoundError` | 404 | `{ code, message }` |
-| `ConflictError` | 409 | `{ code, message }` |
-| `UnprocessableError` | 422 | `{ code, message }` |
-| `DomainError` | 500 | `{ message: 'Internal Server Error' }` |
-| `InfraError` | 500 | `{ message: 'Internal Server Error' }` |
-| Unknown | 500 | `{ message: 'Internal Server Error' }` |
+| `ObjectValidationError` | 400 | `{ errorCode, message, errorItems }` |
+| `InvalidRequestError` | 400 | `{ errorCode, message, errorItems }` |
+| `AccessDeniedError` | 403 | `{ errorCode, message }` |
+| `NotFoundError` | 404 | `{ errorCode, message }` |
+| `ConflictError` | 409 | `{ errorCode, message }` |
+| `UnprocessableError` | 422 | `{ errorCode, message }` |
+| `DomainError` | 500 | Masked |
+| `InfraError` | 500 | Masked |
+| Unknown | 500 | Masked |
 
-Internal errors (Domain, Infra, Controller) are masked to prevent leaking implementation details.
+
+**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details. See [Error Handling](/docs/patterns/error-handling#translating-domain-errors) for how to expose business errors.
+
 
 ---
 
@@ -2521,6 +3061,51 @@ const app = new Elysia()
 
 ---
 
+## Contextual Routes (Protected Routes)
+
+For routes that need authentication context, use `ContextualRouteInput` with a `contextExtractor`:
+
+```typescript
+
+  ContextualRouteInput,
+  ContextualHttpRequest,
+} from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+
+interface AuthContext {
+  userId: string;
+  roles: string[];
+}
+
+const protectedRoutes: ContextualRouteInput[] = [
+  {
+    metadata: { method: 'GET', path: '/profile' },
+    controller: getProfileController,
+    requestDtoFactory: (req: ContextualHttpRequest) =>
+      GetProfileRequestDto.create(req),
+  },
+];
+
+const app = new Elysia()
+  .use(registerElysiaRoutes(protectedRoutes, {
+    middlewares: [authMiddleware],
+    contextExtractor: (ctx): AuthContext => ({
+      userId: ctx.store.userId,
+      roles: ctx.store.roles ?? [],
+    }),
+  }));
+```
+
+### Route Input Types
+
+| Type | Use Case |
+|------|----------|
+| `HttpRouteInput` | Public routes (no auth context) |
+| `ContextualRouteInput` | Protected routes with auth context |
+| `RouteInputOrArray` | Single or array of public routes |
+| `ContextualRouteInputOrArray` | Single or array of protected routes |
+
+---
+
 ## Error Handler
 
 The `onionErrorHandler` is a function that handles errors:
@@ -2534,13 +3119,19 @@ const app = new Elysia()
 
 | Error Type | HTTP Status | Body |
 |------------|-------------|------|
-| `ObjectValidationError` | 400 | `{ code, message, errors }` |
-| `InvalidRequestError` | 400 | `{ code, message, errors }` |
-| `AccessDeniedError` | 403 | `{ code, message }` |
-| `NotFoundError` | 404 | `{ code, message }` |
-| `ConflictError` | 409 | `{ code, message }` |
-| `UnprocessableError` | 422 | `{ code, message }` |
-| Internal errors | 500 | `{ message: 'Internal Server Error' }` |
+| `ObjectValidationError` | 400 | `{ errorCode, message, errorItems }` |
+| `InvalidRequestError` | 400 | `{ errorCode, message, errorItems }` |
+| `AccessDeniedError` | 403 | `{ errorCode, message }` |
+| `NotFoundError` | 404 | `{ errorCode, message }` |
+| `ConflictError` | 409 | `{ errorCode, message }` |
+| `UnprocessableError` | 422 | `{ errorCode, message }` |
+| `DomainError` | 500 | Masked |
+| `InfraError` | 500 | Masked |
+| Unknown | 500 | Masked |
+
+
+**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details. See [Error Handling](/docs/patterns/error-handling#translating-domain-errors) for how to expose business errors.
+
 
 ---
 
@@ -2668,6 +3259,50 @@ registerFastifyRoutes(app, routes, {
 
 ---
 
+## Contextual Routes (Protected Routes)
+
+For routes that need authentication context, use `ContextualRouteInput` with a `contextExtractor`:
+
+```typescript
+
+  ContextualRouteInput,
+  ContextualHttpRequest,
+} from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
+
+interface AuthContext {
+  userId: string;
+  roles: string[];
+}
+
+const protectedRoutes: ContextualRouteInput[] = [
+  {
+    metadata: { method: 'GET', path: '/profile' },
+    controller: getProfileController,
+    requestDtoFactory: (req: ContextualHttpRequest) =>
+      GetProfileRequestDto.create(req),
+  },
+];
+
+registerFastifyRoutes(app, protectedRoutes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (request): AuthContext => ({
+    userId: request.user.id,
+    roles: request.user.roles ?? [],
+  }),
+});
+```
+
+### Route Input Types
+
+| Type | Use Case |
+|------|----------|
+| `HttpRouteInput` | Public routes (no auth context) |
+| `ContextualRouteInput` | Protected routes with auth context |
+| `RouteInputOrArray` | Single or array of public routes |
+| `ContextualRouteInputOrArray` | Single or array of protected routes |
+
+---
+
 ## Error Handler
 
 The `onionErrorHandler` maps domain errors to HTTP responses:
@@ -2680,13 +3315,19 @@ app.setErrorHandler(onionErrorHandler);
 
 | Error Type | HTTP Status | Body |
 |------------|-------------|------|
-| `ObjectValidationError` | 400 | `{ code, message, errors }` |
-| `InvalidRequestError` | 400 | `{ code, message, errors }` |
-| `AccessDeniedError` | 403 | `{ code, message }` |
-| `NotFoundError` | 404 | `{ code, message }` |
-| `ConflictError` | 409 | `{ code, message }` |
-| `UnprocessableError` | 422 | `{ code, message }` |
-| Internal errors | 500 | `{ message: 'Internal Server Error' }` |
+| `ObjectValidationError` | 400 | `{ errorCode, message, errorItems }` |
+| `InvalidRequestError` | 400 | `{ errorCode, message, errorItems }` |
+| `AccessDeniedError` | 403 | `{ errorCode, message }` |
+| `NotFoundError` | 404 | `{ errorCode, message }` |
+| `ConflictError` | 409 | `{ errorCode, message }` |
+| `UnprocessableError` | 422 | `{ errorCode, message }` |
+| `DomainError` | 500 | Masked |
+| `InfraError` | 500 | Masked |
+| Unknown | 500 | Masked |
+
+
+**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details. See [Error Handling](/docs/patterns/error-handling#translating-domain-errors) for how to expose business errors.
+
 
 ---
 
@@ -2824,9 +3465,49 @@ interface HttpRequest {
   queryParams: Record;
   body: unknown;
   headers: Record;
-  rawRequest?: unknown;  // Original NestJS request
 }
 ```
+
+### With Context Extractor (Protected Routes)
+
+For routes that need authentication context, pass a `contextExtractor` function to the decorator:
+
+```typescript
+
+
+  OnionLasagnaRequest,
+  type NestContextExtractor,
+  type ContextualHttpRequest,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+interface AuthContext {
+  user: { id: string; email: string };
+  requestId: string;
+}
+
+const extractAuthContext: NestContextExtractor = (ctx) => {
+  const request = ctx.switchToHttp().getRequest();
+  return {
+    user: request.user,        // Set by AuthGuard
+    requestId: request.id,
+  };
+};
+
+@Controller('users')
+
+  @UseGuards(AuthGuard)
+  @Get('profile')
+  getProfile(
+    @OnionLasagnaRequest(extractAuthContext) request: ContextualHttpRequest
+  ) {
+    // request.context.user is type-safe
+    const dto = GetProfileRequestDto.create(request);
+    return this.getProfileQuery.execute(dto);
+  }
+}
+```
+
+The `ContextualHttpRequest` extends `HttpRequest` with a `context` property containing your auth data.
 
 ---
 
@@ -3041,9 +3722,43 @@ type GetUserResponse = z.infer;
 
 ```typescript:presentation/http/users/get-user/endpoint.metadata.ts
 
-  method: 'GET' as const,
-  path: '/users/:userId',
+
+
+  id: 'get-user',
+  shortId: 'gu',
+  name: 'getUser',
+  description: 'Gets a user by their ID.',
+  method: 'GET',
+  path: '/{userId}',  // Use {param} syntax - converted to :param by framework
+  openApi: {
+    summary: 'Get user by ID',
+  },
 };
+```
+
+
+Paths use `{param}` syntax which is framework-agnostic. Framework integrations convert to the appropriate format (e.g., `:param` for Hono/Express).
+
+
+**OpenAPI successStatus defaults:**
+
+| Method | Default Status | When to Override |
+|--------|----------------|------------------|
+| GET | 200 | Rarely needed |
+| POST | 201 | Use 200 for non-creation operations |
+| PUT | 200 | Use 204 for no-content responses |
+| PATCH | 200 | Use 204 for no-content responses |
+| DELETE | 204 | Use 200 if returning deleted resource |
+
+```typescript:endpoint.metadata.ts
+// POST that creates - use default 201
+openApi: { summary: 'Create user' }
+
+// POST that doesn't create - override to 200
+openApi: { summary: 'Login', successStatus: 200 }
+
+// DELETE with no response body - use default 204
+openApi: { summary: 'Delete user' }
 ```
 
 ### 3. Define Inbound Port (in BC)
@@ -3151,6 +3866,94 @@ const getUserControllerGuarded = GuardedController.create({
   accessGuard: getUserAccessGuard,
 });
 ```
+
+---
+
+## Void Operations (DELETE, UPDATE)
+
+For operations that return no content (HTTP 204):
+
+### Port with void output
+
+```typescript:app/ports/inbound/delete-user.command.port.ts
+
+
+interface DeleteUserPort extends BaseInboundPort {}
+```
+
+### Use Case returning void
+
+Since `BaseInboundAdapter` requires a DTO output, create a void adapter in your codebase:
+
+
+`BaseVoidInboundAdapter` is **not** a library export—it's a pattern you implement. Create this class once in your project and reuse it for all void-returning use cases.
+
+
+```typescript:app/use-cases/base-void-inbound-adapter.ts
+
+
+
+
+  implements BaseInboundPort
+{
+  protected abstract handle(input: TInDto): Promise;
+
+  public async execute(input: TInDto): Promise {
+    return wrapErrorUnlessAsync(
+      () => this.handle(input),
+      (cause) => new UseCaseError({ message: 'Unexpected use case error', cause }),
+      [ObjectValidationError, UseCaseError, DomainError, InfraError],
+    );
+  }
+}
+```
+
+```typescript:app/use-cases/commands/delete-user.command.ts
+class DeleteUserUseCase extends BaseVoidInboundAdapter implements DeleteUserPort {
+  constructor(private readonly userRepo: UserRepositoryPort) {
+    super();
+  }
+
+  protected async handle(input: DeleteUserInputDto): Promise {
+    const user = await this.userRepo.findById(UserId.create(input.data.userId));
+    if (!user) {
+      throw new NotFoundError({ message: `User ${input.data.userId} not found` });
+    }
+    await this.userRepo.delete(user.id);
+  }
+}
+```
+
+### Response mapper for 204
+
+```typescript:presentation/http/users/delete-user/mappers.ts
+
+
+
+  validator: DtoValidator,
+): DeleteUserResponseDto {
+  return new DeleteUserResponseDto(
+    { statusCode: 204, body: null },
+    validator,
+  );
+}
+```
+
+### Controller for void operations
+
+```typescript:bootstrap/controller.bootstrap.ts
+deleteUserController: BaseController.create({
+  requestMapper: (req: DeleteUserRequestDto) =>
+    deleteUserToInputMapper(req, SKIP_DTO_VALIDATION),
+  useCase: deleteUserUseCase,
+  // Response mapper ignores output (void) and returns 204
+  responseMapper: () => deleteUserToResponseMapper(SKIP_DTO_VALIDATION),
+}),
+```
+
+
+For void operations, the `responseMapper` receives `void` and returns a 204 response with `body: null`.
+
 
 ---
 
@@ -3315,10 +4118,12 @@ class UserRepository implements
 
 ## See Also
 
-- [Controller Wiring](controller-wiring.md)
-- [HTTP Client Generation](http-client-generation.md)
-- [Endpoint Scaffolding](endpoint-scaffolding.md)
-- [Linter Rules](linter-rules.md)
+These features are planned for future releases:
+
+- Controller Wiring
+- HTTP Client Generation
+- Endpoint Scaffolding
+- Linter Rules
 ---
 
 # Endpoint Scaffolding

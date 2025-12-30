@@ -84,6 +84,50 @@ registerFastifyRoutes(app, routes, {
 
 ---
 
+## Contextual Routes (Protected Routes)
+
+For routes that need authentication context, use `ContextualRouteInput` with a `contextExtractor`:
+
+```typescript
+import type {
+  ContextualRouteInput,
+  ContextualHttpRequest,
+} from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
+
+interface AuthContext {
+  userId: string;
+  roles: string[];
+}
+
+const protectedRoutes: ContextualRouteInput<AuthContext>[] = [
+  {
+    metadata: { method: 'GET', path: '/profile' },
+    controller: getProfileController,
+    requestDtoFactory: (req: ContextualHttpRequest<AuthContext>) =>
+      GetProfileRequestDto.create(req),
+  },
+];
+
+registerFastifyRoutes(app, protectedRoutes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (request): AuthContext => ({
+    userId: request.user.id,
+    roles: request.user.roles ?? [],
+  }),
+});
+```
+
+### Route Input Types
+
+| Type | Use Case |
+|------|----------|
+| `HttpRouteInput` | Public routes (no auth context) |
+| `ContextualRouteInput<TContext>` | Protected routes with auth context |
+| `RouteInputOrArray` | Single or array of public routes |
+| `ContextualRouteInputOrArray<TContext>` | Single or array of protected routes |
+
+---
+
 ## Error Handler
 
 The `onionErrorHandler` maps domain errors to HTTP responses:
@@ -96,13 +140,19 @@ app.setErrorHandler(onionErrorHandler);
 
 | Error Type | HTTP Status | Body |
 |------------|-------------|------|
-| `ObjectValidationError` | 400 | `{ code, message, errors }` |
-| `InvalidRequestError` | 400 | `{ code, message, errors }` |
-| `AccessDeniedError` | 403 | `{ code, message }` |
-| `NotFoundError` | 404 | `{ code, message }` |
-| `ConflictError` | 409 | `{ code, message }` |
-| `UnprocessableError` | 422 | `{ code, message }` |
-| Internal errors | 500 | `{ message: 'Internal Server Error' }` |
+| `ObjectValidationError` | 400 | `{ errorCode, message, errorItems }` |
+| `InvalidRequestError` | 400 | `{ errorCode, message, errorItems }` |
+| `AccessDeniedError` | 403 | `{ errorCode, message }` |
+| `NotFoundError` | 404 | `{ errorCode, message }` |
+| `ConflictError` | 409 | `{ errorCode, message }` |
+| `UnprocessableError` | 422 | `{ errorCode, message }` |
+| `DomainError` | 500 | Masked |
+| `InfraError` | 500 | Masked |
+| Unknown | 500 | Masked |
+
+<Callout type="warning">
+**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details. See [Error Handling](/docs/patterns/error-handling#translating-domain-errors) for how to expose business errors.
+</Callout>
 
 ---
 

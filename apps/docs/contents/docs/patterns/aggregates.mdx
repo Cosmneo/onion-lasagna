@@ -27,16 +27,19 @@ abstract class BaseEntity<
   TId extends BaseValueObject<unknown>,
   TProps extends object,
 > {
-  protected readonly _id: TId;
-  protected _version: number;
-  protected readonly _props: TProps;
+  private readonly _id: TId;
+  private readonly _version: number;
+  protected _props: TProps;
 
+  // Public API
   get id(): TId;
   get version(): number;
-  get props(): TProps;
-
   equals(other: BaseEntity<TId, TProps>): boolean;
-  nextVersion(): number;
+
+  // Protected (for subclasses)
+  protected get props(): TProps;
+  protected idEquals(a: TId, b: TId): boolean;
+  protected nextVersion(): number;
 }
 ```
 
@@ -104,7 +107,11 @@ class OrderAggregate extends BaseAggregateRoot<OrderId, OrderProps> {
     );
 
     // Emit creation event
-    order.addDomainEvent(new OrderCreatedEvent(order.id.value, data.customerId));
+    order.addDomainEvent(new OrderCreatedEvent({
+      orderId: order.id.value,
+      customerId: data.customerId,
+      totalAmount: 0,
+    }));
 
     return order;
   }
@@ -139,7 +146,11 @@ class OrderAggregate extends BaseAggregateRoot<OrderId, OrderProps> {
     }
 
     this._props.items.push(OrderItem.create(item));
-    this.addDomainEvent(new OrderItemAddedEvent(this.id.value, item));
+    this.addDomainEvent(new OrderItemAddedEvent({
+      orderId: this.id.value,
+      productId: item.productId,
+      quantity: item.quantity,
+    }));
   }
 
   submit(): void {
@@ -151,7 +162,10 @@ class OrderAggregate extends BaseAggregateRoot<OrderId, OrderProps> {
     }
 
     this._props.status = OrderStatus.PENDING;
-    this.addDomainEvent(new OrderSubmittedEvent(this.id.value));
+    this.addDomainEvent(new OrderSubmittedEvent({
+      orderId: this.id.value,
+      submittedAt: new Date(),
+    }));
   }
 
   // Getters
@@ -165,31 +179,38 @@ class OrderAggregate extends BaseAggregateRoot<OrderId, OrderProps> {
 
 ## Domain Events
 
-Create domain events by extending `BaseDomainEvent`:
+Create domain events by extending `BaseDomainEvent`. Use a **payload object** for type-safe construction:
 
 ```typescript
 import { BaseDomainEvent } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
 
 interface OrderCreatedPayload {
+  orderId: string;
   customerId: string;
+  totalAmount: number;
 }
 
 class OrderCreatedEvent extends BaseDomainEvent<OrderCreatedPayload> {
-  constructor(aggregateId: string, customerId: string) {
-    super('OrderCreated', aggregateId, { customerId });
+  constructor(payload: OrderCreatedPayload) {
+    super('OrderCreated', payload.orderId, payload);
   }
 }
 
 interface OrderSubmittedPayload {
+  orderId: string;
   submittedAt: Date;
 }
 
 class OrderSubmittedEvent extends BaseDomainEvent<OrderSubmittedPayload> {
-  constructor(aggregateId: string) {
-    super('OrderSubmitted', aggregateId, { submittedAt: new Date() });
+  constructor(payload: OrderSubmittedPayload) {
+    super('OrderSubmitted', payload.orderId, payload);
   }
 }
 ```
+
+<Callout type="info">
+The payload object pattern ensures all event data is self-contained. The `aggregateId` is extracted from the payload rather than passed separately.
+</Callout>
 
 `BaseDomainEvent` provides:
 - `eventId` - Unique ID for the event
@@ -245,6 +266,43 @@ class OrderRepository {
   }
 }
 ```
+
+---
+
+## Protected Utility Methods
+
+`BaseEntity` provides utility methods for subclasses:
+
+### idEquals
+
+Compares two IDs for equality using the Value Object's `equals` method:
+
+```typescript
+class OrderAggregate extends BaseAggregateRoot<OrderId, OrderProps> {
+  // Use idEquals when comparing entity IDs
+  hasItem(itemId: OrderItemId): boolean {
+    return this._props.items.some((item) => this.idEquals(item.id, itemId));
+  }
+}
+```
+
+### nextVersion
+
+Returns the next version number for optimistic locking:
+
+```typescript
+// In repository
+async save(order: OrderAggregate): Promise<void> {
+  await this.db.update({
+    ...this.toRow(order),
+    version: order.nextVersion(),
+  }).where({ id: order.id.value, version: order.version });
+}
+```
+
+<Callout type="info">
+`nextVersion()` is protected and returns `version + 1`. Call it when persisting to implement optimistic locking.
+</Callout>
 
 ---
 

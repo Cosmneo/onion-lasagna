@@ -101,6 +101,116 @@ Simple systems can share a single database + ORM via `shared/infra/`.
 
 ---
 
+## Infrastructure Mappers
+
+For complex domain-to-persistence mappings, use dedicated mapper objects:
+
+```typescript:persistence/drizzle/mappers/project.mapper.ts
+import { Project, ProjectId, ProjectName, ProjectDescription } from '../../../domain';
+import { Status, StatusMapper } from './status.mapper';
+import { Task, TaskMapper } from './task.mapper';
+import type { ProjectRow, NewProjectRow, StatusRow, TaskRow } from '../schema';
+
+export const ProjectMapper = {
+  /**
+   * Converts database rows to domain aggregate
+   */
+  toDomain(row: ProjectRow, statusRows: StatusRow[], taskRows: TaskRow[]): Project {
+    const statuses = statusRows.map(StatusMapper.toDomain);
+    const tasks = taskRows.map(TaskMapper.toDomain);
+
+    return Project.reconstitute(
+      ProjectId.create(row.id),
+      ProjectName.create(row.name),
+      ProjectDescription.create(row.description ?? ''),
+      statuses,
+      tasks,
+      row.createdAt,
+      row.version,
+    );
+  },
+
+  /**
+   * Converts domain aggregate to database row
+   */
+  toRow(project: Project): NewProjectRow {
+    return {
+      id: project.id.value,
+      name: project.name.value,
+      description: project.description.value || null,
+      createdAt: project.createdAt,
+      version: project.version,
+    };
+  },
+};
+```
+
+### Using Mappers in Repositories
+
+```typescript:outbound-adapters/persistence/drizzle/project/project.repository.adapter.ts
+import { ProjectMapper } from '../mappers/project.mapper';
+import { StatusMapper } from '../mappers/status.mapper';
+
+class ProjectRepository extends BaseOutboundAdapter implements ProjectRepositoryPort {
+  async findById(id: ProjectId): Promise<Project | null> {
+    const row = await this.db.query.projects.findFirst({
+      where: eq(projects.id, id.value),
+    });
+    if (!row) return null;
+
+    const statusRows = await this.db.query.statuses.findMany({
+      where: eq(statuses.projectId, id.value),
+    });
+    const taskRows = await this.db.query.tasks.findMany({
+      where: eq(tasks.projectId, id.value),
+    });
+
+    return ProjectMapper.toDomain(row, statusRows, taskRows);
+  }
+
+  async save(project: Project): Promise<void> {
+    const row = ProjectMapper.toRow(project);
+    await this.db.insert(projects).values(row).onConflictDoUpdate({
+      target: projects.id,
+      set: row,
+    });
+
+    // Save child entities
+    for (const status of project.statuses) {
+      const statusRow = StatusMapper.toRow(status, project.id.value);
+      await this.db.insert(statuses).values(statusRow).onConflictDoUpdate({
+        target: statuses.id,
+        set: statusRow,
+      });
+    }
+  }
+}
+```
+
+### Mapper Directory Structure
+
+```
+infra/
+└── outbound-adapters/
+    └── persistence/
+        └── drizzle/
+            ├── mappers/                ← Shared mappers
+            │   ├── project.mapper.ts
+            │   ├── status.mapper.ts
+            │   └── task.mapper.ts
+            ├── project/                ← Repository implementations
+            │   └── project.repository.adapter.ts
+            └── project-query/
+                └── project-query.repository.adapter.ts
+```
+
+<Callout type="info">
+**toDomain** converts persistence (row) → domain (aggregate/entity)
+**toRow** converts domain (aggregate/entity) → persistence (row)
+</Callout>
+
+---
+
 ## Aggregate Hydration
 
 Repositories are responsible for hydrating aggregates using `Aggregate.reconstitute()`.

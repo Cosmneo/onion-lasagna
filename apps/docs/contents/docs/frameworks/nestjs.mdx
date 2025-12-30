@@ -72,9 +72,49 @@ interface HttpRequest {
   queryParams: Record<string, string | string[]>;
   body: unknown;
   headers: Record<string, string>;
-  rawRequest?: unknown;  // Original NestJS request
 }
 ```
+
+### With Context Extractor (Protected Routes)
+
+For routes that need authentication context, pass a `contextExtractor` function to the decorator:
+
+```typescript
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import {
+  OnionLasagnaRequest,
+  type NestContextExtractor,
+  type ContextualHttpRequest,
+} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+
+interface AuthContext {
+  user: { id: string; email: string };
+  requestId: string;
+}
+
+const extractAuthContext: NestContextExtractor<AuthContext> = (ctx) => {
+  const request = ctx.switchToHttp().getRequest();
+  return {
+    user: request.user,        // Set by AuthGuard
+    requestId: request.id,
+  };
+};
+
+@Controller('users')
+export class UsersController {
+  @UseGuards(AuthGuard)
+  @Get('profile')
+  getProfile(
+    @OnionLasagnaRequest(extractAuthContext) request: ContextualHttpRequest<AuthContext>
+  ) {
+    // request.context.user is type-safe
+    const dto = GetProfileRequestDto.create(request);
+    return this.getProfileQuery.execute(dto);
+  }
+}
+```
+
+The `ContextualHttpRequest<TContext>` extends `HttpRequest` with a `context` property containing your auth data.
 
 ---
 

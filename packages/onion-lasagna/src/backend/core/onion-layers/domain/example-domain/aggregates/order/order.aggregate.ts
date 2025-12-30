@@ -105,7 +105,7 @@ export class Order extends BaseAggregateRoot<OrderId, OrderProps> {
    * @param props - The order properties
    * @param version - The version for optimistic locking
    */
-  static fromPersistence(id: OrderId, props: OrderProps, version: number): Order {
+  static reconstitute(id: OrderId, props: OrderProps, version: number): Order {
     return new Order(id, props, version);
   }
 

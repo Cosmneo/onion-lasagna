@@ -43,7 +43,7 @@ import type { BaseValueObject } from './base-value-object.class';
  *     });
  *   }
  *
- *   static fromPersistence(id: UserId, props: UserProps, version: number): User {
+ *   static reconstitute(id: UserId, props: UserProps, version: number): User {
  *     return new User(id, props, version);
  *   }
  *
@@ -61,7 +61,7 @@ import type { BaseValueObject } from './base-value-object.class';
  * }
  *
  * const user1 = User.create(PersonName.create('John'), Email.create('john@example.com'));
- * const user2 = User.fromPersistence(user1.id, { ...user1.props }, user1.version);
+ * const user2 = User.reconstitute(user1.id, { ...user1.props }, user1.version);
  * user1.equals(user2); // true - same ID
  * ```
  */
@@ -130,7 +130,7 @@ export abstract class BaseEntity<TId extends BaseValueObject<unknown>, TProps ex
    * @example
    * ```typescript
    * const user1 = User.create(PersonName.create('John'), Email.create('john@example.com'));
-   * const user2 = User.fromPersistence(user1.id, { name: PersonName.create('John Updated'), ... }, 1);
+   * const user2 = User.reconstitute(user1.id, { name: PersonName.create('John Updated'), ... }, 1);
    * user1.equals(user2); // true - same ID, different state
    * ```
    */

@@ -45,7 +45,7 @@ export class OrderItem extends BaseEntity<OrderItemId, OrderItemProps> {
   /**
    * Reconstitutes an OrderItem from persistence.
    */
-  static fromPersistence(id: OrderItemId, props: OrderItemProps): OrderItem {
+  static reconstitute(id: OrderItemId, props: OrderItemProps): OrderItem {
     return new OrderItem(id, props);
   }
 

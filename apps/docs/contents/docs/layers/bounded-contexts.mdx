@@ -13,37 +13,56 @@ Pure domain logic, completely framework-free.
 
 ```
 bounded-contexts/{bc-name}/
+├── bootstrap/                   ← Dependency wiring (at BC root!)
+│   ├── index.ts                 ← Main orchestration
+│   ├── adapters.bootstrap.ts
+│   ├── use-cases.bootstrap.ts
+│   ├── validators.bootstrap.ts
+│   ├── controller.bootstrap.ts
+│   └── routes.bootstrap.ts
 ├── app/
 │   ├── ports/
 │   │   ├── inbound/
-│   │   │   ├── queries/       ← Query port interfaces
-│   │   │   └── commands/      ← Command port interfaces
-│   │   └── outbound/          ← Repository interfaces
+│   │   │   ├── {resource}/      ← Ports grouped by resource
+│   │   │   │   ├── create-{resource}.command.port.ts
+│   │   │   │   ├── get-{resource}.query.port.ts
+│   │   │   │   └── list-{resources}.query.port.ts
+│   │   └── outbound/            ← Repository interfaces
 │   └── use-cases/
-│       ├── queries/           ← Query implementations
-│       └── commands/          ← Command implementations
+│       └── {resource}/          ← Use cases grouped by resource
+│           ├── create-{resource}.command.ts
+│           ├── get-{resource}.query.ts
+│           └── list-{resources}.query.ts
 ├── domain/
 │   ├── aggregates/
 │   │   └── {aggregate}/
 │   │       └── policies/
 │   ├── entities/
 │   ├── value-objects/
-│   ├── events/                ← Domain events
-│   ├── services/              ← Domain services
+│   ├── events/                  ← Domain events
+│   ├── services/                ← Domain services
 │   └── exceptions/
 ├── infra/
-│   ├── outbound-adapters/     ← Port implementations
-│   ├── persistence/
-│   ├── external-systems/
-│   ├── schemas/
-│   └── config/
-└── presentation/              ← BC-specific HTTP layer
-    ├── bootstrap/
-    │   ├── controller.bootstrap.ts
-    │   └── dto.bootstrap.ts
+│   └── outbound-adapters/       ← Port implementations
+│       └── persistence/
+│           └── drizzle/
+│               ├── mappers/     ← Domain ↔ persistence mappers
+│               └── {resource}/  ← Repository implementations
+└── presentation/                ← BC-specific HTTP layer
     └── http/
+        ├── service.metadata.ts
+        ├── resources/           ← Resource metadata
+        ├── endpoints/           ← Endpoint metadata
         └── {resource}/{endpoint}/
+            ├── dtos.ts          ← Request/Response DTOs
+            ├── schemas.ts       ← Validation schemas
+            ├── mappers.ts       ← DTO transformations
+            └── endpoint.metadata.ts
 ```
+
+<Callout type="info">
+The **bootstrap** folder is at the BC root, not under presentation. See [Bootstrap Pattern](/docs/patterns/bootstrap) for details.
+</Callout>
 
 ---
 
@@ -66,12 +85,25 @@ interface FindUserByIdQueryInboundPort {
 }
 ```
 
-### Naming
+### Naming Conventions
 
+Two patterns are acceptable:
+
+**Full naming (explicit):**
 | Type | Interface | File |
 |------|-----------|------|
-| Query | `{Name}QueryInboundPort` | `queries/{name}.port.ts` |
-| Command | `{Name}CommandInboundPort` | `commands/{name}.port.ts` |
+| Query | `{Name}QueryInboundPort` | `{resource}/{name}.query.port.ts` |
+| Command | `{Name}CommandInboundPort` | `{resource}/{name}.command.port.ts` |
+
+**Short naming (concise):**
+| Type | Interface | File |
+|------|-----------|------|
+| Query | `{Name}Port` | `{resource}/{name}.query.port.ts` |
+| Command | `{Name}Port` | `{resource}/{name}.command.port.ts` |
+
+<Callout type="info">
+Choose one convention and use it consistently throughout your project. The short naming works well when file names already indicate the type (`.query.port.ts` vs `.command.port.ts`).
+</Callout>
 
 ---
 
@@ -149,4 +181,4 @@ class UserId {
 }
 ```
 
-See [Aggregates](../patterns/aggregates.md) and [Value Objects](../patterns/value-objects.md) for details.
+See [Aggregates](/docs/patterns/aggregates) and [Value Objects](/docs/patterns/value-objects) for details.

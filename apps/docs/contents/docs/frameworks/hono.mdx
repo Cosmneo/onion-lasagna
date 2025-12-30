@@ -83,7 +83,7 @@ Paths use `{param}` syntax which is automatically converted to Hono's `:param` f
 
 ```typescript
 interface RegisterRoutesOptions {
-  prefix?: string;              // Route prefix (e.g., '/api/v1')
+  prefix?: string;                // Route prefix (e.g., '/api/v1')
   middlewares?: HonoMiddleware[]; // Middlewares to apply to all routes
 }
 
@@ -93,6 +93,66 @@ registerHonoRoutes(app, routes, {
   middlewares: [authMiddleware, loggingMiddleware],
 });
 ```
+
+---
+
+## Contextual Routes (Protected Routes)
+
+For routes that need authentication context (user ID, roles, etc.), use `ContextualRouteInput` with a `contextExtractor`:
+
+```typescript
+import type {
+  ContextualRouteInput,
+  ContextualHttpRequest,
+} from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+
+// Define your auth context type
+interface AuthContext {
+  userId: string;
+  roles: string[];
+}
+
+// Define contextual routes
+const protectedRoutes: ContextualRouteInput<AuthContext>[] = [
+  {
+    metadata: { method: 'GET', path: '/profile' },
+    controller: getProfileController,
+    requestDtoFactory: (req: ContextualHttpRequest<AuthContext>) =>
+      GetProfileRequestDto.create(req),
+  },
+];
+
+// Register with contextExtractor
+registerHonoRoutes(app, protectedRoutes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (c): AuthContext => ({
+    userId: c.get('userId'),
+    roles: c.get('roles') ?? [],
+  }),
+});
+```
+
+The `contextExtractor` runs after middlewares, extracting auth data set by your auth middleware:
+
+```typescript
+// Auth middleware sets context
+const authMiddleware: MiddlewareHandler = async (c, next) => {
+  const token = c.req.header('Authorization');
+  const payload = verifyToken(token);
+  c.set('userId', payload.userId);
+  c.set('roles', payload.roles);
+  await next();
+};
+```
+
+### Route Input Types
+
+| Type | Use Case |
+|------|----------|
+| `HttpRouteInput` | Public routes (no auth context) |
+| `ContextualRouteInput<TContext>` | Protected routes with auth context |
+| `RouteInputOrArray` | Single or array of public routes |
+| `ContextualRouteInputOrArray<TContext>` | Single or array of protected routes |
 
 ---
 
@@ -108,17 +168,19 @@ app.onError(onionErrorHandler);
 
 | Error Type | HTTP Status | Body |
 |------------|-------------|------|
-| `ObjectValidationError` | 400 | `{ code, message, errors }` |
-| `InvalidRequestError` | 400 | `{ code, message, errors }` |
-| `AccessDeniedError` | 403 | `{ code, message }` |
-| `NotFoundError` | 404 | `{ code, message }` |
-| `ConflictError` | 409 | `{ code, message }` |
-| `UnprocessableError` | 422 | `{ code, message }` |
-| `DomainError` | 500 | `{ message: 'Internal Server Error' }` |
-| `InfraError` | 500 | `{ message: 'Internal Server Error' }` |
-| Unknown | 500 | `{ message: 'Internal Server Error' }` |
+| `ObjectValidationError` | 400 | `{ errorCode, message, errorItems }` |
+| `InvalidRequestError` | 400 | `{ errorCode, message, errorItems }` |
+| `AccessDeniedError` | 403 | `{ errorCode, message }` |
+| `NotFoundError` | 404 | `{ errorCode, message }` |
+| `ConflictError` | 409 | `{ errorCode, message }` |
+| `UnprocessableError` | 422 | `{ errorCode, message }` |
+| `DomainError` | 500 | Masked |
+| `InfraError` | 500 | Masked |
+| Unknown | 500 | Masked |
 
-Internal errors (Domain, Infra, Controller) are masked to prevent leaking implementation details.
+<Callout type="warning">
+**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details. See [Error Handling](/docs/patterns/error-handling#translating-domain-errors) for how to expose business errors.
+</Callout>
 
 ---
 

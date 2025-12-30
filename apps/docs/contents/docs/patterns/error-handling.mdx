@@ -232,6 +232,21 @@ throw new ObjectValidationError({
 });
 ```
 
+<Callout type="info">
+The HTTP response transforms `field` to `item` and `code` to `errorCode`:
+
+```json
+{
+  "message": "Validation failed",
+  "errorCode": "VALIDATION_ERROR",
+  "errorItems": [
+    { "item": "email", "message": "Invalid email format" },
+    { "item": "password", "message": "Password must be at least 8 characters" }
+  ]
+}
+```
+</Callout>
+
 ---
 
 ## HTTP Status Code Mapping
@@ -252,6 +267,67 @@ Framework integrations map errors to HTTP status codes:
 | Unknown Error | 500 Internal Server Error | Masked |
 
 Internal errors (Domain, Infra, Controller) are masked in responses to prevent leaking implementation details.
+
+<Callout type="warning">
+**Masked errors** return HTTP 500 with `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Your custom error message and code are not exposed to clients.
+</Callout>
+
+---
+
+## Translating Domain Errors
+
+Since `DomainError` is masked, you must translate business rule violations to `UseCaseError` in the use-case layer if you want clients to see them:
+
+```typescript
+import { DomainError, NotFoundError, ConflictError, UnprocessableError } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+class DeleteStatusUseCase extends BaseInboundAdapter<...> {
+  protected async handle(input: DeleteStatusInputDto): Promise<void> {
+    const project = await this.projectRepository.findById(input.data.projectId);
+    if (!project) {
+      throw new NotFoundError({ message: 'Project not found' });
+    }
+
+    try {
+      project.deleteStatus(input.data.statusId);
+    } catch (error) {
+      // Translate domain errors to use-case errors
+      if (error instanceof StatusNotFoundError) {
+        throw new NotFoundError({
+          message: error.message,
+          code: 'STATUS_NOT_FOUND'
+        });
+      }
+      if (error instanceof StatusInUseError) {
+        throw new ConflictError({
+          message: error.message,
+          code: 'STATUS_IN_USE'
+        });
+      }
+      if (error instanceof LastStatusError) {
+        throw new UnprocessableError({
+          message: error.message,
+          code: 'LAST_STATUS'
+        });
+      }
+      throw error; // Re-throw unknown errors
+    }
+
+    await this.projectRepository.save(project);
+  }
+}
+```
+
+<Callout type="info">
+**When to translate:**
+- `NotFoundError` (404) - Resource doesn't exist
+- `ConflictError` (409) - State conflict preventing action
+- `UnprocessableError` (422) - Business rule violation
+
+**When to keep masked:**
+- Invariant violations that indicate bugs
+- Internal consistency errors
+</Callout>
 
 ---
 

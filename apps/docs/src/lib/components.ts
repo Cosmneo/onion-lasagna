@@ -10,6 +10,7 @@ import { Step, StepItem } from "@/components/markdown/step"
 
 export const components = {
   a: RoutedLink,
+  Callout: Note,  // Alias for Callout → Note
   Card,
   CardGrid,
   FileTree,

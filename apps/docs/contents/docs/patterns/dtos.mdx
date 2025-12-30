@@ -160,6 +160,80 @@ Controllers automatically convert `ObjectValidationError` to `InvalidRequestErro
 
 ---
 
+## Centralized Validators (Recommended)
+
+For larger projects, create validators in a central bootstrap file and inject them:
+
+```typescript:bootstrap/validators.bootstrap.ts
+import { createZodValidator } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
+import { createProjectRequestSchema, createProjectResponseSchema } from '../presentation/http/...';
+
+// Create validators once, reuse everywhere
+export const createProjectRequestValidator = createZodValidator(createProjectRequestSchema);
+export const createProjectResponseValidator = createZodValidator(createProjectResponseSchema);
+```
+
+Then inject into mappers:
+
+```typescript:presentation/http/projects/create-project/mappers.ts
+import type { DtoValidator } from '@cosmneo/onion-lasagna/backend/core/global';
+import { SKIP_DTO_VALIDATION } from '@cosmneo/onion-lasagna/backend/core/global';
+
+// Request mapper - validator injected at runtime
+export function createProjectToInputMapper(
+  request: CreateProjectRequestDto,
+  validator: DtoValidator<CreateProjectInput>,
+): CreateProjectInputDto {
+  return new CreateProjectInputDto(
+    {
+      name: request.data.body.name,
+      description: request.data.body.description,
+    },
+    validator,  // Validator injected here
+  );
+}
+
+// Response mapper with validator
+export function createProjectToResponseMapper(
+  output: CreateProjectOutputDto,
+  validator: DtoValidator<CreateProjectResponseData>,
+): CreateProjectResponseDto {
+  return new CreateProjectResponseDto(
+    { statusCode: 201, body: { projectId: output.data.projectId } },
+    validator,
+  );
+}
+```
+
+Wire in controllers:
+
+```typescript:bootstrap/controller.bootstrap.ts
+import { SKIP_DTO_VALIDATION } from '@cosmneo/onion-lasagna/backend/core/global';
+import { createProjectRequestValidator, createProjectResponseValidator } from './validators.bootstrap';
+
+const createProjectController = BaseController.create({
+  // Input already validated at HTTP layer, skip re-validation
+  requestMapper: (req: CreateProjectRequestDto) =>
+    createProjectToInputMapper(req, SKIP_DTO_VALIDATION),
+  useCase: createProjectUseCase,
+  // Response needs validation before sending to client
+  responseMapper: (out: CreateProjectOutputDto) =>
+    createProjectToResponseMapper(out, createProjectResponseValidator),
+});
+```
+
+<Callout type="info">
+**When to skip validation:**
+- Request → Input mapping: Request DTO already validated at HTTP boundary
+- Internal mappings: Data comes from trusted sources (database, other validated DTOs)
+
+**When to validate:**
+- Response → HTTP: Ensure response matches expected schema before sending
+- External data: Data from third-party APIs or user input
+</Callout>
+
+---
+
 ## DTO vs Value Object
 
 | Aspect | DTO | Value Object |

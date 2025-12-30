@@ -78,7 +78,7 @@ validators/
 - **Identifiers:** BaseUuidV4Vo, BaseUuidV7Vo
 - **Contact:** BaseEmailVo
 - **Pagination:** BasePaginationVo
-- **Auditing:** BaseAuditInfoVo, BaseAuditByVo, BaseAuditOnVo
+- **Auditing:** BaseAuditByVo, BaseAuditOnVo
 
 ### Key Patterns
 
@@ -107,7 +107,7 @@ CodedError (base with code + cause)
 
 - `ObjectValidatorPort` abstraction allows swapping between Zod, ArkType, Valibot, and TypeBox
 - All create `BoundValidator<T>` injected into BaseDto and BaseValueObject
-- Use `SKIP_DTO_VALIDATION` or `SKIP_VALUE_OBJECT_VALIDATION` to bypass validation
+- Use `SKIP_DTO_VALIDATION` to bypass DTO validation (VOs use built-in TypeScript validation)
 
 **Controllers:**
 
