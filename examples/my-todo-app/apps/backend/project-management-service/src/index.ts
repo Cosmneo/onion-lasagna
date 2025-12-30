@@ -29,7 +29,9 @@ app.onError((err, c) => {
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
 // Register routes
-registerHonoRoutes(app, routes);
+// Note: Type cast needed due to monorepo duplicate BaseDto declarations
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+registerHonoRoutes(app, routes as any);
 
 // Start server
 const port = process.env['PORT'] ? parseInt(process.env['PORT']) : 3000;
