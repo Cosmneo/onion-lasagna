@@ -705,8 +705,7 @@ describe('registerFastifyRoutes', () => {
         },
         {
           middlewares: [contextMiddleware],
-          contextExtractor: (request) =>
-            (request as RequestWithContext).testContext as TestContext,
+          contextExtractor: (request) => (request as RequestWithContext).testContext as TestContext,
         },
       );
 
@@ -760,8 +759,7 @@ describe('registerFastifyRoutes', () => {
         },
         {
           middlewares: [headerMiddleware],
-          contextExtractor: (request) =>
-            (request as RequestWithContext).testContext as TestContext,
+          contextExtractor: (request) => (request as RequestWithContext).testContext as TestContext,
         },
       );
 
@@ -819,8 +817,7 @@ describe('registerFastifyRoutes', () => {
         },
         {
           middlewares: [contextMiddleware],
-          contextExtractor: (request) =>
-            (request as RequestWithContext).testContext as TestContext,
+          contextExtractor: (request) => (request as RequestWithContext).testContext as TestContext,
         },
       );
 
@@ -923,8 +920,7 @@ describe('registerFastifyRoutes', () => {
         ],
         {
           middlewares: [contextMiddleware],
-          contextExtractor: (request) =>
-            (request as RequestWithContext).testContext as TestContext,
+          contextExtractor: (request) => (request as RequestWithContext).testContext as TestContext,
         },
       );
 
