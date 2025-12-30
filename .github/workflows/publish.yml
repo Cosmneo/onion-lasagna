@@ -44,6 +44,7 @@ jobs:
         run: bun run format:check
 
       - name: Run lint
+        working-directory: packages/onion-lasagna
         run: bun run lint
 
   publish:
