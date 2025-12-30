@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  BaseTextVo,
-  BaseShortTextVo,
-  BaseMediumTextVo,
-  BaseLongTextVo,
-} from '../base-text.vo';
+import { BaseTextVo, BaseShortTextVo, BaseMediumTextVo, BaseLongTextVo } from '../base-text.vo';
 import { BaseValueObject } from '../../classes/base-value-object.class';
 import { InvariantViolationError } from '../../exceptions/invariant-violation.error';
 
