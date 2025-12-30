@@ -55,9 +55,8 @@ function getWrappedMethods(proto: object): Set<string> {
 export abstract class BaseOutboundAdapter {
   /**
    * Initializes the adapter and wraps all subclass methods with error handling.
-   * Must be called via `super()` in subclass constructors.
    */
-  protected constructor() {
+  constructor() {
     this.wrapAllSubclassMethods();
   }
 

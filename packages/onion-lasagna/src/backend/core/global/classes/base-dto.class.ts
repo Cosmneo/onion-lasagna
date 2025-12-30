@@ -15,6 +15,26 @@ import type { BoundValidator } from '../interfaces/ports/object-validator.port';
 export const SKIP_DTO_VALIDATION = 'skip dto validation' as const;
 
 /**
+ * Type for DTO validation parameter.
+ *
+ * Accepts either a bound validator for the data type or the skip sentinel.
+ * Use this type in mapper functions and factory methods.
+ *
+ * @typeParam T - The shape of the data being validated
+ *
+ * @example
+ * ```typescript
+ * function toUseCaseMapper(
+ *   request: RequestDto,
+ *   validator: DtoValidator<InputData> = SKIP_DTO_VALIDATION
+ * ): InputDto {
+ *   return new InputDto(request.data, validator);
+ * }
+ * ```
+ */
+export type DtoValidator<T> = BoundValidator<T> | typeof SKIP_DTO_VALIDATION;
+
+/**
  * Base class for Data Transfer Objects (DTOs).
  *
  * DTOs are validated data containers used to transfer data between layers.
@@ -55,11 +75,11 @@ export class BaseDto<T> {
    * @param validator - A bound validator or SKIP_DTO_VALIDATION to bypass
    * @throws {ObjectValidationError} When validation fails
    */
-  constructor(data: T, validator: BoundValidator<T> | typeof SKIP_DTO_VALIDATION) {
+  constructor(data: T, validator: DtoValidator<T>) {
     this._data = validator === SKIP_DTO_VALIDATION ? data : validator.validate(data);
   }
 
-  static create<T>(data: T, validator: BoundValidator<T> | typeof SKIP_DTO_VALIDATION): BaseDto<T> {
+  static create<T>(data: T, validator: DtoValidator<T>): BaseDto<T> {
     return new BaseDto(data, validator);
   }
 

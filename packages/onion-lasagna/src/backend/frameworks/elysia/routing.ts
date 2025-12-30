@@ -105,9 +105,15 @@ function createResponse(response: HttpResponse): Response {
 }
 
 /**
- * Route input type that accepts either a single route or an array of routes.
+ * HTTP-specific route input enforcing HttpRequest as the protocol type.
  */
-export type RouteInputOrArray = RouteInput | RouteInput[];
+export type HttpRouteInput = RouteInput<HttpRequest>;
+
+/**
+ * Route input type that accepts either a single route or an array of routes.
+ * Enforces HttpRequest as the protocol type for HTTP frameworks.
+ */
+export type RouteInputOrArray = HttpRouteInput | HttpRouteInput[];
 
 /**
  * Options for registering routes.

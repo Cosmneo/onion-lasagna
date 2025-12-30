@@ -12,20 +12,20 @@ import { AccessDeniedError } from '../exceptions/access-denied.error';
  *
  * @typeParam TRequestDto - Validated request DTO from the framework layer
  * @typeParam TResponseDto - Validated response DTO to return to the framework
- * @typeParam TInDto - Input DTO type for the use case
- * @typeParam TOutDto - Output DTO type from the use case
+ * @typeParam TInDto - Input DTO type for the use case (or void)
+ * @typeParam TOutDto - Output DTO type from the use case (or void)
  */
 export interface GuardedControllerConfig<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown>,
-  TOutDto extends BaseDto<unknown>,
+  TInDto extends BaseDto<unknown> | void,
+  TOutDto extends BaseDto<unknown> | void,
 > {
   /** Maps the validated request DTO to a use case input DTO. */
   requestMapper: (request: TRequestDto) => TInDto;
   /** The use case to execute. */
   useCase: BaseInboundPort<TInDto, TOutDto>;
-  /** Maps the use case output DTO to a validated response DTO. */
+  /** Maps the use case output DTO to a validated response DTO. For void use cases, output is undefined. */
   responseMapper: (output: TOutDto) => TResponseDto;
   /** Optional access guard; defaults to allowing all requests. */
   accessGuard?: AccessGuard<TRequestDto>;
@@ -52,8 +52,8 @@ function createAllowAllGuard<T>(): AccessGuard<T> {
  *
  * @typeParam TRequestDto - Validated request DTO from the framework layer
  * @typeParam TResponseDto - Validated response DTO to return to the framework
- * @typeParam TInDto - Input DTO type for the use case
- * @typeParam TOutDto - Output DTO type from the use case
+ * @typeParam TInDto - Input DTO type for the use case (or void)
+ * @typeParam TOutDto - Output DTO type from the use case (or void)
  *
  * @example
  * ```typescript
@@ -71,8 +71,8 @@ function createAllowAllGuard<T>(): AccessGuard<T> {
 export class GuardedController<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown>,
-  TOutDto extends BaseDto<unknown>,
+  TInDto extends BaseDto<unknown> | void,
+  TOutDto extends BaseDto<unknown> | void,
 > extends BaseController<TRequestDto, TResponseDto, TInDto, TOutDto> {
   /** The access guard function for this controller. */
   protected readonly accessGuard: AccessGuard<TRequestDto>;
@@ -104,8 +104,8 @@ export class GuardedController<
   static override create<
     TRequestDto extends BaseDto<unknown>,
     TResponseDto extends BaseDto<unknown>,
-    TInDto extends BaseDto<unknown>,
-    TOutDto extends BaseDto<unknown>,
+    TInDto extends BaseDto<unknown> | void,
+    TOutDto extends BaseDto<unknown> | void,
   >(
     config: GuardedControllerConfig<TRequestDto, TResponseDto, TInDto, TOutDto>,
   ): GuardedController<TRequestDto, TResponseDto, TInDto, TOutDto> {
