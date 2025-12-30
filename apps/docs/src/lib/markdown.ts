@@ -10,7 +10,7 @@ import rehypeKatex from "rehype-katex"
 import rehypePrism from "rehype-prism-plus"
 import rehypeSlug from "rehype-slug"
 import remarkGfm from "remark-gfm"
-import { Node } from "unist"
+import { Node, Parent } from "unist"
 import { visit } from "unist-util-visit"
 
 import { Settings } from "@/types/settings"
@@ -37,6 +37,7 @@ async function parseMdx<Frontmatter>(rawMdx: string) {
       mdxOptions: {
         rehypePlugins: [
           preCopy,
+          rehypeMermaid,
           rehypeCodeTitles,
           rehypeKatex,
           rehypePrism,
@@ -202,5 +203,29 @@ const postCopy = () => (tree: Node) => {
       node.properties = node.properties || {}
       node.properties["raw"] = node.raw
     }
+  })
+}
+
+const rehypeMermaid = () => (tree: Node) => {
+  visit(tree, "element", (node: Element, index: number | undefined, parent: Parent | undefined) => {
+    if (node.tagName !== "pre" || !parent || index === undefined) return
+
+    const codeEl = node.children?.[0] as Element | undefined
+    if (!codeEl || codeEl.tagName !== "code") return
+
+    const className = codeEl.properties?.className as string[] | undefined
+    if (!className?.includes("language-mermaid")) return
+
+    const textNode = codeEl.children?.[0] as Text | undefined
+    const chartCode = textNode?.value || ""
+
+    const mermaidNode: Element = {
+      type: "element",
+      tagName: "Mermaid",
+      properties: { chart: chartCode },
+      children: [],
+    }
+
+    parent.children[index] = mermaidNode
   })
 }
