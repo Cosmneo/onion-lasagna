@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyReply } from 'fastify';
 import { registerFastifyRoutes } from '../routing';
 import type { HttpRequest } from '../../../core/onion-layers/presentation/interfaces/types/http/http-request';
 import type { HttpResponse } from '../../../core/onion-layers/presentation/interfaces/types/http/http-response';
+import type { ContextualHttpRequest } from '../../../core/onion-layers/presentation/interfaces/types/http/contextual-http-request';
 
 /**
  * Mock request DTO that wraps HttpRequest for testing.
@@ -618,6 +619,319 @@ describe('registerFastifyRoutes', () => {
       expect(req.queryParams).toEqual({ filter: 'active' });
       expect(req.body).toEqual({ name: 'Test' });
       expect(req.headers?.['x-custom']).toBe('value');
+    });
+  });
+
+  describe('contextExtractor option', () => {
+    /**
+     * Type for the execution context injected by middleware.
+     */
+    interface TestContext {
+      userId: string;
+      requestId: string;
+      tenant: string;
+    }
+
+    /**
+     * Extend FastifyRequest with testContext property.
+     */
+    interface RequestWithContext extends FastifyRequest {
+      testContext?: TestContext;
+    }
+
+    /**
+     * Mock request DTO that wraps ContextualHttpRequest for testing.
+     */
+    interface MockContextualRequestDto {
+      data: ContextualHttpRequest<TestContext>;
+    }
+
+    /**
+     * Creates a mock contextual request DTO from ContextualHttpRequest.
+     */
+    const createMockContextualRequestDto = (
+      httpRequest: ContextualHttpRequest<TestContext>,
+    ): MockContextualRequestDto => ({
+      data: httpRequest,
+    });
+
+    /**
+     * Request DTO factory for contextual requests.
+     */
+    const contextualRequestDtoFactory = (
+      raw: ContextualHttpRequest<TestContext>,
+    ): MockContextualRequestDto => createMockContextualRequestDto(raw);
+
+    /**
+     * Mock controller interface for contextual tests.
+     */
+    interface MockContextualController {
+      execute: (input: MockContextualRequestDto) => Promise<MockResponseDto>;
+    }
+
+    it('should inject context from contextExtractor into request', async () => {
+      const typedApp = Fastify();
+      typedApp.decorateRequest('testContext', null);
+      let receivedContext: TestContext | null = null;
+
+      // Middleware that sets context on request
+      const contextMiddleware = async (
+        request: RequestWithContext,
+        _reply: FastifyReply,
+      ): Promise<void> => {
+        request.testContext = {
+          userId: 'user-123',
+          requestId: 'req-456',
+          tenant: 'acme-corp',
+        };
+      };
+
+      const controller: MockContextualController = {
+        execute: async (req: MockContextualRequestDto) => {
+          receivedContext = req.data.context;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { contextReceived: true },
+          });
+        },
+      };
+
+      registerFastifyRoutes<TestContext>(
+        typedApp,
+        {
+          metadata: { path: '/protected', method: 'GET' },
+          controller,
+          requestDtoFactory: contextualRequestDtoFactory,
+        },
+        {
+          middlewares: [contextMiddleware],
+          contextExtractor: (request) =>
+            (request as RequestWithContext).testContext as TestContext,
+        },
+      );
+
+      const res = await typedApp.inject({
+        method: 'GET',
+        url: '/protected',
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(receivedContext).not.toBeNull();
+      expect(receivedContext).toEqual({
+        userId: 'user-123',
+        requestId: 'req-456',
+        tenant: 'acme-corp',
+      });
+    });
+
+    it('should work with context extracted from headers', async () => {
+      const typedApp = Fastify();
+      typedApp.decorateRequest('testContext', null);
+      let receivedContext: TestContext | null = null;
+
+      // Middleware that extracts context from headers
+      const headerMiddleware = async (
+        request: RequestWithContext,
+        _reply: FastifyReply,
+      ): Promise<void> => {
+        request.testContext = {
+          userId: (request.headers['x-user-id'] as string) ?? 'anonymous',
+          requestId: (request.headers['x-request-id'] as string) ?? 'unknown',
+          tenant: (request.headers['x-tenant'] as string) ?? 'default',
+        };
+      };
+
+      const controller: MockContextualController = {
+        execute: async (req: MockContextualRequestDto) => {
+          receivedContext = req.data.context;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { tenant: req.data.context.tenant },
+          });
+        },
+      };
+
+      registerFastifyRoutes<TestContext>(
+        typedApp,
+        {
+          metadata: { path: '/tenant-route', method: 'GET' },
+          controller,
+          requestDtoFactory: contextualRequestDtoFactory,
+        },
+        {
+          middlewares: [headerMiddleware],
+          contextExtractor: (request) =>
+            (request as RequestWithContext).testContext as TestContext,
+        },
+      );
+
+      const res = await typedApp.inject({
+        method: 'GET',
+        url: '/tenant-route',
+        headers: {
+          'X-User-Id': 'user-789',
+          'X-Request-Id': 'req-abc',
+          'X-Tenant': 'custom-tenant',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ tenant: 'custom-tenant' });
+      expect(receivedContext).toEqual({
+        userId: 'user-789',
+        requestId: 'req-abc',
+        tenant: 'custom-tenant',
+      });
+    });
+
+    it('should combine context with standard request data', async () => {
+      const typedApp = Fastify();
+      typedApp.decorateRequest('testContext', null);
+      let receivedRequest: ContextualHttpRequest<TestContext> | null = null;
+
+      const contextMiddleware = async (
+        request: RequestWithContext,
+        _reply: FastifyReply,
+      ): Promise<void> => {
+        request.testContext = {
+          userId: 'user-xyz',
+          requestId: 'req-xyz',
+          tenant: 'test-tenant',
+        };
+      };
+
+      const controller: MockContextualController = {
+        execute: async (req: MockContextualRequestDto) => {
+          receivedRequest = req.data;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { ok: true },
+          });
+        },
+      };
+
+      registerFastifyRoutes<TestContext>(
+        typedApp,
+        {
+          metadata: { path: '/users/{id}', method: 'POST' },
+          controller,
+          requestDtoFactory: contextualRequestDtoFactory,
+        },
+        {
+          middlewares: [contextMiddleware],
+          contextExtractor: (request) =>
+            (request as RequestWithContext).testContext as TestContext,
+        },
+      );
+
+      await typedApp.inject({
+        method: 'POST',
+        url: '/users/456?filter=active',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Custom': 'value',
+        },
+        payload: { name: 'Test User' },
+      });
+
+      expect(receivedRequest).not.toBeNull();
+      const req = receivedRequest!;
+
+      // Verify context is present
+      expect(req.context).toEqual({
+        userId: 'user-xyz',
+        requestId: 'req-xyz',
+        tenant: 'test-tenant',
+      });
+
+      // Verify standard request data is also present
+      expect(req.pathParams).toEqual({ id: '456' });
+      expect(req.queryParams).toEqual({ filter: 'active' });
+      expect(req.body).toEqual({ name: 'Test User' });
+      expect(req.headers?.['x-custom']).toBe('value');
+    });
+
+    it('should work without contextExtractor (plain HttpRequest)', async () => {
+      let receivedRequest: HttpRequest | null = null;
+
+      const controller: MockController = {
+        execute: async (req: MockRequestDto) => {
+          receivedRequest = req.data;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { ok: true },
+          });
+        },
+      };
+
+      // Register without contextExtractor
+      registerFastifyRoutes(app, {
+        metadata: { path: '/public', method: 'GET' },
+        controller,
+        requestDtoFactory: mockRequestDtoFactory,
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/public',
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(receivedRequest).not.toBeNull();
+      expect((receivedRequest as Record<string, unknown>).context).toBeUndefined();
+    });
+
+    it('should support multiple routes with same contextExtractor', async () => {
+      const typedApp = Fastify();
+      typedApp.decorateRequest('testContext', null);
+      const executedRoutes: string[] = [];
+
+      const contextMiddleware = async (
+        request: RequestWithContext,
+        _reply: FastifyReply,
+      ): Promise<void> => {
+        request.testContext = {
+          userId: 'user-multi',
+          requestId: 'req-multi',
+          tenant: 'multi-tenant',
+        };
+      };
+
+      const createController = (routeName: string): MockContextualController => ({
+        execute: async (req: MockContextualRequestDto) => {
+          executedRoutes.push(`${routeName}:${req.data.context.tenant}`);
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { route: routeName },
+          });
+        },
+      });
+
+      registerFastifyRoutes<TestContext>(
+        typedApp,
+        [
+          {
+            metadata: { path: '/route-a', method: 'GET' },
+            controller: createController('a'),
+            requestDtoFactory: contextualRequestDtoFactory,
+          },
+          {
+            metadata: { path: '/route-b', method: 'GET' },
+            controller: createController('b'),
+            requestDtoFactory: contextualRequestDtoFactory,
+          },
+        ],
+        {
+          middlewares: [contextMiddleware],
+          contextExtractor: (request) =>
+            (request as RequestWithContext).testContext as TestContext,
+        },
+      );
+
+      await typedApp.inject({ method: 'GET', url: '/route-a' });
+      await typedApp.inject({ method: 'GET', url: '/route-b' });
+
+      expect(executedRoutes).toEqual(['a:multi-tenant', 'b:multi-tenant']);
     });
   });
 });

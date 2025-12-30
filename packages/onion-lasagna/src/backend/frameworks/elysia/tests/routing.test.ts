@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Elysia } from 'elysia';
-import { registerElysiaRoutes } from '../routing';
+import { registerElysiaRoutes, type ElysiaContext } from '../routing';
 import type { HttpRequest } from '../../../core/onion-layers/presentation/interfaces/types/http/http-request';
 import type { HttpResponse } from '../../../core/onion-layers/presentation/interfaces/types/http/http-response';
+import type { ContextualHttpRequest } from '../../../core/onion-layers/presentation/interfaces/types/http/contextual-http-request';
 
 /**
  * Mock request DTO that wraps HttpRequest for testing.
@@ -549,6 +550,289 @@ describe('registerElysiaRoutes', () => {
       expect(req.queryParams).toEqual({ filter: 'active' });
       expect(req.body).toEqual({ name: 'Test' });
       expect(req.headers?.['x-custom']).toBe('value');
+    });
+  });
+
+  describe('contextExtractor option', () => {
+    /**
+     * Type for the execution context injected by middleware.
+     */
+    interface TestContext {
+      userId: string;
+      requestId: string;
+      tenant: string;
+    }
+
+    /**
+     * Mock request DTO that wraps ContextualHttpRequest for testing.
+     */
+    interface MockContextualRequestDto {
+      data: ContextualHttpRequest<TestContext>;
+    }
+
+    /**
+     * Creates a mock contextual request DTO from ContextualHttpRequest.
+     */
+    const createMockContextualRequestDto = (
+      httpRequest: ContextualHttpRequest<TestContext>,
+    ): MockContextualRequestDto => ({
+      data: httpRequest,
+    });
+
+    /**
+     * Request DTO factory for contextual requests.
+     */
+    const contextualRequestDtoFactory = (
+      raw: ContextualHttpRequest<TestContext>,
+    ): MockContextualRequestDto => createMockContextualRequestDto(raw);
+
+    /**
+     * Mock controller interface for contextual tests.
+     */
+    interface MockContextualController {
+      execute: (input: MockContextualRequestDto) => Promise<MockResponseDto>;
+    }
+
+    it('should inject context from contextExtractor into request', async () => {
+      const typedApp = new Elysia().state('testContext', null as TestContext | null);
+      let receivedContext: TestContext | null = null;
+
+      // Middleware that sets context in Elysia store
+      const contextMiddleware = (context: ElysiaContext) => {
+        context.store.testContext = {
+          userId: 'user-123',
+          requestId: 'req-456',
+          tenant: 'acme-corp',
+        };
+        return undefined;
+      };
+
+      const controller: MockContextualController = {
+        execute: async (req: MockContextualRequestDto) => {
+          receivedContext = req.data.context;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { contextReceived: true },
+          });
+        },
+      };
+
+      registerElysiaRoutes<TestContext>(
+        typedApp,
+        {
+          metadata: { path: '/protected', method: 'GET' },
+          controller,
+          requestDtoFactory: contextualRequestDtoFactory,
+        },
+        {
+          middlewares: [contextMiddleware],
+          contextExtractor: (ctx) => ctx.store.testContext as TestContext,
+        },
+      );
+
+      const res = await typedApp.handle(new Request('http://localhost/protected'));
+      expect(res.status).toBe(200);
+      expect(receivedContext).not.toBeNull();
+      expect(receivedContext).toEqual({
+        userId: 'user-123',
+        requestId: 'req-456',
+        tenant: 'acme-corp',
+      });
+    });
+
+    it('should work with context extracted from headers', async () => {
+      const typedApp = new Elysia().state('testContext', null as TestContext | null);
+      let receivedContext: TestContext | null = null;
+
+      // Middleware that extracts context from headers
+      const headerMiddleware = (context: ElysiaContext) => {
+        context.store.testContext = {
+          userId: context.headers['x-user-id'] ?? 'anonymous',
+          requestId: context.headers['x-request-id'] ?? 'unknown',
+          tenant: context.headers['x-tenant'] ?? 'default',
+        };
+        return undefined;
+      };
+
+      const controller: MockContextualController = {
+        execute: async (req: MockContextualRequestDto) => {
+          receivedContext = req.data.context;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { tenant: req.data.context.tenant },
+          });
+        },
+      };
+
+      registerElysiaRoutes<TestContext>(
+        typedApp,
+        {
+          metadata: { path: '/tenant-route', method: 'GET' },
+          controller,
+          requestDtoFactory: contextualRequestDtoFactory,
+        },
+        {
+          middlewares: [headerMiddleware],
+          contextExtractor: (ctx) => ctx.store.testContext as TestContext,
+        },
+      );
+
+      const res = await typedApp.handle(
+        new Request('http://localhost/tenant-route', {
+          headers: {
+            'X-User-Id': 'user-789',
+            'X-Request-Id': 'req-abc',
+            'X-Tenant': 'custom-tenant',
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ tenant: 'custom-tenant' });
+      expect(receivedContext).toEqual({
+        userId: 'user-789',
+        requestId: 'req-abc',
+        tenant: 'custom-tenant',
+      });
+    });
+
+    it('should combine context with standard request data', async () => {
+      const typedApp = new Elysia().state('testContext', null as TestContext | null);
+      let receivedRequest: ContextualHttpRequest<TestContext> | null = null;
+
+      const contextMiddleware = (context: ElysiaContext) => {
+        context.store.testContext = {
+          userId: 'user-xyz',
+          requestId: 'req-xyz',
+          tenant: 'test-tenant',
+        };
+        return undefined;
+      };
+
+      const controller: MockContextualController = {
+        execute: async (req: MockContextualRequestDto) => {
+          receivedRequest = req.data;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { ok: true },
+          });
+        },
+      };
+
+      registerElysiaRoutes<TestContext>(
+        typedApp,
+        {
+          metadata: { path: '/users/{id}', method: 'POST' },
+          controller,
+          requestDtoFactory: contextualRequestDtoFactory,
+        },
+        {
+          middlewares: [contextMiddleware],
+          contextExtractor: (ctx) => ctx.store.testContext as TestContext,
+        },
+      );
+
+      await typedApp.handle(
+        new Request('http://localhost/users/456?filter=active', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Custom': 'value',
+          },
+          body: JSON.stringify({ name: 'Test User' }),
+        }),
+      );
+
+      expect(receivedRequest).not.toBeNull();
+      const req = receivedRequest!;
+
+      // Verify context is present
+      expect(req.context).toEqual({
+        userId: 'user-xyz',
+        requestId: 'req-xyz',
+        tenant: 'test-tenant',
+      });
+
+      // Verify standard request data is also present
+      expect(req.pathParams).toEqual({ id: '456' });
+      expect(req.queryParams).toEqual({ filter: 'active' });
+      expect(req.body).toEqual({ name: 'Test User' });
+      expect(req.headers?.['x-custom']).toBe('value');
+    });
+
+    it('should work without contextExtractor (plain HttpRequest)', async () => {
+      let receivedRequest: HttpRequest | null = null;
+
+      const controller: MockController = {
+        execute: async (req: MockRequestDto) => {
+          receivedRequest = req.data;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { ok: true },
+          });
+        },
+      };
+
+      // Register without contextExtractor
+      registerElysiaRoutes(app, {
+        metadata: { path: '/public', method: 'GET' },
+        controller,
+        requestDtoFactory: mockRequestDtoFactory,
+      });
+
+      const res = await app.handle(new Request('http://localhost/public'));
+      expect(res.status).toBe(200);
+      expect(receivedRequest).not.toBeNull();
+      expect((receivedRequest as Record<string, unknown>).context).toBeUndefined();
+    });
+
+    it('should support multiple routes with same contextExtractor', async () => {
+      const typedApp = new Elysia().state('testContext', null as TestContext | null);
+      const executedRoutes: string[] = [];
+
+      const contextMiddleware = (context: ElysiaContext) => {
+        context.store.testContext = {
+          userId: 'user-multi',
+          requestId: 'req-multi',
+          tenant: 'multi-tenant',
+        };
+        return undefined;
+      };
+
+      const createController = (routeName: string): MockContextualController => ({
+        execute: async (req: MockContextualRequestDto) => {
+          executedRoutes.push(`${routeName}:${req.data.context.tenant}`);
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { route: routeName },
+          });
+        },
+      });
+
+      registerElysiaRoutes<TestContext>(
+        typedApp,
+        [
+          {
+            metadata: { path: '/route-a', method: 'GET' },
+            controller: createController('a'),
+            requestDtoFactory: contextualRequestDtoFactory,
+          },
+          {
+            metadata: { path: '/route-b', method: 'GET' },
+            controller: createController('b'),
+            requestDtoFactory: contextualRequestDtoFactory,
+          },
+        ],
+        {
+          middlewares: [contextMiddleware],
+          contextExtractor: (ctx) => ctx.store.testContext as TestContext,
+        },
+      );
+
+      await typedApp.handle(new Request('http://localhost/route-a'));
+      await typedApp.handle(new Request('http://localhost/route-b'));
+
+      expect(executedRoutes).toEqual(['a:multi-tenant', 'b:multi-tenant']);
     });
   });
 });

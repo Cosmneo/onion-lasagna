@@ -1,6 +1,7 @@
 import type { Context, Handler, Hono, MiddlewareHandler } from 'hono';
 import type { ContentfulStatusCode, StatusCode } from 'hono/utils/http-status';
 import type { Controller } from '../../core/onion-layers/presentation/interfaces/types/controller.type';
+import type { ContextualHttpRequest } from '../../core/onion-layers/presentation/interfaces/types/http/contextual-http-request';
 import type { HttpRequest } from '../../core/onion-layers/presentation/interfaces/types/http/http-request';
 import type { HttpResponse } from '../../core/onion-layers/presentation/interfaces/types/http/http-response';
 import type { RouteInput } from '../../core/onion-layers/presentation/routing';
@@ -18,7 +19,8 @@ type RouteRegistrar = (path: string, ...handlers: (MiddlewareHandler | Handler)[
 /**
  * Gets the type-safe route registrar for a given HTTP method.
  */
-function getRouteRegistrar(app: Hono, method: string): RouteRegistrar {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getRouteRegistrar(app: Hono<any, any, any>, method: string): RouteRegistrar {
   const httpMethod = method as HttpMethod;
   switch (httpMethod) {
     case 'get':
@@ -121,8 +123,23 @@ function sendResponse(c: Context, response: HttpResponse) {
 
 /**
  * HTTP-specific route input enforcing HttpRequest as the protocol type.
+ * Use this for public routes that don't require execution context.
  */
 export type HttpRouteInput = RouteInput<HttpRequest>;
+
+/**
+ * Route input with execution context from middleware.
+ * Use this for protected routes that require context (user, request ID, etc.).
+ *
+ * @typeParam TContext - The shape of the execution context
+ *
+ * @example
+ * ```typescript
+ * interface AuthContext { user: User; requestId: string; }
+ * const routes: ContextualRouteInput<AuthContext>[] = [...];
+ * ```
+ */
+export type ContextualRouteInput<TContext> = RouteInput<ContextualHttpRequest<TContext>>;
 
 /**
  * Route input type that accepts either a single route or an array of routes.
@@ -131,7 +148,17 @@ export type HttpRouteInput = RouteInput<HttpRequest>;
 export type RouteInputOrArray = HttpRouteInput | HttpRouteInput[];
 
 /**
- * Options for registering routes.
+ * Contextual route input type that accepts either a single route or an array of routes.
+ * Enforces ContextualHttpRequest as the protocol type.
+ *
+ * @typeParam TContext - The shape of the execution context
+ */
+export type ContextualRouteInputOrArray<TContext> =
+  | ContextualRouteInput<TContext>
+  | ContextualRouteInput<TContext>[];
+
+/**
+ * Base options for registering routes (without context extractor).
  */
 export interface RegisterRoutesOptions {
   /**
@@ -165,83 +192,146 @@ export interface RegisterRoutesOptions {
 }
 
 /**
- * Registers routes onto a Hono app.
+ * Options for registering routes with execution context.
+ * Requires a contextExtractor to be provided.
  *
- * Accepts either a single route or an array of routes. Can be called multiple
- * times to register routes from different domains/modules.
+ * @typeParam TContext - The shape of the execution context
+ */
+export interface RegisterContextualRoutesOptions<TContext> extends RegisterRoutesOptions {
+  /**
+   * Extracts execution context from the Hono context.
+   *
+   * Called after middlewares run, allowing access to data they've set.
+   * The returned context is injected into `ContextualHttpRequest.context`.
+   *
+   * @param c - The Hono context containing middleware-set values
+   * @returns The execution context to inject into requests
+   *
+   * @example
+   * ```typescript
+   * registerHonoRoutes(app, protectedRoutes, {
+   *   middlewares: [authMiddleware],
+   *   contextExtractor: (c): AuthContext => ({
+   *     user: c.get('user'),
+   *     requestId: c.get('requestId'),
+   *   }),
+   * });
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  contextExtractor: (c: Context<any>) => TContext;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REGISTER HONO ROUTES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Registers routes onto a Hono app (without execution context).
  *
- * @param app - The Hono app instance (passed by reference)
- * @param routes - A single route or an array of routes to register
- * @param options - Optional configuration including middlewares
+ * Use this overload for public routes that don't require middleware-computed context.
  *
- * @example Single route
+ * @param app - The Hono app instance
+ * @param routes - Routes using plain HttpRequest
+ * @param options - Optional configuration (prefix, middlewares)
+ *
+ * @example Public routes
  * ```typescript
- * const app = new Hono();
+ * const publicRoutes: HttpRouteInput[] = [
+ *   { metadata: { path: '/health', method: 'GET' }, controller: healthController, ... },
+ *   { metadata: { path: '/login', method: 'POST' }, controller: loginController, ... },
+ * ];
  *
- * registerHonoRoutes(app, {
- *   metadata: { path: '/health', method: 'GET' },
- *   controller: healthController,
- * });
- * ```
- *
- * @example Multiple routes
- * ```typescript
- * const app = new Hono();
- *
- * registerHonoRoutes(app, [
- *   { metadata: { path: '/users', method: 'POST' }, controller: createUserController },
- *   { metadata: { path: '/users/{id}', method: 'GET' }, controller: getUserController },
- *   { metadata: { path: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
- * ]);
- * ```
- *
- * @example With prefix
- * ```typescript
- * registerHonoRoutes(app, userRoutes, {
- *   prefix: '/api/v1',
- * });
- * // Routes will be: /api/v1/users, /api/v1/users/:id, etc.
- * ```
- *
- * @example With middlewares
- * ```typescript
- * import { jwt } from 'hono/jwt';
- *
- * registerHonoRoutes(app, protectedRoutes, {
- *   middlewares: [jwt({ secret: 'my-secret' })],
- * });
- * ```
- *
- * @example Registering from multiple domains
- * ```typescript
- * const app = new Hono();
- *
- * // Public routes - no auth
  * registerHonoRoutes(app, publicRoutes);
- *
- * // Protected routes - with auth middleware
- * registerHonoRoutes(app, userRoutes, { middlewares: [authMiddleware] });
- * registerHonoRoutes(app, orderRoutes, { middlewares: [authMiddleware] });
- *
- * export default app;
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerHonoRoutes(
-  app: Hono,
+  app: Hono<any, any, any>,
   routes: RouteInputOrArray,
   options?: RegisterRoutesOptions,
+): void;
+
+/**
+ * Registers routes onto a Hono app (with execution context).
+ *
+ * Use this overload for protected routes that require context from middleware
+ * (e.g., authenticated user, request ID, tenant info).
+ *
+ * The `contextExtractor` function is called after middlewares run, extracting
+ * values they've set (via `c.set()`) and injecting them into the request's `context` field.
+ *
+ * @typeParam TContext - The shape of the execution context
+ * @param app - The Hono app instance
+ * @param routes - Routes using ContextualHttpRequest<TContext>
+ * @param options - Configuration with required contextExtractor
+ *
+ * @example Protected routes with auth context
+ * ```typescript
+ * interface AuthContext {
+ *   user: { id: string; email: string };
+ *   requestId: string;
+ * }
+ *
+ * const authMiddleware: MiddlewareHandler = async (c, next) => {
+ *   const user = await validateToken(c.req.header('authorization'));
+ *   c.set('user', user);
+ *   c.set('requestId', crypto.randomUUID());
+ *   await next();
+ * };
+ *
+ * const protectedRoutes: ContextualRouteInput<AuthContext>[] = [
+ *   {
+ *     metadata: { path: '/users', method: 'POST' },
+ *     controller: createUserController,
+ *     requestDtoFactory: (req) => new CreateUserRequestDto({
+ *       body: req.body,
+ *       createdBy: req.context.user.id, // Type-safe!
+ *     }, validator),
+ *   },
+ * ];
+ *
+ * registerHonoRoutes(app, protectedRoutes, {
+ *   middlewares: [authMiddleware],
+ *   contextExtractor: (c): AuthContext => ({
+ *     user: c.get('user'),
+ *     requestId: c.get('requestId'),
+ *   }),
+ * });
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function registerHonoRoutes<TContext>(
+  app: Hono<any, any, any>,
+  routes: ContextualRouteInputOrArray<TContext>,
+  options: RegisterContextualRoutesOptions<TContext>,
+): void;
+
+// Implementation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function registerHonoRoutes<TContext = void>(
+  app: Hono<any, any, any>,
+  routes: RouteInputOrArray | ContextualRouteInputOrArray<TContext>,
+  options?: RegisterRoutesOptions | RegisterContextualRoutesOptions<TContext>,
 ): void {
   const routeArray = Array.isArray(routes) ? routes : [routes];
   const prefix = options?.prefix ?? '';
   const middlewares = options?.middlewares ?? [];
+  const contextExtractor = (options as RegisterContextualRoutesOptions<TContext>)?.contextExtractor;
 
   for (const { metadata, controller, requestDtoFactory } of routeArray) {
     const path = prefix + toHonoPath(metadata.path);
     const method = metadata.method.toLowerCase();
 
     const handler = async (c: Context) => {
-      const rawRequest = await extractRequest(c);
-      const requestDto = requestDtoFactory(rawRequest);
+      const baseRequest = await extractRequest(c);
+
+      // Inject context if extractor is provided
+      const rawRequest = contextExtractor
+        ? { ...baseRequest, context: contextExtractor(c) }
+        : baseRequest;
+
+      const requestDto = requestDtoFactory(rawRequest as Parameters<typeof requestDtoFactory>[0]);
       const responseDto = await controller.execute(requestDto);
       return sendResponse(c, responseDto.data);
     };

@@ -1,6 +1,7 @@
 import type { Elysia, Handler } from 'elysia';
 import type { BaseDto } from '../../core/global/classes/base-dto.class';
 import type { Controller } from '../../core/onion-layers/presentation/interfaces/types/controller.type';
+import type { ContextualHttpRequest } from '../../core/onion-layers/presentation/interfaces/types/http/contextual-http-request';
 import type { HttpRequest } from '../../core/onion-layers/presentation/interfaces/types/http/http-request';
 import type { HttpResponse } from '../../core/onion-layers/presentation/interfaces/types/http/http-response';
 import type { RouteInput } from '../../core/onion-layers/presentation/routing';
@@ -105,9 +106,29 @@ function createResponse(response: HttpResponse): Response {
 }
 
 /**
+ * Elysia context type for context extraction.
+ */
+export interface ElysiaContext {
+  body: unknown;
+  headers: Record<string, string | undefined>;
+  query: Record<string, string | undefined>;
+  params: Record<string, string>;
+  store: Record<string, unknown>;
+}
+
+/**
  * HTTP-specific route input enforcing HttpRequest as the protocol type.
+ * Use this for public routes that don't require execution context.
  */
 export type HttpRouteInput = RouteInput<HttpRequest>;
+
+/**
+ * Route input with execution context from middleware.
+ * Use this for protected routes that require context (user, request ID, etc.).
+ *
+ * @typeParam TContext - The shape of the execution context
+ */
+export type ContextualRouteInput<TContext> = RouteInput<ContextualHttpRequest<TContext>>;
 
 /**
  * Route input type that accepts either a single route or an array of routes.
@@ -116,7 +137,17 @@ export type HttpRouteInput = RouteInput<HttpRequest>;
 export type RouteInputOrArray = HttpRouteInput | HttpRouteInput[];
 
 /**
- * Options for registering routes.
+ * Contextual route input type that accepts either a single route or an array of routes.
+ * Enforces ContextualHttpRequest as the protocol type.
+ *
+ * @typeParam TContext - The shape of the execution context
+ */
+export type ContextualRouteInputOrArray<TContext> =
+  | ContextualRouteInput<TContext>
+  | ContextualRouteInput<TContext>[];
+
+/**
+ * Base options for registering routes (without context extractor).
  */
 export interface RegisterRoutesOptions {
   /**
@@ -153,78 +184,99 @@ export interface RegisterRoutesOptions {
 }
 
 /**
- * Registers routes onto an Elysia app.
+ * Options for registering routes with execution context.
+ * Requires a contextExtractor to be provided.
  *
- * Accepts either a single route or an array of routes. Can be called multiple
- * times to register routes from different domains/modules.
- *
- * @param app - The Elysia app instance (passed by reference)
- * @param routes - A single route or an array of routes to register
- * @param options - Optional configuration including prefix
- *
- * @example Single route
- * ```typescript
- * const app = new Elysia();
- *
- * registerElysiaRoutes(app, {
- *   metadata: { path: '/health', method: 'GET' },
- *   controller: healthController,
- * });
- * ```
- *
- * @example Multiple routes
- * ```typescript
- * const app = new Elysia();
- *
- * registerElysiaRoutes(app, [
- *   { metadata: { path: '/users', method: 'POST' }, controller: createUserController },
- *   { metadata: { path: '/users/{id}', method: 'GET' }, controller: getUserController },
- *   { metadata: { path: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
- * ]);
- * ```
- *
- * @example With prefix
- * ```typescript
- * registerElysiaRoutes(app, userRoutes, {
- *   prefix: '/api/v1',
- * });
- * ```
- *
- * @example With middlewares
- * ```typescript
- * registerElysiaRoutes(app, protectedRoutes, {
- *   middlewares: [
- *     ({ headers }) => {
- *       if (!headers.authorization) {
- *         return new Response('Unauthorized', { status: 401 });
- *       }
- *     },
- *   ],
- * });
- * ```
- *
- * @example Registering from multiple domains
- * ```typescript
- * const app = new Elysia();
- *
- * // Public routes
- * registerElysiaRoutes(app, publicRoutes);
- *
- * // API routes with prefix
- * registerElysiaRoutes(app, userRoutes, { prefix: '/api' });
- * registerElysiaRoutes(app, orderRoutes, { prefix: '/api' });
- *
- * export default app;
- * ```
+ * @typeParam TContext - The shape of the execution context
  */
+export interface RegisterContextualRoutesOptions<TContext> extends RegisterRoutesOptions {
+  /**
+   * Extracts execution context from the Elysia context.
+   *
+   * Called after middlewares run, allowing access to data they've set.
+   * The returned context is injected into `ContextualHttpRequest.context`.
+   *
+   * @param ctx - The Elysia context containing store and request data
+   * @returns The execution context to inject into requests
+   *
+   * @example
+   * ```typescript
+   * registerElysiaRoutes(app, protectedRoutes, {
+   *   middlewares: [authMiddleware],
+   *   contextExtractor: (ctx): AuthContext => ({
+   *     user: ctx.store.user as User,
+   *     requestId: ctx.store.requestId as string,
+   *   }),
+   * });
+   * ```
+   */
+  contextExtractor: (ctx: ElysiaContext) => TContext;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REGISTER ELYSIA ROUTES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Registers routes onto an Elysia app (without execution context).
+ *
+ * Use this overload for public routes that don't require middleware-computed context.
+ *
+ * @param app - The Elysia app instance
+ * @param routes - Routes using plain HttpRequest
+ * @param options - Optional configuration (prefix, middlewares)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerElysiaRoutes(
-  app: Elysia,
+  app: Elysia<any, any, any, any, any, any, any>,
   routes: RouteInputOrArray,
   options?: RegisterRoutesOptions,
+): void;
+
+/**
+ * Registers routes onto an Elysia app (with execution context).
+ *
+ * Use this overload for protected routes that require context from middleware
+ * (e.g., authenticated user, request ID, tenant info).
+ *
+ * @typeParam TContext - The shape of the execution context
+ * @param app - The Elysia app instance
+ * @param routes - Routes using ContextualHttpRequest<TContext>
+ * @param options - Configuration with required contextExtractor
+ *
+ * @example Protected routes with auth context
+ * ```typescript
+ * interface AuthContext { user: User; requestId: string; }
+ *
+ * const protectedRoutes: ContextualRouteInput<AuthContext>[] = [...];
+ *
+ * registerElysiaRoutes(app, protectedRoutes, {
+ *   middlewares: [authMiddleware],
+ *   contextExtractor: (ctx): AuthContext => ({
+ *     user: ctx.store.user as User,
+ *     requestId: ctx.store.requestId as string,
+ *   }),
+ * });
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function registerElysiaRoutes<TContext>(
+  app: Elysia<any, any, any, any, any, any, any>,
+  routes: ContextualRouteInputOrArray<TContext>,
+  options: RegisterContextualRoutesOptions<TContext>,
+): void;
+
+// Implementation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function registerElysiaRoutes<TContext = void>(
+  app: Elysia<any, any, any, any, any, any, any>,
+  routes: RouteInputOrArray | ContextualRouteInputOrArray<TContext>,
+  options?: RegisterRoutesOptions | RegisterContextualRoutesOptions<TContext>,
 ): void {
   const routeArray = Array.isArray(routes) ? routes : [routes];
   const prefix = options?.prefix ?? '';
   const middlewares = options?.middlewares ?? [];
+  const contextExtractor = (options as RegisterContextualRoutesOptions<TContext>)?.contextExtractor;
 
   for (const { metadata, controller, requestDtoFactory } of routeArray) {
     const path = prefix + toElysiaPath(metadata.path);
@@ -237,33 +289,43 @@ export function registerElysiaRoutes(
         if (result !== undefined) return result;
       }
 
-      const rawRequest = extractRequest(context as Parameters<typeof extractRequest>[0]);
-      const requestDto = requestDtoFactory(rawRequest);
+      const baseRequest = extractRequest(context as Parameters<typeof extractRequest>[0]);
+
+      // Inject context if extractor is provided
+      const rawRequest = contextExtractor
+        ? { ...baseRequest, context: contextExtractor(context as ElysiaContext) }
+        : baseRequest;
+
+      const requestDto = requestDtoFactory(rawRequest as Parameters<typeof requestDtoFactory>[0]);
       const responseDto = await controller.execute(requestDto);
       return createResponse(responseDto.data);
     };
 
+    // Cast to base Elysia type to avoid generic handler type issues
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const elysiaApp = app as Elysia<any>;
+
     switch (method) {
       case 'get':
-        app.get(path, handler);
+        elysiaApp.get(path, handler);
         break;
       case 'post':
-        app.post(path, handler);
+        elysiaApp.post(path, handler);
         break;
       case 'put':
-        app.put(path, handler);
+        elysiaApp.put(path, handler);
         break;
       case 'patch':
-        app.patch(path, handler);
+        elysiaApp.patch(path, handler);
         break;
       case 'delete':
-        app.delete(path, handler);
+        elysiaApp.delete(path, handler);
         break;
       case 'options':
-        app.options(path, handler);
+        elysiaApp.options(path, handler);
         break;
       case 'head':
-        app.head(path, handler);
+        elysiaApp.head(path, handler);
         break;
       default:
         throw new Error(`Unsupported HTTP method: ${method}`);

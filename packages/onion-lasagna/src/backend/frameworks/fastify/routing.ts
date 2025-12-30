@@ -6,6 +6,7 @@ import type {
   HTTPMethods,
 } from 'fastify';
 import type { Controller } from '../../core/onion-layers/presentation/interfaces/types/controller.type';
+import type { ContextualHttpRequest } from '../../core/onion-layers/presentation/interfaces/types/http/contextual-http-request';
 import type { HttpRequest } from '../../core/onion-layers/presentation/interfaces/types/http/http-request';
 import type { HttpResponse } from '../../core/onion-layers/presentation/interfaces/types/http/http-response';
 import type { RouteInput } from '../../core/onion-layers/presentation/routing';
@@ -82,8 +83,17 @@ function sendResponse(reply: FastifyReply, response: HttpResponse): FastifyReply
 
 /**
  * HTTP-specific route input enforcing HttpRequest as the protocol type.
+ * Use this for public routes that don't require execution context.
  */
 export type HttpRouteInput = RouteInput<HttpRequest>;
+
+/**
+ * Route input with execution context from middleware.
+ * Use this for protected routes that require context (user, request ID, etc.).
+ *
+ * @typeParam TContext - The shape of the execution context
+ */
+export type ContextualRouteInput<TContext> = RouteInput<ContextualHttpRequest<TContext>>;
 
 /**
  * Route input type that accepts either a single route or an array of routes.
@@ -92,7 +102,17 @@ export type HttpRouteInput = RouteInput<HttpRequest>;
 export type RouteInputOrArray = HttpRouteInput | HttpRouteInput[];
 
 /**
- * Options for registering routes.
+ * Contextual route input type that accepts either a single route or an array of routes.
+ * Enforces ContextualHttpRequest as the protocol type.
+ *
+ * @typeParam TContext - The shape of the execution context
+ */
+export type ContextualRouteInputOrArray<TContext> =
+  | ContextualRouteInput<TContext>
+  | ContextualRouteInput<TContext>[];
+
+/**
+ * Base options for registering routes (without context extractor).
  */
 export interface RegisterRoutesOptions {
   /**
@@ -129,86 +149,114 @@ export interface RegisterRoutesOptions {
 }
 
 /**
- * Registers routes onto a Fastify instance.
+ * Options for registering routes with execution context.
+ * Requires a contextExtractor to be provided.
  *
- * Accepts either a single route or an array of routes. Can be called multiple
- * times to register routes from different domains/modules.
- *
- * @param app - The Fastify instance (passed by reference)
- * @param routes - A single route or an array of routes to register
- * @param options - Optional configuration including prefix
- *
- * @example Single route
- * ```typescript
- * const app = Fastify();
- *
- * registerFastifyRoutes(app, {
- *   metadata: { path: '/health', method: 'GET' },
- *   controller: healthController,
- * });
- * ```
- *
- * @example Multiple routes
- * ```typescript
- * const app = Fastify();
- *
- * registerFastifyRoutes(app, [
- *   { metadata: { path: '/users', method: 'POST' }, controller: createUserController },
- *   { metadata: { path: '/users/{id}', method: 'GET' }, controller: getUserController },
- *   { metadata: { path: '/users/{id}', method: 'DELETE' }, controller: deleteUserController },
- * ]);
- * ```
- *
- * @example With prefix
- * ```typescript
- * registerFastifyRoutes(app, userRoutes, {
- *   prefix: '/api/v1',
- * });
- * ```
- *
- * @example With middlewares
- * ```typescript
- * registerFastifyRoutes(app, protectedRoutes, {
- *   middlewares: [
- *     async (request, reply) => {
- *       if (!request.headers.authorization) {
- *         reply.status(401).send({ message: 'Unauthorized' });
- *       }
- *     },
- *   ],
- * });
- * ```
- *
- * @example Registering from multiple domains
- * ```typescript
- * const app = Fastify();
- *
- * // Public routes
- * registerFastifyRoutes(app, publicRoutes);
- *
- * // API routes with prefix
- * registerFastifyRoutes(app, userRoutes, { prefix: '/api' });
- * registerFastifyRoutes(app, orderRoutes, { prefix: '/api' });
- *
- * await app.listen({ port: 3000 });
- * ```
+ * @typeParam TContext - The shape of the execution context
  */
+export interface RegisterContextualRoutesOptions<TContext> extends RegisterRoutesOptions {
+  /**
+   * Extracts execution context from the Fastify request.
+   *
+   * Called after preHandler hooks run, allowing access to decorated data.
+   * The returned context is injected into `ContextualHttpRequest.context`.
+   *
+   * @param request - The Fastify request containing decorated values
+   * @returns The execution context to inject into requests
+   *
+   * @example
+   * ```typescript
+   * registerFastifyRoutes(app, protectedRoutes, {
+   *   middlewares: [authMiddleware],
+   *   contextExtractor: (request): AuthContext => ({
+   *     user: request.user,
+   *     requestId: request.requestId,
+   *   }),
+   * });
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  contextExtractor: (request: FastifyRequest<any>) => TContext;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REGISTER FASTIFY ROUTES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Registers routes onto a Fastify instance (without execution context).
+ *
+ * Use this overload for public routes that don't require middleware-computed context.
+ *
+ * @param app - The Fastify instance
+ * @param routes - Routes using plain HttpRequest
+ * @param options - Optional configuration (prefix, middlewares)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerFastifyRoutes(
-  app: FastifyInstance,
+  app: FastifyInstance<any, any, any, any, any>,
   routes: RouteInputOrArray,
   options?: RegisterRoutesOptions,
+): void;
+
+/**
+ * Registers routes onto a Fastify instance (with execution context).
+ *
+ * Use this overload for protected routes that require context from middleware
+ * (e.g., authenticated user, request ID, tenant info).
+ *
+ * @typeParam TContext - The shape of the execution context
+ * @param app - The Fastify instance
+ * @param routes - Routes using ContextualHttpRequest<TContext>
+ * @param options - Configuration with required contextExtractor
+ *
+ * @example Protected routes with auth context
+ * ```typescript
+ * interface AuthContext { user: User; requestId: string; }
+ *
+ * const protectedRoutes: ContextualRouteInput<AuthContext>[] = [...];
+ *
+ * registerFastifyRoutes(app, protectedRoutes, {
+ *   middlewares: [authMiddleware],
+ *   contextExtractor: (request): AuthContext => ({
+ *     user: request.user,
+ *     requestId: request.id,
+ *   }),
+ * });
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function registerFastifyRoutes<TContext>(
+  app: FastifyInstance<any, any, any, any, any>,
+  routes: ContextualRouteInputOrArray<TContext>,
+  options: RegisterContextualRoutesOptions<TContext>,
+): void;
+
+// Implementation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function registerFastifyRoutes<TContext = void>(
+  app: FastifyInstance<any, any, any, any, any>,
+  routes: RouteInputOrArray | ContextualRouteInputOrArray<TContext>,
+  options?: RegisterRoutesOptions | RegisterContextualRoutesOptions<TContext>,
 ): void {
   const routeArray = Array.isArray(routes) ? routes : [routes];
   const prefix = options?.prefix ?? '';
   const middlewares = options?.middlewares ?? [];
+  const contextExtractor = (options as RegisterContextualRoutesOptions<TContext>)?.contextExtractor;
 
   for (const { metadata, controller, requestDtoFactory } of routeArray) {
     const path = prefix + toFastifyPath(metadata.path);
     const method = metadata.method.toUpperCase() as HTTPMethods;
 
     const handler: RouteHandlerMethod = async (request, reply) => {
-      const rawRequest = extractRequest(request);
-      const requestDto = requestDtoFactory(rawRequest);
+      const baseRequest = extractRequest(request);
+
+      // Inject context if extractor is provided
+      const rawRequest = contextExtractor
+        ? { ...baseRequest, context: contextExtractor(request) }
+        : baseRequest;
+
+      const requestDto = requestDtoFactory(rawRequest as Parameters<typeof requestDtoFactory>[0]);
       const responseDto = await controller.execute(requestDto);
       return sendResponse(reply, responseDto.data);
     };

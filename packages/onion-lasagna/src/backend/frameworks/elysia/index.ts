@@ -2,8 +2,13 @@ export {
   registerElysiaRoutes,
   type HttpController,
   type ElysiaMiddleware,
+  type ElysiaContext,
+  type HttpRouteInput,
+  type ContextualRouteInput,
   type RouteInputOrArray,
+  type ContextualRouteInputOrArray,
   type RegisterRoutesOptions,
+  type RegisterContextualRoutesOptions,
 } from './routing';
 export {
   mapErrorToResponse,
