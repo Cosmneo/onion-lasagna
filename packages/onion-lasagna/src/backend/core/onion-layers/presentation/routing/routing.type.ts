@@ -20,7 +20,6 @@
 
 import type { BaseDto } from '../../../global/classes/base-dto.class';
 import type { Controller } from '../interfaces/types/controller.type';
-import type { HttpRequest } from '../interfaces/types/http/http-request';
 import type { HttpResponse } from '../interfaces/types/http/http-response';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -102,33 +101,31 @@ export interface RouteMetadata {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Factory function that creates a validated request DTO from an HTTP request.
+ * Factory function that creates a validated request DTO from a protocol request.
  *
- * This factory is called by framework adapters to transform the HTTP request
- * (body, headers, query params, path params) into a validated DTO before passing
- * to the controller.
+ * This factory is called by framework adapters to transform the protocol request
+ * into a validated DTO before passing to the controller.
  *
+ * The request type is generic to support different protocols:
+ * - HTTP: `HttpRequest` with body, headers, queryParams, pathParams
+ * - gRPC: Protocol buffer message types
+ * - WebSocket: Custom message formats
+ * - GraphQL: Resolver arguments
+ *
+ * @typeParam TRequest - The protocol-specific request type (REQUIRED)
  * @typeParam TRequestDto - The validated request DTO type (must extend BaseDto)
  *
- * @example Creating from HttpRequest
+ * @example HTTP request
  * ```typescript
- * const factory: RequestDtoFactory<CreateUserRequestDto> = (req) =>
- *   CreateUserRequestDto.create({
+ * const factory: RequestDtoFactory<HttpRequest, CreateUserRequestDto> = (req) =>
+ *   new CreateUserRequestDto({
  *     name: req.body.name,
  *     email: req.body.email,
- *   });
- * ```
- *
- * @example With path parameters
- * ```typescript
- * const factory: RequestDtoFactory<GetUserRequestDto> = (req) =>
- *   GetUserRequestDto.create({
- *     userId: req.pathParams?.id,
- *   });
+ *   }, validator);
  * ```
  */
-export type RequestDtoFactory<TRequestDto extends BaseDto<unknown> = BaseDto<unknown>> = (
-  request: HttpRequest,
+export type RequestDtoFactory<TRequest, TRequestDto extends BaseDto<unknown>> = (
+  request: TRequest,
 ) => TRequestDto;
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -146,30 +143,31 @@ export type RequestDtoFactory<TRequestDto extends BaseDto<unknown> = BaseDto<unk
  * wrapping an {@link HttpResponse}. Framework adapters extract `.data` from the
  * response DTO to get the actual HTTP response.
  *
+ * @typeParam TRequest - The protocol-specific request type (REQUIRED - e.g., HttpRequest, gRPC message)
  * @typeParam TRequestDto - The validated request DTO type
  * @typeParam TResponseDto - The response DTO type (wraps HttpResponse)
  *
  * @example Single route definition
  * ```typescript
- * const createUserRoute: RouteInput<CreateUserRequestDto, CreateUserResponseDto> = {
+ * const createUserRoute: RouteInput<HttpRequest, CreateUserRequestDto, CreateUserResponseDto> = {
  *   metadata: { path: '/users', method: 'POST' },
  *   controller: createUserController,
- *   requestDtoFactory: (req) => CreateUserRequestDto.create(req.body),
+ *   requestDtoFactory: (req) => new CreateUserRequestDto(req.body, validator),
  * };
  * ```
  *
- * @example Route array for a resource
+ * @example Route array for HTTP
  * ```typescript
- * const userRoutes: RouteInput[] = [
+ * const userRoutes: RouteInput<HttpRequest>[] = [
  *   {
  *     metadata: { path: '/users', method: 'GET' },
  *     controller: listUsersController,
- *     requestDtoFactory: (req) => ListUsersRequestDto.create(req.queryParams),
+ *     requestDtoFactory: (req) => new ListUsersRequestDto(req.queryParams, validator),
  *   },
  *   {
  *     metadata: { path: '/users/{id}', method: 'GET' },
  *     controller: getUserController,
- *     requestDtoFactory: (req) => GetUserRequestDto.create(req.pathParams),
+ *     requestDtoFactory: (req) => new GetUserRequestDto(req.pathParams, validator),
  *   },
  * ];
  * ```
@@ -183,6 +181,7 @@ export type RequestDtoFactory<TRequestDto extends BaseDto<unknown> = BaseDto<unk
  * ```
  */
 export interface RouteInput<
+  TRequest,
   TRequestDto extends BaseDto<unknown> = BaseDto<unknown>,
   TResponseDto extends BaseDto<HttpResponse> = BaseDto<HttpResponse>,
 > {
@@ -200,12 +199,12 @@ export interface RouteInput<
   controller: Controller<TRequestDto, TResponseDto>;
 
   /**
-   * Factory to create a validated request DTO from the raw framework request.
+   * Factory to create a validated request DTO from the raw protocol request.
    *
-   * The framework adapter calls this factory to transform the raw HTTP request
+   * The framework adapter calls this factory to transform the raw request
    * into a validated DTO before invoking the controller.
    *
    * @throws {ObjectValidationError} When the raw request fails DTO validation
    */
-  requestDtoFactory: RequestDtoFactory<TRequestDto>;
+  requestDtoFactory: RequestDtoFactory<TRequest, TRequestDto>;
 }

@@ -12,25 +12,25 @@ import { InvalidRequestError } from '../exceptions/invalid-request.error';
  * All types must be DTOs (extending BaseDto) to ensure validation at every boundary:
  * - TRequestDto: Validated HTTP request (body, headers, params, query)
  * - TResponseDto: Validated HTTP response structure
- * - TInDto: Validated use case input
- * - TOutDto: Validated use case output
+ * - TInDto: Validated use case input (or void for use cases with no input)
+ * - TOutDto: Validated use case output (or void for commands with no return value)
  *
  * @typeParam TRequestDto - Validated request DTO from the framework layer
  * @typeParam TResponseDto - Validated response DTO to return to the framework
- * @typeParam TInDto - Input DTO type for the use case
- * @typeParam TOutDto - Output DTO type from the use case
+ * @typeParam TInDto - Input DTO type for the use case (or void)
+ * @typeParam TOutDto - Output DTO type from the use case (or void)
  */
 export interface BaseControllerConfig<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown>,
-  TOutDto extends BaseDto<unknown>,
+  TInDto extends BaseDto<unknown> | void,
+  TOutDto extends BaseDto<unknown> | void,
 > {
-  /** Maps the validated request DTO to a use case input DTO. */
+  /** Maps the validated request DTO to a use case input DTO. For void use cases, returns undefined. */
   requestMapper: (request: TRequestDto) => TInDto;
   /** The use case to execute. */
   useCase: BaseInboundPort<TInDto, TOutDto>;
-  /** Maps the use case output DTO to a validated response DTO. */
+  /** Maps the use case output DTO to a validated response DTO. For void use cases, output is undefined. */
   responseMapper: (output: TOutDto) => TResponseDto;
 }
 
@@ -41,11 +41,12 @@ export interface BaseControllerConfig<
  *
  * All boundaries are validated DTOs:
  * - Input: TRequestDto (validated by framework layer before controller)
- * - Use case input: TInDto (validated by mapRequest)
- * - Use case output: TOutDto (validated by use case)
+ * - Use case input: TInDto (validated by mapRequest, or void for no-input use cases)
+ * - Use case output: TOutDto (validated by use case, or void for commands)
  * - Output: TResponseDto (validated by mapResponse)
  *
  * Features:
+ * - Supports both query (with output) and command (void) use cases
  * - Converts {@link ObjectValidationError} to {@link InvalidRequestError}
  * - Passes through known {@link CodedError} types
  * - Wraps unknown errors in {@link ControllerError}
@@ -60,9 +61,9 @@ export interface BaseControllerConfig<
  * @typeParam TRequestDto - Validated request DTO from the framework layer
  * @typeParam TResponseDto - Validated response DTO to return to the framework
  * @typeParam TInDto - Input DTO type for the use case
- * @typeParam TOutDto - Output DTO type from the use case
+ * @typeParam TOutDto - Output DTO type from the use case (or void for commands)
  *
- * @example Basic usage
+ * @example Basic usage with output
  * ```typescript
  * const controller = BaseController.create({
  *   requestMapper: (req) => CreateUserInputDto.create(req.data),
@@ -73,6 +74,15 @@ export interface BaseControllerConfig<
  * // Framework layer creates the request DTO
  * const requestDto = CreateUserRequestDto.create(httpRequest);
  * const responseDto = await controller.execute(requestDto);
+ * ```
+ *
+ * @example Void use case (command with no return value)
+ * ```typescript
+ * const controller = BaseController.create({
+ *   requestMapper: (req) => DeleteUserInputDto.create(req.data),
+ *   useCase: deleteUserUseCase, // Returns void
+ *   responseMapper: () => DeleteUserResponseDto.create({ statusCode: 204, body: null }),
+ * });
  * ```
  *
  * @example Custom controller overriding pipeline
@@ -105,8 +115,8 @@ export interface BaseControllerConfig<
 export class BaseController<
   TRequestDto extends BaseDto<unknown>,
   TResponseDto extends BaseDto<unknown>,
-  TInDto extends BaseDto<unknown>,
-  TOutDto extends BaseDto<unknown>,
+  TInDto extends BaseDto<unknown> | void,
+  TOutDto extends BaseDto<unknown> | void,
 > {
   /**
    * Creates a new BaseController instance.
@@ -130,8 +140,8 @@ export class BaseController<
   static create<
     TRequestDto extends BaseDto<unknown>,
     TResponseDto extends BaseDto<unknown>,
-    TInDto extends BaseDto<unknown>,
-    TOutDto extends BaseDto<unknown>,
+    TInDto extends BaseDto<unknown> | void,
+    TOutDto extends BaseDto<unknown> | void,
   >(
     config: BaseControllerConfig<TRequestDto, TResponseDto, TInDto, TOutDto>,
   ): BaseController<TRequestDto, TResponseDto, TInDto, TOutDto> {
