@@ -226,7 +226,7 @@ export interface RegisterContextualRoutesOptions<TContext> extends RegisterRoute
  * @param routes - Routes using plain HttpRequest
  * @param options - Optional configuration (prefix, middlewares)
  */
- 
+
 export function registerElysiaRoutes(
   app: Elysia<any, any, any, any, any, any, any>,
   routes: RouteInputOrArray,
@@ -259,7 +259,7 @@ export function registerElysiaRoutes(
  * });
  * ```
  */
- 
+
 export function registerElysiaRoutes<TContext>(
   app: Elysia<any, any, any, any, any, any, any>,
   routes: ContextualRouteInputOrArray<TContext>,
@@ -267,7 +267,7 @@ export function registerElysiaRoutes<TContext>(
 ): void;
 
 // Implementation
- 
+
 export function registerElysiaRoutes<TContext = void>(
   app: Elysia<any, any, any, any, any, any, any>,
   routes: RouteInputOrArray | ContextualRouteInputOrArray<TContext>,
