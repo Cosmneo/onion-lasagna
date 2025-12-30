@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Hono } from 'hono';
+import type { Context, MiddlewareHandler } from 'hono';
 import { registerHonoRoutes } from '../routing';
 import type { HttpRequest } from '../../../core/onion-layers/presentation/interfaces/types/http/http-request';
 import type { HttpResponse } from '../../../core/onion-layers/presentation/interfaces/types/http/http-response';
+import type { ContextualHttpRequest } from '../../../core/onion-layers/presentation/interfaces/types/http/contextual-http-request';
 
 /**
  * Mock request DTO that wraps HttpRequest for testing.
@@ -565,6 +567,292 @@ describe('registerHonoRoutes', () => {
       expect(req.queryParams).toEqual({ filter: 'active' });
       expect(req.body).toEqual({ name: 'Test' });
       expect(req.headers?.['x-custom']).toBe('value');
+    });
+  });
+
+  describe('contextExtractor option', () => {
+    /**
+     * Type for the execution context injected by middleware.
+     */
+    interface TestContext {
+      userId: string;
+      requestId: string;
+      tenant: string;
+    }
+
+    /**
+     * Hono app variables interface for typed context.
+     */
+    interface AppVariables {
+      testContext: TestContext;
+    }
+
+    /**
+     * Mock request DTO that wraps ContextualHttpRequest for testing.
+     */
+    interface MockContextualRequestDto {
+      data: ContextualHttpRequest<TestContext>;
+    }
+
+    /**
+     * Creates a mock contextual request DTO from ContextualHttpRequest.
+     */
+    const createMockContextualRequestDto = (
+      httpRequest: ContextualHttpRequest<TestContext>,
+    ): MockContextualRequestDto => ({
+      data: httpRequest,
+    });
+
+    /**
+     * Request DTO factory for contextual requests.
+     */
+    const contextualRequestDtoFactory = (
+      raw: ContextualHttpRequest<TestContext>,
+    ): MockContextualRequestDto => createMockContextualRequestDto(raw);
+
+    /**
+     * Mock controller interface for contextual tests.
+     */
+    interface MockContextualController {
+      execute: (input: MockContextualRequestDto) => Promise<MockResponseDto>;
+    }
+
+    it('should inject context from contextExtractor into request', async () => {
+      const typedApp = new Hono<{ Variables: AppVariables }>();
+      let receivedContext: TestContext | null = null;
+
+      // Middleware that sets context in Hono variables
+      const contextMiddleware: MiddlewareHandler<{ Variables: AppVariables }> = async (c, next) => {
+        c.set('testContext', {
+          userId: 'user-123',
+          requestId: 'req-456',
+          tenant: 'acme-corp',
+        });
+        await next();
+      };
+
+      const controller: MockContextualController = {
+        execute: async (req: MockContextualRequestDto) => {
+          receivedContext = req.data.context;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { contextReceived: true },
+          });
+        },
+      };
+
+      registerHonoRoutes<TestContext>(
+        typedApp,
+        {
+          metadata: { path: '/protected', method: 'GET' },
+          controller,
+          requestDtoFactory: contextualRequestDtoFactory,
+        },
+        {
+          middlewares: [contextMiddleware],
+          contextExtractor: (c) => c.get('testContext') as TestContext,
+        },
+      );
+
+      const res = await typedApp.request('/protected');
+      expect(res.status).toBe(200);
+      expect(receivedContext).not.toBeNull();
+      expect(receivedContext).toEqual({
+        userId: 'user-123',
+        requestId: 'req-456',
+        tenant: 'acme-corp',
+      });
+    });
+
+    it('should work with context extracted from headers', async () => {
+      const typedApp = new Hono<{ Variables: AppVariables }>();
+      let receivedContext: TestContext | null = null;
+
+      // Middleware that extracts context from headers
+      const headerMiddleware: MiddlewareHandler<{ Variables: AppVariables }> = async (c, next) => {
+        c.set('testContext', {
+          userId: c.req.header('X-User-Id') ?? 'anonymous',
+          requestId: c.req.header('X-Request-Id') ?? 'unknown',
+          tenant: c.req.header('X-Tenant') ?? 'default',
+        });
+        await next();
+      };
+
+      const controller: MockContextualController = {
+        execute: async (req: MockContextualRequestDto) => {
+          receivedContext = req.data.context;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { tenant: req.data.context.tenant },
+          });
+        },
+      };
+
+      registerHonoRoutes<TestContext>(
+        typedApp,
+        {
+          metadata: { path: '/tenant-route', method: 'GET' },
+          controller,
+          requestDtoFactory: contextualRequestDtoFactory,
+        },
+        {
+          middlewares: [headerMiddleware],
+          contextExtractor: (c) => c.get('testContext') as TestContext,
+        },
+      );
+
+      const res = await typedApp.request('/tenant-route', {
+        headers: {
+          'X-User-Id': 'user-789',
+          'X-Request-Id': 'req-abc',
+          'X-Tenant': 'custom-tenant',
+        },
+      });
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ tenant: 'custom-tenant' });
+      expect(receivedContext).toEqual({
+        userId: 'user-789',
+        requestId: 'req-abc',
+        tenant: 'custom-tenant',
+      });
+    });
+
+    it('should combine context with standard request data', async () => {
+      const typedApp = new Hono<{ Variables: AppVariables }>();
+      let receivedRequest: ContextualHttpRequest<TestContext> | null = null;
+
+      const contextMiddleware: MiddlewareHandler<{ Variables: AppVariables }> = async (c, next) => {
+        c.set('testContext', {
+          userId: 'user-xyz',
+          requestId: 'req-xyz',
+          tenant: 'test-tenant',
+        });
+        await next();
+      };
+
+      const controller: MockContextualController = {
+        execute: async (req: MockContextualRequestDto) => {
+          receivedRequest = req.data;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { ok: true },
+          });
+        },
+      };
+
+      registerHonoRoutes<TestContext>(
+        typedApp,
+        {
+          metadata: { path: '/users/{id}', method: 'POST' },
+          controller,
+          requestDtoFactory: contextualRequestDtoFactory,
+        },
+        {
+          middlewares: [contextMiddleware],
+          contextExtractor: (c) => c.get('testContext') as TestContext,
+        },
+      );
+
+      await typedApp.request('/users/456?filter=active', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Custom': 'value',
+        },
+        body: JSON.stringify({ name: 'Test User' }),
+      });
+
+      expect(receivedRequest).not.toBeNull();
+      const req = receivedRequest!;
+
+      // Verify context is present
+      expect(req.context).toEqual({
+        userId: 'user-xyz',
+        requestId: 'req-xyz',
+        tenant: 'test-tenant',
+      });
+
+      // Verify standard request data is also present
+      expect(req.pathParams).toEqual({ id: '456' });
+      expect(req.queryParams).toEqual({ filter: 'active' });
+      expect(req.body).toEqual({ name: 'Test User' });
+      expect(req.headers?.['x-custom']).toBe('value');
+    });
+
+    it('should work without contextExtractor (plain HttpRequest)', async () => {
+      let receivedRequest: HttpRequest | null = null;
+
+      const controller: MockController = {
+        execute: async (req: MockRequestDto) => {
+          receivedRequest = req.data;
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { ok: true },
+          });
+        },
+      };
+
+      // Register without contextExtractor
+      registerHonoRoutes(app, {
+        metadata: { path: '/public', method: 'GET' },
+        controller,
+        requestDtoFactory: mockRequestDtoFactory,
+      });
+
+      const res = await app.request('/public');
+      expect(res.status).toBe(200);
+      expect(receivedRequest).not.toBeNull();
+      expect((receivedRequest as Record<string, unknown>).context).toBeUndefined();
+    });
+
+    it('should support multiple routes with same contextExtractor', async () => {
+      const typedApp = new Hono<{ Variables: AppVariables }>();
+      const executedRoutes: string[] = [];
+
+      const contextMiddleware: MiddlewareHandler<{ Variables: AppVariables }> = async (c, next) => {
+        c.set('testContext', {
+          userId: 'user-multi',
+          requestId: 'req-multi',
+          tenant: 'multi-tenant',
+        });
+        await next();
+      };
+
+      const createController = (routeName: string): MockContextualController => ({
+        execute: async (req: MockContextualRequestDto) => {
+          executedRoutes.push(`${routeName}:${req.data.context.tenant}`);
+          return createMockResponseDto({
+            statusCode: 200,
+            body: { route: routeName },
+          });
+        },
+      });
+
+      registerHonoRoutes<TestContext>(
+        typedApp,
+        [
+          {
+            metadata: { path: '/route-a', method: 'GET' },
+            controller: createController('a'),
+            requestDtoFactory: contextualRequestDtoFactory,
+          },
+          {
+            metadata: { path: '/route-b', method: 'GET' },
+            controller: createController('b'),
+            requestDtoFactory: contextualRequestDtoFactory,
+          },
+        ],
+        {
+          middlewares: [contextMiddleware],
+          contextExtractor: (c) => c.get('testContext') as TestContext,
+        },
+      );
+
+      await typedApp.request('/route-a');
+      await typedApp.request('/route-b');
+
+      expect(executedRoutes).toEqual(['a:multi-tenant', 'b:multi-tenant']);
     });
   });
 });
