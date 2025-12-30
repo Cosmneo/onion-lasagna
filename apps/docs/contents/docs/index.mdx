@@ -26,15 +26,15 @@ graph TD
         Composition[Compositions]
     end
 
-    subgraph "Bounded Contexts"
+    subgraph BC[Bounded Contexts]
         Domain[Domain Logic / Use Cases]
     end
 
     Presentation --> Infrastructure
     Presentation --> Orchestrations
-    Presentation --> "Bounded Contexts"
-    Infrastructure --> "Bounded Contexts"
-    Orchestrations --> "Bounded Contexts"
+    Presentation --> BC
+    Infrastructure --> BC
+    Orchestrations --> BC
 ```
 
 ## Core Principles
