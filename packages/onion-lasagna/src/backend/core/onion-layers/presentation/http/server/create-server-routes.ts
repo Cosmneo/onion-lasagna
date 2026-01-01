@@ -156,9 +156,26 @@ function createRouteHandler(
     },
     handler: async (rawRequest: RawHttpRequest, ctx?: HandlerContext): Promise<HandlerResponse> => {
       // Create context
-      const context: HandlerContext = options?.createContext
+      const rawContext: HandlerContext = options?.createContext
         ? options.createContext(rawRequest)
         : ctx ?? { requestId: generateRequestId() };
+
+      // Validate context (if schema defined)
+      let validatedContext: unknown = rawContext;
+      if (route.request.context?.schema) {
+        const contextValidationResult = validateContextData(route, rawContext);
+        if (!contextValidationResult.success) {
+          const errors = contextValidationResult.errors ?? [];
+          throw new ControllerError({
+            message: 'Context validation failed',
+            code: 'CONTEXT_VALIDATION_ERROR',
+            cause: new Error(
+              errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; '),
+            ),
+          });
+        }
+        validatedContext = contextValidationResult.data;
+      }
 
       // Validate request (if enabled)
       // Use internal type since specific route types are erased in this function
@@ -213,9 +230,10 @@ function createRouteHandler(
         // Map request to use case input
         // Cast is safe: ValidatedRequestInternal has same shape as ValidatedRequest<TRoute>
         // Type erasure in this function requires the cast for TypeScript
+        // validatedContext is typed correctly based on route's context schema
         const input = requestMapper(
           validatedRequest as unknown as ValidatedRequest<RouteDefinition>,
-          context,
+          validatedContext as HandlerContext,
         );
 
         // Execute use case
@@ -231,6 +249,7 @@ function createRouteHandler(
         response = await executePipeline();
       } else {
         // Build middleware chain
+        // Note: Middleware receives the raw context before validation
         let index = 0;
         const next = async (): Promise<HandlerResponse> => {
           if (index >= allMiddleware.length) {
@@ -238,7 +257,7 @@ function createRouteHandler(
           }
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- index bounds checked above
           const mw = allMiddleware[index++]!;
-          return mw(rawRequest, context, next);
+          return mw(rawRequest, rawContext, next);
         };
 
         response = await next();
@@ -394,6 +413,36 @@ function validateResponseData(
   return { success: false, errors };
 }
 
+/**
+ * Validates context data against route context schema.
+ */
+function validateContextData(
+  route: RouteDefinition,
+  context: HandlerContext,
+): ContextValidationResultInternal {
+  const contextSchema = route.request.context?.schema as SchemaAdapter | undefined;
+
+  // No context schema defined - skip validation
+  if (!contextSchema) {
+    return { success: true, data: context };
+  }
+
+  // Validate context against schema
+  const result = contextSchema.validate(context);
+
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+
+  // Prefix errors with 'context.' for clarity
+  const errors = result.issues.map((issue) => ({
+    ...issue,
+    path: ['context', ...issue.path],
+  }));
+
+  return { success: false, errors };
+}
+
 interface ValidationResultInternal {
   success: boolean;
   errors?: ValidationIssue[];
@@ -403,6 +452,12 @@ interface ValidationResultInternal {
     pathParams?: unknown;
     headers?: unknown;
   };
+}
+
+interface ContextValidationResultInternal {
+  success: boolean;
+  errors?: ValidationIssue[];
+  data?: unknown;
 }
 
 /**

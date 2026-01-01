@@ -9,7 +9,8 @@
  * @module unified/route/types/router-definition
  */
 
-import type { RouteDefinition } from './route-definition.type';
+import type { RouteDefinition, ResponsesConfig } from './route-definition.type';
+import type { HttpMethod } from './http.type';
 
 // ============================================================================
 // Router Types
@@ -17,8 +18,11 @@ import type { RouteDefinition } from './route-definition.type';
 
 /**
  * A router entry can be either a route definition or a nested router.
+ * Uses permissive types to allow any valid route definition.
  */
-export type RouterEntry = RouteDefinition | RouterConfig;
+export type RouterEntry =
+  | RouteDefinition<HttpMethod, string, unknown, unknown, unknown, unknown, unknown, ResponsesConfig>
+  | RouterConfig;
 
 /**
  * Configuration for a router (group of routes).
@@ -115,13 +119,15 @@ export type FlattenRouter<
   Prefix extends string = '',
 > = T extends RouterConfig
   ? {
-      [K in keyof T]: T[K] extends RouteDefinition
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      [K in keyof T]: T[K] extends RouteDefinition<any, any, any, any, any, any, any, any>
         ? { [P in `${Prefix}${K & string}`]: T[K] }
         : T[K] extends RouterConfig
           ? FlattenRouter<T[K], `${Prefix}${K & string}.`>
           : never;
     }[keyof T] extends infer U
-    ? U extends Record<string, RouteDefinition>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? U extends Record<string, RouteDefinition<any, any, any, any, any, any, any, any>>
       ? U
       : never
     : never
@@ -138,7 +144,8 @@ export type FlattenRouter<
  */
 export type RouterKeys<T extends RouterConfig, Prefix extends string = ''> = T extends RouterConfig
   ? {
-      [K in keyof T]: T[K] extends RouteDefinition
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      [K in keyof T]: T[K] extends RouteDefinition<any, any, any, any, any, any, any, any>
         ? `${Prefix}${K & string}`
         : T[K] extends RouterConfig
           ? RouterKeys<T[K], `${Prefix}${K & string}.`>
@@ -162,7 +169,8 @@ export type GetRoute<T extends RouterConfig, K extends string> = K extends `${in
       : never
     : never
   : K extends keyof T
-    ? T[K] extends RouteDefinition
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? T[K] extends RouteDefinition<any, any, any, any, any, any, any, any>
       ? T[K]
       : never
     : never;

@@ -28,9 +28,11 @@
  */
 
 export { createServerRoutes } from './create-server-routes';
+export { defineHandler, createHandlerFactory } from './define-handler';
 export type {
   UseCasePort,
   ValidatedRequest,
+  TypedContext,
   HandlerContext,
   HandlerResponse,
   RouteHandlerConfig,

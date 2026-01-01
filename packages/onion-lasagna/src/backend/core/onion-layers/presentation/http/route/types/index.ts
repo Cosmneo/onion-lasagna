@@ -29,6 +29,7 @@ export type {
   QueryParamsConfig,
   PathParamsConfig,
   HeadersConfig,
+  ContextConfig,
   RequestConfig,
   // Response types
   ResponseConfig,
@@ -45,6 +46,7 @@ export type {
   InferRouteQuery,
   InferRoutePathParams,
   InferRouteHeaders,
+  InferRouteContext,
   InferRouteResponse,
   InferRouteSuccessResponse,
   InferRouteMethod,
