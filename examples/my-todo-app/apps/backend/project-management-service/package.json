@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@repo/backend": "workspace:*",
-    "@cosmneo/onion-lasagna": "^0.1.3",
+    "@cosmneo/onion-lasagna": "file:../../../../../../packages/onion-lasagna",
     "@hono/node-server": "^1.14.3",
     "dotenv": "^16.4.7",
     "hono": "^4.7.9"

@@ -2,6 +2,9 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
   entry: {
+    // Shared contracts (single source of truth for client + server)
+    'shared/contracts': 'src/shared/contracts/index.ts',
+    // Backend core
     'backend/core/onion-layers': 'src/backend/core/onion-layers/index.ts',
     'backend/core/global': 'src/backend/core/global/index.ts',
     'backend/core/presentation': 'src/backend/core/onion-layers/presentation/index.ts',
@@ -9,10 +12,15 @@ export default defineConfig({
     'backend/core/validators/arktype': 'src/backend/core/validators/arktype/index.ts',
     'backend/core/validators/valibot': 'src/backend/core/validators/valibot/index.ts',
     'backend/core/validators/typebox': 'src/backend/core/validators/typebox/index.ts',
+    // Backend frameworks
     'backend/frameworks/hono': 'src/backend/frameworks/hono/index.ts',
     'backend/frameworks/nestjs': 'src/backend/frameworks/nestjs/index.ts',
     'backend/frameworks/elysia': 'src/backend/frameworks/elysia/index.ts',
     'backend/frameworks/fastify': 'src/backend/frameworks/fastify/index.ts',
+    // Client
+    'client/index': 'src/client/index.ts',
+    'client/react-query/index': 'src/client/react-query/index.ts',
+    'client/vue-query/index': 'src/client/vue-query/index.ts',
   },
   dts: true,
   format: ['esm', 'cjs'],
@@ -34,5 +42,7 @@ export default defineConfig({
     '@nestjs/common',
     '@nestjs/core',
     'express',
+    '@tanstack/react-query',
+    '@tanstack/vue-query',
   ],
 });

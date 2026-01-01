@@ -64,7 +64,9 @@
     "uuid": "^13.0.0",
     "valibot": "^1.2.0",
     "vitest": "^4.0.16",
-    "zod": "^4.2.1"
+    "zod": "^4.2.1",
+    "@tanstack/react-query": "^5.69.0",
+    "@tanstack/vue-query": "^5.69.0"
   },
   "peerDependencies": {
     "@nestjs/common": "^11.1.10",
@@ -77,7 +79,9 @@
     "typescript": "^5",
     "uuid": "^13.0.0",
     "valibot": "^1.2.0",
-    "zod": "^4.2.1"
+    "zod": "^4.2.1",
+    "@tanstack/react-query": "^5",
+    "@tanstack/vue-query": "^5"
   },
   "peerDependenciesMeta": {
     "@nestjs/common": {
@@ -106,6 +110,12 @@
     },
     "zod": {
       "optional": true
+    },
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "@tanstack/vue-query": {
+      "optional": true
     }
   },
   "scripts": {
@@ -118,6 +128,12 @@
     "prepublishOnly": "bun run build"
   },
   "exports": {
+    "./shared/contracts": {
+      "types": "./dist/shared/contracts.d.ts",
+      "import": "./dist/shared/contracts.js",
+      "require": "./dist/shared/contracts.cjs",
+      "default": "./dist/shared/contracts.js"
+    },
     "./backend/core/onion-layers": {
       "types": "./dist/backend/core/onion-layers.d.ts",
       "import": "./dist/backend/core/onion-layers.js",
@@ -183,6 +199,24 @@
       "import": "./dist/backend/frameworks/fastify.js",
       "require": "./dist/backend/frameworks/fastify.cjs",
       "default": "./dist/backend/frameworks/fastify.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.js",
+      "require": "./dist/client/index.cjs",
+      "default": "./dist/client/index.js"
+    },
+    "./client/react-query": {
+      "types": "./dist/client/react-query/index.d.ts",
+      "import": "./dist/client/react-query/index.js",
+      "require": "./dist/client/react-query/index.cjs",
+      "default": "./dist/client/react-query/index.js"
+    },
+    "./client/vue-query": {
+      "types": "./dist/client/vue-query/index.d.ts",
+      "import": "./dist/client/vue-query/index.js",
+      "require": "./dist/client/vue-query/index.cjs",
+      "default": "./dist/client/vue-query/index.js"
     }
   },
   "publishConfig": {

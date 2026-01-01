@@ -15,3 +15,6 @@ export * from './presentation';
 
 // Bootstrap
 export * from './bootstrap';
+
+// Client - Typed HTTP Client for consuming the API
+export * from './client';
