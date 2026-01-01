@@ -93,6 +93,23 @@ export interface HeadersConfig<T = unknown> {
 }
 
 /**
+ * Context configuration.
+ * Used to validate and type context data from middleware (e.g., JWT payload).
+ */
+export interface ContextConfig<T = unknown> {
+  /**
+   * Schema for validating context data.
+   * Context is extracted by the framework adapter's contextExtractor.
+   */
+  readonly schema: SchemaAdapter<T>;
+
+  /**
+   * Description for documentation.
+   */
+  readonly description?: string;
+}
+
+/**
  * Complete request configuration.
  */
 export interface RequestConfig<
@@ -100,6 +117,7 @@ export interface RequestConfig<
   TQuery = undefined,
   TParams = undefined,
   THeaders = undefined,
+  TContext = undefined,
 > {
   /**
    * Request body schema and configuration.
@@ -121,6 +139,13 @@ export interface RequestConfig<
    * Headers schema and configuration.
    */
   readonly headers?: THeaders extends undefined ? undefined : HeadersConfig<THeaders>;
+
+  /**
+   * Context schema and configuration.
+   * Validates context data extracted from middleware (e.g., JWT payload).
+   * Validation failure throws InternalServerError.
+   */
+  readonly context?: TContext extends undefined ? undefined : ContextConfig<TContext>;
 }
 
 // ============================================================================
@@ -237,6 +262,7 @@ export interface RouteDefinitionInput<
   TQuery = undefined,
   TPathParams = PathParams<TPath>,
   THeaders = undefined,
+  TContext = undefined,
   TResponses extends ResponsesConfig = ResponsesConfig,
 > {
   /**
@@ -255,13 +281,14 @@ export interface RouteDefinitionInput<
   readonly path: TPath;
 
   /**
-   * Request configuration including body, query, params, and headers.
+   * Request configuration including body, query, params, headers, and context.
    */
   readonly request?: {
     readonly body?: RequestBodyConfig<TBody>;
     readonly query?: QueryParamsConfig<TQuery>;
     readonly params?: PathParamsConfig<TPathParams>;
     readonly headers?: HeadersConfig<THeaders>;
+    readonly context?: ContextConfig<TContext>;
   };
 
   /**
@@ -286,6 +313,7 @@ export interface RouteDefinition<
   TQuery = undefined,
   TPathParams = PathParams<TPath>,
   THeaders = undefined,
+  TContext = undefined,
   TResponses extends ResponsesConfig = ResponsesConfig,
 > {
   /**
@@ -306,6 +334,7 @@ export interface RouteDefinition<
     readonly query: QueryParamsConfig<TQuery> | undefined;
     readonly params: PathParamsConfig<TPathParams> | undefined;
     readonly headers: HeadersConfig<THeaders> | undefined;
+    readonly context: ContextConfig<TContext> | undefined;
   };
 
   /**
@@ -330,6 +359,7 @@ export interface RouteDefinition<
     readonly query: TQuery;
     readonly pathParams: TPathParams;
     readonly headers: THeaders;
+    readonly context: TContext;
     readonly responses: TResponses;
   };
 }
@@ -393,9 +423,26 @@ export type InferRouteHeaders<T> = T extends RouteDefinition<
   unknown,
   unknown,
   infer THeaders,
+  unknown,
   ResponsesConfig
 >
   ? THeaders
+  : never;
+
+/**
+ * Infers the context type from a route definition.
+ */
+export type InferRouteContext<T> = T extends RouteDefinition<
+  HttpMethod,
+  string,
+  unknown,
+  unknown,
+  unknown,
+  unknown,
+  infer TContext,
+  ResponsesConfig
+>
+  ? TContext
   : never;
 
 /**
@@ -404,6 +451,7 @@ export type InferRouteHeaders<T> = T extends RouteDefinition<
 export type InferRouteResponse<T, TStatus extends HttpStatusCode> = T extends RouteDefinition<
   HttpMethod,
   string,
+  unknown,
   unknown,
   unknown,
   unknown,
@@ -423,6 +471,7 @@ export type InferRouteResponse<T, TStatus extends HttpStatusCode> = T extends Ro
 export type InferRouteSuccessResponse<T> = T extends RouteDefinition<
   HttpMethod,
   string,
+  unknown,
   unknown,
   unknown,
   unknown,
@@ -450,6 +499,7 @@ export type InferRouteMethod<T> = T extends RouteDefinition<
   unknown,
   unknown,
   unknown,
+  unknown,
   ResponsesConfig
 >
   ? TMethod
@@ -461,6 +511,7 @@ export type InferRouteMethod<T> = T extends RouteDefinition<
 export type InferRoutePath<T> = T extends RouteDefinition<
   HttpMethod,
   infer TPath,
+  unknown,
   unknown,
   unknown,
   unknown,

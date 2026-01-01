@@ -51,6 +51,16 @@ export interface ValidatedRequest<TRoute extends RouteDefinition> {
   };
 }
 
+/**
+ * Typed context based on route definition.
+ * If the route defines a context schema, this will be the validated type.
+ * Otherwise, it falls back to the generic HandlerContext.
+ */
+export type TypedContext<TRoute extends RouteDefinition> =
+  TRoute['_types']['context'] extends undefined
+    ? HandlerContext
+    : TRoute['_types']['context'];
+
 // ============================================================================
 // Handler Types
 // ============================================================================
@@ -170,12 +180,13 @@ export interface RouteHandlerConfig<
   TInput = void,
   TOutput = void,
 > {
-   
+
   /**
    * Maps the validated HTTP request to use case input.
    * The request has already been validated by the route's schemas.
+   * Context is typed based on the route's context schema (if defined).
    */
-  readonly requestMapper: (req: ValidatedRequest<TRoute>, ctx: HandlerContext) => TInput;
+  readonly requestMapper: (req: ValidatedRequest<TRoute>, ctx: TypedContext<TRoute>) => TInput;
 
   /**
    * The use case to execute.

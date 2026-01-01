@@ -50,6 +50,15 @@ interface HeadersInput<TSchema extends SchemaAdapter> {
 }
 
 /**
+ * Context configuration input.
+ * Used to validate and type context data from middleware (e.g., JWT payload).
+ */
+interface ContextInput<TSchema extends SchemaAdapter> {
+  readonly schema: TSchema;
+  readonly description?: string;
+}
+
+/**
  * Response configuration input.
  */
 interface ResponseInput<TSchema extends SchemaAdapter | undefined = undefined> {
@@ -68,6 +77,7 @@ interface DefineRouteInput<
   TQuery extends SchemaAdapter | undefined = undefined,
   TParams extends SchemaAdapter | undefined = undefined,
   THeaders extends SchemaAdapter | undefined = undefined,
+  TContext extends SchemaAdapter | undefined = undefined,
   TResponses extends Record<number, ResponseInput<SchemaAdapter | undefined>> = Record<number, never>,
 > {
   readonly method: TMethod;
@@ -77,6 +87,7 @@ interface DefineRouteInput<
     readonly query?: TQuery extends SchemaAdapter ? QueryInput<TQuery> : undefined;
     readonly params?: TParams extends SchemaAdapter ? ParamsInput<TParams> : undefined;
     readonly headers?: THeaders extends SchemaAdapter ? HeadersInput<THeaders> : undefined;
+    readonly context?: TContext extends SchemaAdapter ? ContextInput<TContext> : undefined;
   };
   readonly responses: TResponses;
   readonly docs?: {
@@ -96,34 +107,6 @@ interface DefineRouteInput<
 // ============================================================================
 // Output Types
 // ============================================================================
-
-/**
- * Infers the body type from a body input.
- */
-type InferBodyType<T> = T extends BodyInput<infer TSchema>
-  ? InferOutput<TSchema>
-  : undefined;
-
-/**
- * Infers the query type from a query input.
- */
-type InferQueryType<T> = T extends QueryInput<infer TSchema>
-  ? InferOutput<TSchema>
-  : undefined;
-
-/**
- * Infers the params type from a params input.
- */
-type InferParamsType<T, TPath extends string> = T extends ParamsInput<infer TSchema>
-  ? InferOutput<TSchema>
-  : PathParams<TPath>;
-
-/**
- * Infers the headers type from a headers input.
- */
-type InferHeadersType<T> = T extends HeadersInput<infer TSchema>
-  ? InferOutput<TSchema>
-  : undefined;
 
 /**
  * Converts response inputs to response config type.
@@ -234,16 +217,18 @@ export function defineRoute<
   TQuery extends SchemaAdapter | undefined = undefined,
   TParams extends SchemaAdapter | undefined = undefined,
   THeaders extends SchemaAdapter | undefined = undefined,
+  TContext extends SchemaAdapter | undefined = undefined,
   TResponses extends Record<number, ResponseInput<SchemaAdapter | undefined>> = Record<number, never>,
 >(
-  input: DefineRouteInput<TMethod, TPath, TBody, TQuery, TParams, THeaders, TResponses>,
+  input: DefineRouteInput<TMethod, TPath, TBody, TQuery, TParams, THeaders, TContext, TResponses>,
 ): RouteDefinition<
   TMethod,
   TPath,
-  InferBodyType<DefineRouteInput<TMethod, TPath, TBody, TQuery, TParams, THeaders, TResponses>['request']>,
-  InferQueryType<DefineRouteInput<TMethod, TPath, TBody, TQuery, TParams, THeaders, TResponses>['request']>,
-  InferParamsType<DefineRouteInput<TMethod, TPath, TBody, TQuery, TParams, THeaders, TResponses>['request'], TPath>,
-  InferHeadersType<DefineRouteInput<TMethod, TPath, TBody, TQuery, TParams, THeaders, TResponses>['request']>,
+  TBody extends SchemaAdapter ? InferOutput<TBody> : undefined,
+  TQuery extends SchemaAdapter ? InferOutput<TQuery> : undefined,
+  TParams extends SchemaAdapter ? InferOutput<TParams> : PathParams<TPath>,
+  THeaders extends SchemaAdapter ? InferOutput<THeaders> : undefined,
+  TContext extends SchemaAdapter ? InferOutput<TContext> : undefined,
   ToResponsesConfig<TResponses> & ResponsesConfig
 > {
   const definition = {
@@ -254,6 +239,7 @@ export function defineRoute<
       query: input.request?.query ?? undefined,
       params: input.request?.params ?? undefined,
       headers: input.request?.headers ?? undefined,
+      context: input.request?.context ?? undefined,
     },
     responses: input.responses as ToResponsesConfig<TResponses> & ResponsesConfig,
     docs: {
@@ -269,10 +255,11 @@ export function defineRoute<
   } as RouteDefinition<
     TMethod,
     TPath,
-    InferBodyType<typeof input.request>,
-    InferQueryType<typeof input.request>,
-    InferParamsType<typeof input.request, TPath>,
-    InferHeadersType<typeof input.request>,
+    TBody extends SchemaAdapter ? InferOutput<TBody> : undefined,
+    TQuery extends SchemaAdapter ? InferOutput<TQuery> : undefined,
+    TParams extends SchemaAdapter ? InferOutput<TParams> : PathParams<TPath>,
+    THeaders extends SchemaAdapter ? InferOutput<THeaders> : undefined,
+    TContext extends SchemaAdapter ? InferOutput<TContext> : undefined,
     ToResponsesConfig<TResponses> & ResponsesConfig
   >;
 
