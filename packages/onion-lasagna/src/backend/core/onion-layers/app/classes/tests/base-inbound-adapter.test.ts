@@ -1,47 +1,39 @@
 import { describe, it, expect } from 'vitest';
 import { BaseInboundAdapter } from '../base-inbound-adapter.class';
-import { BaseDto, SKIP_DTO_VALIDATION } from '../../../../global/classes/base-dto.class';
 import { UseCaseError } from '../../exceptions/use-case.error';
 import { DomainError } from '../../../domain/exceptions/domain.error';
 import { InfraError } from '../../../infra/exceptions/infra.error';
 import { ObjectValidationError } from '../../../../global/exceptions/object-validation.error';
 
-// Test DTOs
-class InputDto extends BaseDto<{ name: string }> {
-  static create(data: { name: string }): InputDto {
-    return new InputDto(data, SKIP_DTO_VALIDATION);
-  }
-
-  get name(): string {
-    return this.data.name;
-  }
+// Plain types for input/output
+interface InputData {
+  name: string;
 }
 
-class OutputDto extends BaseDto<{ id: string; name: string }> {
-  static create(data: { id: string; name: string }): OutputDto {
-    return new OutputDto(data, SKIP_DTO_VALIDATION);
-  }
+interface OutputData {
+  id: string;
+  name: string;
 }
 
 // Concrete test implementations
-class SuccessfulUseCase extends BaseInboundAdapter<InputDto, OutputDto> {
-  protected async handle(input: InputDto): Promise<OutputDto> {
-    return OutputDto.create({ id: 'generated-id', name: input.name });
+class SuccessfulUseCase extends BaseInboundAdapter<InputData, OutputData> {
+  protected async handle(input: InputData): Promise<OutputData> {
+    return { id: 'generated-id', name: input.name };
   }
 }
 
-class FailingUseCase extends BaseInboundAdapter<InputDto, OutputDto> {
+class FailingUseCase extends BaseInboundAdapter<InputData, OutputData> {
   constructor(private error: Error) {
     super();
   }
 
-  protected async handle(_input: InputDto): Promise<OutputDto> {
+  protected async handle(_input: InputData): Promise<OutputData> {
     throw this.error;
   }
 }
 
-class SyncErrorUseCase extends BaseInboundAdapter<InputDto, OutputDto> {
-  protected handle(_input: InputDto): Promise<OutputDto> {
+class SyncErrorUseCase extends BaseInboundAdapter<InputData, OutputData> {
+  protected handle(_input: InputData): Promise<OutputData> {
     throw new Error('Synchronous error');
   }
 }
@@ -50,20 +42,20 @@ describe('BaseInboundAdapter', () => {
   describe('execute', () => {
     it('should execute handle and return result', async () => {
       const useCase = new SuccessfulUseCase();
-      const input = InputDto.create({ name: 'Test User' });
+      const input: InputData = { name: 'Test User' };
 
       const result = await useCase.execute(input);
 
-      expect(result.data).toEqual({ id: 'generated-id', name: 'Test User' });
+      expect(result).toEqual({ id: 'generated-id', name: 'Test User' });
     });
 
     it('should pass input to handle method', async () => {
       const useCase = new SuccessfulUseCase();
-      const input = InputDto.create({ name: 'Custom Name' });
+      const input: InputData = { name: 'Custom Name' };
 
       const result = await useCase.execute(input);
 
-      expect(result.data.name).toBe('Custom Name');
+      expect(result.name).toBe('Custom Name');
     });
   });
 
@@ -72,7 +64,7 @@ describe('BaseInboundAdapter', () => {
       it('should re-throw UseCaseError without wrapping', async () => {
         const originalError = new UseCaseError({ message: 'Use case failed', code: 'TEST_ERROR' });
         const useCase = new FailingUseCase(originalError);
-        const input = InputDto.create({ name: 'Test' });
+        const input: InputData = { name: 'Test' };
 
         await expect(useCase.execute(input)).rejects.toThrow(originalError);
       });
@@ -80,7 +72,7 @@ describe('BaseInboundAdapter', () => {
       it('should re-throw DomainError without wrapping', async () => {
         const originalError = new DomainError({ message: 'Domain rule violated' });
         const useCase = new FailingUseCase(originalError);
-        const input = InputDto.create({ name: 'Test' });
+        const input: InputData = { name: 'Test' };
 
         await expect(useCase.execute(input)).rejects.toThrow(originalError);
       });
@@ -88,7 +80,7 @@ describe('BaseInboundAdapter', () => {
       it('should re-throw InfraError without wrapping', async () => {
         const originalError = new InfraError({ message: 'Infrastructure failed' });
         const useCase = new FailingUseCase(originalError);
-        const input = InputDto.create({ name: 'Test' });
+        const input: InputData = { name: 'Test' };
 
         await expect(useCase.execute(input)).rejects.toThrow(originalError);
       });
@@ -99,7 +91,7 @@ describe('BaseInboundAdapter', () => {
           validationErrors: [{ field: 'field', message: 'required' }],
         });
         const useCase = new FailingUseCase(originalError);
-        const input = InputDto.create({ name: 'Test' });
+        const input: InputData = { name: 'Test' };
 
         await expect(useCase.execute(input)).rejects.toThrow(originalError);
       });
@@ -109,7 +101,7 @@ describe('BaseInboundAdapter', () => {
       it('should wrap unknown errors in UseCaseError', async () => {
         const unknownError = new Error('Something unexpected');
         const useCase = new FailingUseCase(unknownError);
-        const input = InputDto.create({ name: 'Test' });
+        const input: InputData = { name: 'Test' };
 
         await expect(useCase.execute(input)).rejects.toThrow(UseCaseError);
       });
@@ -117,7 +109,7 @@ describe('BaseInboundAdapter', () => {
       it('should preserve original error as cause', async () => {
         const unknownError = new Error('Original error');
         const useCase = new FailingUseCase(unknownError);
-        const input = InputDto.create({ name: 'Test' });
+        const input: InputData = { name: 'Test' };
 
         try {
           await useCase.execute(input);
@@ -130,7 +122,7 @@ describe('BaseInboundAdapter', () => {
       it('should wrap TypeError', async () => {
         const typeError = new TypeError('Cannot read property');
         const useCase = new FailingUseCase(typeError);
-        const input = InputDto.create({ name: 'Test' });
+        const input: InputData = { name: 'Test' };
 
         await expect(useCase.execute(input)).rejects.toThrow(UseCaseError);
       });
@@ -138,7 +130,7 @@ describe('BaseInboundAdapter', () => {
       it('should wrap RangeError', async () => {
         const rangeError = new RangeError('Value out of range');
         const useCase = new FailingUseCase(rangeError);
-        const input = InputDto.create({ name: 'Test' });
+        const input: InputData = { name: 'Test' };
 
         await expect(useCase.execute(input)).rejects.toThrow(UseCaseError);
       });
@@ -147,7 +139,7 @@ describe('BaseInboundAdapter', () => {
     describe('synchronous errors in handle', () => {
       it('should handle synchronous throws in async method', async () => {
         const useCase = new SyncErrorUseCase();
-        const input = InputDto.create({ name: 'Test' });
+        const input: InputData = { name: 'Test' };
 
         await expect(useCase.execute(input)).rejects.toThrow(UseCaseError);
       });
@@ -167,7 +159,7 @@ describe('BaseInboundAdapter', () => {
       const { ConflictError } = await import('../../exceptions/conflict.error');
       const conflictError = new ConflictError({ message: 'Already exists' });
       const useCase = new FailingUseCase(conflictError);
-      const input = InputDto.create({ name: 'Test' });
+      const input: InputData = { name: 'Test' };
 
       await expect(useCase.execute(input)).rejects.toThrow(conflictError);
     });
@@ -176,7 +168,7 @@ describe('BaseInboundAdapter', () => {
       const { NotFoundError } = await import('../../exceptions/not-found.error');
       const notFoundError = new NotFoundError({ message: 'Not found' });
       const useCase = new FailingUseCase(notFoundError);
-      const input = InputDto.create({ name: 'Test' });
+      const input: InputData = { name: 'Test' };
 
       await expect(useCase.execute(input)).rejects.toThrow(notFoundError);
     });
@@ -185,7 +177,7 @@ describe('BaseInboundAdapter', () => {
       const { UnprocessableError } = await import('../../exceptions/unprocessable.error');
       const unprocessableError = new UnprocessableError({ message: 'Cannot process' });
       const useCase = new FailingUseCase(unprocessableError);
-      const input = InputDto.create({ name: 'Test' });
+      const input: InputData = { name: 'Test' };
 
       await expect(useCase.execute(input)).rejects.toThrow(unprocessableError);
     });

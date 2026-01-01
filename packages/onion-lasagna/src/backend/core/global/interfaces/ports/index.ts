@@ -1,1 +1,1 @@
-export * from './object-validator.port';
+// Empty - ObjectValidatorPort removed (use HTTP schema adapters instead)
