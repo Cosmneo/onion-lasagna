@@ -152,54 +152,6 @@
       "require": "./dist/backend/core/presentation.cjs",
       "default": "./dist/backend/core/presentation.js"
     },
-    "./backend/core/validators/zod": {
-      "types": "./dist/backend/core/validators/zod.d.ts",
-      "import": "./dist/backend/core/validators/zod.js",
-      "require": "./dist/backend/core/validators/zod.cjs",
-      "default": "./dist/backend/core/validators/zod.js"
-    },
-    "./backend/core/validators/arktype": {
-      "types": "./dist/backend/core/validators/arktype.d.ts",
-      "import": "./dist/backend/core/validators/arktype.js",
-      "require": "./dist/backend/core/validators/arktype.cjs",
-      "default": "./dist/backend/core/validators/arktype.js"
-    },
-    "./backend/core/validators/valibot": {
-      "types": "./dist/backend/core/validators/valibot.d.ts",
-      "import": "./dist/backend/core/validators/valibot.js",
-      "require": "./dist/backend/core/validators/valibot.cjs",
-      "default": "./dist/backend/core/validators/valibot.js"
-    },
-    "./backend/core/validators/typebox": {
-      "types": "./dist/backend/core/validators/typebox.d.ts",
-      "import": "./dist/backend/core/validators/typebox.js",
-      "require": "./dist/backend/core/validators/typebox.cjs",
-      "default": "./dist/backend/core/validators/typebox.js"
-    },
-    "./backend/frameworks/hono": {
-      "types": "./dist/backend/frameworks/hono.d.ts",
-      "import": "./dist/backend/frameworks/hono.js",
-      "require": "./dist/backend/frameworks/hono.cjs",
-      "default": "./dist/backend/frameworks/hono.js"
-    },
-    "./backend/frameworks/nestjs": {
-      "types": "./dist/backend/frameworks/nestjs.d.ts",
-      "import": "./dist/backend/frameworks/nestjs.js",
-      "require": "./dist/backend/frameworks/nestjs.cjs",
-      "default": "./dist/backend/frameworks/nestjs.js"
-    },
-    "./backend/frameworks/elysia": {
-      "types": "./dist/backend/frameworks/elysia.d.ts",
-      "import": "./dist/backend/frameworks/elysia.js",
-      "require": "./dist/backend/frameworks/elysia.cjs",
-      "default": "./dist/backend/frameworks/elysia.js"
-    },
-    "./backend/frameworks/fastify": {
-      "types": "./dist/backend/frameworks/fastify.d.ts",
-      "import": "./dist/backend/frameworks/fastify.js",
-      "require": "./dist/backend/frameworks/fastify.cjs",
-      "default": "./dist/backend/frameworks/fastify.js"
-    },
     "./client": {
       "types": "./dist/client/index.d.ts",
       "import": "./dist/client/index.js",
@@ -217,6 +169,78 @@
       "import": "./dist/client/vue-query/index.js",
       "require": "./dist/client/vue-query/index.cjs",
       "default": "./dist/client/vue-query/index.js"
+    },
+    "./http": {
+      "types": "./dist/http/index.d.ts",
+      "import": "./dist/http/index.js",
+      "require": "./dist/http/index.cjs",
+      "default": "./dist/http/index.js"
+    },
+    "./http/schema": {
+      "types": "./dist/http/schema/index.d.ts",
+      "import": "./dist/http/schema/index.js",
+      "require": "./dist/http/schema/index.cjs",
+      "default": "./dist/http/schema/index.js"
+    },
+    "./http/schema/zod": {
+      "types": "./dist/http/schema/zod.d.ts",
+      "import": "./dist/http/schema/zod.js",
+      "require": "./dist/http/schema/zod.cjs",
+      "default": "./dist/http/schema/zod.js"
+    },
+    "./http/schema/typebox": {
+      "types": "./dist/http/schema/typebox.d.ts",
+      "import": "./dist/http/schema/typebox.js",
+      "require": "./dist/http/schema/typebox.cjs",
+      "default": "./dist/http/schema/typebox.js"
+    },
+    "./http/route": {
+      "types": "./dist/http/route/index.d.ts",
+      "import": "./dist/http/route/index.js",
+      "require": "./dist/http/route/index.cjs",
+      "default": "./dist/http/route/index.js"
+    },
+    "./http/client": {
+      "types": "./dist/http/client/index.d.ts",
+      "import": "./dist/http/client/index.js",
+      "require": "./dist/http/client/index.cjs",
+      "default": "./dist/http/client/index.js"
+    },
+    "./http/server": {
+      "types": "./dist/http/server/index.d.ts",
+      "import": "./dist/http/server/index.js",
+      "require": "./dist/http/server/index.cjs",
+      "default": "./dist/http/server/index.js"
+    },
+    "./http/openapi": {
+      "types": "./dist/http/openapi/index.d.ts",
+      "import": "./dist/http/openapi/index.js",
+      "require": "./dist/http/openapi/index.cjs",
+      "default": "./dist/http/openapi/index.js"
+    },
+    "./http/frameworks/hono": {
+      "types": "./dist/http/frameworks/hono.d.ts",
+      "import": "./dist/http/frameworks/hono.js",
+      "require": "./dist/http/frameworks/hono.cjs",
+      "default": "./dist/http/frameworks/hono.js"
+    },
+    "./http/frameworks/fastify": {
+      "types": "./dist/http/frameworks/fastify.d.ts",
+      "import": "./dist/http/frameworks/fastify.js",
+      "require": "./dist/http/frameworks/fastify.cjs",
+      "default": "./dist/http/frameworks/fastify.js"
+    },
+    "./http/frameworks/elysia": {
+      "types": "./dist/http/frameworks/elysia.d.ts",
+      "import": "./dist/http/frameworks/elysia.js",
+      "require": "./dist/http/frameworks/elysia.cjs",
+      "default": "./dist/http/frameworks/elysia.js"
+    },
+    "./http/frameworks/nestjs": {
+      "types": "./dist/http/frameworks/nestjs.d.ts",
+      "import": "./dist/http/frameworks/nestjs.js",
+      "require": "./dist/http/frameworks/nestjs.cjs",
+      "default": "./dist/http/frameworks/nestjs.js"
     }
   },
   "publishConfig": {
