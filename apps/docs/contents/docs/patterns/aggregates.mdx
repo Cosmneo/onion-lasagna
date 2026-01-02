@@ -315,22 +315,6 @@ The `version` property is public for reading. Use `version + 1` in your reposito
 
 ---
 
-## Rules
-
-- ✅ Extend `BaseAggregateRoot` for event-sourced aggregates
-- ✅ Use factory methods (`create`, `reconstitute`)
-- ✅ Enforce all invariants in domain methods
-- ✅ Use `InvariantViolationError` for business rule violations
-- ✅ Emit domain events for state changes
-- ✅ Return copies of collections from getters
-- ✅ Reference other aggregates by ID only
-- ✅ Use `version` for optimistic locking
-- ❌ Never create with `new` directly
-- ❌ Never reference other aggregates directly
-- ❌ Never publish events before persisting
-
----
-
 ## Hydration
 
 Repositories are responsible for hydrating aggregates:
@@ -344,3 +328,133 @@ class OrderRepository extends BaseOutboundAdapter {
   }
 }
 ```
+
+---
+
+## Load State Tracking
+
+When loading aggregates from the database, you may not always load all fields or relations. For example, a query might load only `id` and `status`, skipping heavy relations like `items`. If code later tries to access `items`, it would get `undefined` or stale data.
+
+`BaseAggregateRoot` provides **load state tracking** to prevent this:
+
+```typescript
+abstract class BaseAggregateRoot<TId, TProps> extends BaseEntity<TId, TProps> {
+  // Mark fields as loaded during reconstitution
+  protected markLoaded(...fields: (keyof TProps | string)[]): void;
+
+  // Check if a field is loaded
+  protected isLoaded(field: keyof TProps | string): boolean;
+
+  // Get field value or throw PartialLoadError
+  protected requireLoaded<K extends keyof TProps>(field: K, errorCode?: string): TProps[K];
+
+  // View loaded fields (for debugging)
+  public get loadedFields(): ReadonlySet<keyof TProps | string>;
+}
+```
+
+### Using Load State Tracking
+
+Mark fields as loaded in your `reconstitute` factory:
+
+```typescript
+class OrderAggregate extends BaseAggregateRoot<OrderId, OrderProps> {
+  // Factory for EXISTING instances
+  static reconstitute(
+    data: OrderData,
+    version: number,
+    options?: { includeItems?: boolean },
+  ): OrderAggregate {
+    const order = new OrderAggregate(
+      OrderId.create(data.id),
+      {
+        customerId: CustomerId.create(data.customerId),
+        items: options?.includeItems ? data.items.map(OrderItem.reconstitute) : [],
+        status: data.status,
+        createdAt: data.createdAt,
+      },
+      version,
+    );
+
+    // Mark which fields were actually loaded
+    order.markLoaded('customerId', 'status', 'createdAt');
+
+    if (options?.includeItems) {
+      order.markLoaded('items');
+    }
+
+    return order;
+  }
+
+  // Safe getter that throws if items weren't loaded
+  get items(): readonly OrderItem[] {
+    return this.requireLoaded('items');
+  }
+
+  // Conditional logic based on load state
+  get itemCount(): number {
+    if (!this.isLoaded('items')) {
+      return 0; // Or throw, depending on your needs
+    }
+    return this._props.items.length;
+  }
+}
+```
+
+### Repository with Load Options
+
+```typescript
+class OrderRepository extends BaseOutboundAdapter {
+  async findById(
+    id: OrderId,
+    options?: { includeItems?: boolean },
+  ): Promise<OrderAggregate | null> {
+    const row = await this.persistence.findById(id.value);
+    if (!row) return null;
+
+    // Load items only if requested
+    const items = options?.includeItems
+      ? await this.persistence.findItemsByOrderId(id.value)
+      : [];
+
+    return OrderAggregate.reconstitute(
+      { ...row, items },
+      row.version,
+      options,
+    );
+  }
+}
+```
+
+### Custom Error Codes
+
+By default, `requireLoaded` generates error codes like `ITEMS_NOT_LOADED`. You can provide custom codes:
+
+```typescript
+get customer(): Customer {
+  return this.requireLoaded('customer', 'ORDER_CUSTOMER_NOT_LOADED');
+}
+```
+
+<Callout type="info">
+Load state tracking is optional. If you always load all fields, you don't need to use it. It's useful for performance optimization when loading partial aggregates.
+</Callout>
+
+---
+
+## Rules
+
+- ✅ Extend `BaseAggregateRoot` for event-sourced aggregates
+- ✅ Use factory methods (`create`, `reconstitute`)
+- ✅ Enforce all invariants in domain methods
+- ✅ Use `InvariantViolationError` for business rule violations
+- ✅ Emit domain events for state changes
+- ✅ Return copies of collections from getters
+- ✅ Reference other aggregates by ID only
+- ✅ Use `version` for optimistic locking
+- ✅ Use `markLoaded()` in `reconstitute` when loading partial data
+- ✅ Use `requireLoaded()` in getters for optional relations
+- ❌ Never create with `new` directly
+- ❌ Never reference other aggregates directly
+- ❌ Never publish events before persisting
+- ❌ Never access fields that weren't marked as loaded

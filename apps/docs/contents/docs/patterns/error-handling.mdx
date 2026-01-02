@@ -117,6 +117,49 @@ class Order {
 }
 ```
 
+### PartialLoadError
+
+Thrown when accessing aggregate fields that weren't loaded from the database. This happens when using [Load State Tracking](/docs/patterns/aggregates#load-state-tracking):
+
+```typescript
+import { PartialLoadError } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+class OrderAggregate extends BaseAggregateRoot<OrderId, OrderProps> {
+  get items(): readonly OrderItem[] {
+    // Throws PartialLoadError if 'items' wasn't marked as loaded
+    return this.requireLoaded('items');
+  }
+}
+
+// In use case - handle partial load errors
+class GetOrderItemsQuery extends BaseInboundAdapter<...> {
+  protected async handle(input: GetOrderItemsInput): Promise<OrderItemsOutput> {
+    const order = await this.orderRepo.findById(input.orderId);
+    if (!order) {
+      throw new NotFoundError({ message: 'Order not found' });
+    }
+
+    try {
+      return { items: order.items };
+    } catch (error) {
+      if (error instanceof PartialLoadError) {
+        // Re-fetch with items included
+        const orderWithItems = await this.orderRepo.findById(
+          input.orderId,
+          { includeItems: true },
+        );
+        return { items: orderWithItems!.items };
+      }
+      throw error;
+    }
+  }
+}
+```
+
+<Callout type="info">
+`PartialLoadError` generates codes like `ITEMS_NOT_LOADED` by default. Use custom error codes via `requireLoaded('items', 'ORDER_ITEMS_MISSING')` for more descriptive errors.
+</Callout>
+
 ---
 
 ## Use Case Errors
