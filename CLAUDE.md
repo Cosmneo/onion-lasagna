@@ -46,17 +46,16 @@ bun run format     # Prettier
 ## Data Flow
 
 ```
-HTTP Request → Framework Adapter → extractRequest() → HttpRequest
-    → requestDtoFactory() → RequestDto (validated)
-    → Controller.execute()
-        → [GuardedController] accessGuard()
-        → mapRequest() → InputDto
+HTTP Request → Framework Adapter → RawHttpRequest
+    → Schema validation (if defined) → ValidatedRequest
+    → Route Handler:
+        → requestMapper(req, ctx) → UseCaseInput
         → useCase.execute()
             → BaseInboundAdapter.handle()
             → Domain ops + Repository calls
-            → OutputDto
-        → mapResponse() → ResponseDto
-    → HttpResponse → Framework sends response
+            → UseCaseOutput
+        → responseMapper(output) → { status, body, headers }
+    → Framework sends response
 ```
 
 ## Error Flow
@@ -67,11 +66,10 @@ Repository throws → BaseOutboundAdapter wraps → InfraError
     → BaseInboundAdapter.execute()
         PASSTHROUGH: ObjectValidationError, UseCaseError, DomainError, InfraError
         WRAP others → UseCaseError
-    → Controller.execute()
-        mapRequest(): ObjectValidationError → InvalidRequestError
+    → Route Handler
+        Schema validation fails → ObjectValidationError
         PASSTHROUGH: all CodedError
-        WRAP others → ControllerError
-    → Framework error handler → mapErrorToResponse()
+    → Framework error handler (onionErrorHandler) → mapErrorToResponse()
 ```
 
 **Principle:** Known errors passthrough; unknown errors wrap at each boundary.
@@ -122,22 +120,33 @@ Override `createInfraError(error, methodName)` to customize error type.
 
 ---
 
-## Presentation Layer
+## Presentation Layer (HTTP Routes)
 
-| Class               | Purpose                                            |
-| ------------------- | -------------------------------------------------- |
-| `BaseController`    | Pipeline: requestMapper → useCase → responseMapper |
-| `GuardedController` | Adds accessGuard before pipeline                   |
+Use `serverRoutes()` builder for type-safe route handling:
 
-**HTTP Types:**
+```typescript
+import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
 
-- `HttpRequest` - body, headers, queryParams, pathParams
-- `ContextualHttpRequest<T>` - extends HttpRequest with context
-- `HttpResponse` - statusCode, headers, body
+const routes = serverRoutes(projectRouter)
+  .handle('projects.create', {
+    requestMapper: (req, ctx) => ({ name: req.body.name, createdBy: ctx.userId }),
+    useCase: createProjectUseCase,
+    responseMapper: (output) => ({ status: 201 as const, body: { id: output.id } }),
+  })
+  .build();
+```
 
-**Errors:** `ControllerError`, `AccessDeniedError` (403), `InvalidRequestError` (400)
+**Pipeline:** requestMapper → useCase.execute() → responseMapper
 
-> **Search:** For controller implementation, read `packages/onion-lasagna/src/backend/core/onion-layers/presentation/classes/`
+**HTTP Types (from `@cosmneo/onion-lasagna/http/server`):**
+
+- `RawHttpRequest` - body, headers, query, pathParams
+- `ValidatedRequest<T>` - typed request after schema validation
+- `HandlerResponse` - status, headers, body
+
+**Errors:** `AccessDeniedError` (403), `InvalidRequestError` (400)
+
+> **Search:** For server routes, read `packages/onion-lasagna/src/backend/core/onion-layers/presentation/http/server/`
 
 ---
 
@@ -157,25 +166,26 @@ Override `createInfraError(error, methodName)` to customize error type.
 
 ---
 
-## Validation
+## Schema Adapters (Validation)
 
-**Strategy pattern:** `ObjectValidatorPort` → `BoundValidator<T>`
+Schema adapters wrap validation libraries for use in route definitions:
 
-| Library | Factory                          |
-| ------- | -------------------------------- |
-| Zod     | `createZodValidator(schema)`     |
-| ArkType | `createArktypeValidator(schema)` |
-| Valibot | `createValibotValidator(schema)` |
-| TypeBox | `createTypeboxValidator(schema)` |
+| Library | Adapter Function | Import Path                                    |
+| ------- | ---------------- | ---------------------------------------------- |
+| Zod     | `zodSchema()`    | `@cosmneo/onion-lasagna/http/schema/zod`       |
+| TypeBox | `typeboxSchema()`| `@cosmneo/onion-lasagna/http/schema/typebox`   |
 
-**DTO pattern:**
+**Usage in route definitions:**
 
 ```typescript
-new SomeDto(data, validator); // Validate external input
-new SomeDto(data, SKIP_DTO_VALIDATION); // Skip for internal/trusted data
+import { zodSchema, z } from '@cosmneo/onion-lasagna/http/schema/zod';
+
+const route = defineRoute({
+  request: { body: { schema: zodSchema(z.object({ name: z.string() })) } },
+});
 ```
 
-> **Search:** For validator implementations, read `packages/onion-lasagna/src/backend/core/validators/*/`
+> **Search:** For schema implementations, read `packages/onion-lasagna/src/backend/core/onion-layers/presentation/http/schema/`
 
 ---
 
@@ -188,14 +198,14 @@ register*Routes(app, routes, { prefix?, middlewares?, contextExtractor? })
 app.onError(onionErrorHandler) // or equivalent
 ```
 
-| Framework | Path                  | Key Exports                                                                                                      |
-| --------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Hono      | `frameworks/hono/`    | `registerHonoRoutes`, `onionErrorHandler`, `mapErrorToHttpException`                                             |
-| Elysia    | `frameworks/elysia/`  | `registerElysiaRoutes`, `onionErrorHandler`, `mapErrorToResponse`                                                |
-| Fastify   | `frameworks/fastify/` | `registerFastifyRoutes`, `onionErrorHandler`, `mapErrorToResponse`                                               |
-| NestJS    | `frameworks/nestjs/`  | `BaseNestController`, `@OnionLasagnaRequest()`, `OnionLasagnaExceptionFilter`, `OnionLasagnaResponseInterceptor` |
+| Framework | Import Path                                  | Key Exports                                                          |
+| --------- | -------------------------------------------- | -------------------------------------------------------------------- |
+| Hono      | `@cosmneo/onion-lasagna/http/frameworks/hono`    | `registerHonoRoutes`, `onionErrorHandler`, `mapErrorToHttpException` |
+| Elysia    | `@cosmneo/onion-lasagna/http/frameworks/elysia`  | `registerElysiaRoutes`, `onionErrorHandler`, `mapErrorToResponse`    |
+| Fastify   | `@cosmneo/onion-lasagna/http/frameworks/fastify` | `registerFastifyRoutes`, `onionErrorHandler`, `mapErrorToResponse`   |
+| NestJS    | `@cosmneo/onion-lasagna/http/frameworks/nestjs`  | `OnionExceptionFilter`, `@OnionRequest()`, `mapErrorToResponse`      |
 
-> **Search:** For integration details, read `packages/onion-lasagna/src/backend/frameworks/*/index.ts` and README.md files
+> **Search:** For integration details, read `packages/onion-lasagna/src/backend/core/onion-layers/presentation/http/frameworks/*/index.ts`
 
 ---
 
@@ -203,13 +213,19 @@ app.onError(onionErrorHandler) // or equivalent
 
 > **IMPORTANT:** Always verify actual exports by reading the index.ts files. Do not assume.
 
-| Entry Point                                        | Search Location                                       |
-| -------------------------------------------------- | ----------------------------------------------------- |
-| `@cosmneo/onion-lasagna/backend/core/onion-layers` | `src/backend/core/onion-layers/index.ts`              |
-| `@cosmneo/onion-lasagna/backend/core/global`       | `src/backend/core/global/index.ts`                    |
-| `@cosmneo/onion-lasagna/backend/core/presentation` | `src/backend/core/onion-layers/presentation/index.ts` |
-| `@cosmneo/onion-lasagna/backend/core/validators/*` | `src/backend/core/validators/*/index.ts`              |
-| `@cosmneo/onion-lasagna/backend/frameworks/*`      | `src/backend/frameworks/*/index.ts`                   |
+| Entry Point                                        | Purpose                              |
+| -------------------------------------------------- | ------------------------------------ |
+| `@cosmneo/onion-lasagna/backend/core/onion-layers` | Domain, App, Infra layer classes     |
+| `@cosmneo/onion-lasagna/backend/core/global`       | DTOs, errors, validators             |
+| `@cosmneo/onion-lasagna/backend/core/presentation` | Presentation layer utilities         |
+| `@cosmneo/onion-lasagna/http`                      | HTTP types and utilities             |
+| `@cosmneo/onion-lasagna/http/route`                | `defineRoute`, `defineRouter`        |
+| `@cosmneo/onion-lasagna/http/server`               | `serverRoutes`, route handlers       |
+| `@cosmneo/onion-lasagna/http/schema/zod`           | Zod schema adapter                   |
+| `@cosmneo/onion-lasagna/http/schema/typebox`       | TypeBox schema adapter               |
+| `@cosmneo/onion-lasagna/http/frameworks/*`         | Framework adapters (hono, etc.)      |
+| `@cosmneo/onion-lasagna/http/openapi`              | OpenAPI generation                   |
+| `@cosmneo/onion-lasagna/client`                    | API client utilities                 |
 
 ---
 

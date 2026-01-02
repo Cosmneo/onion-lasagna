@@ -42,6 +42,7 @@ import {
   OnionExceptionFilter,
   type ContextualRawHttpRequest,
 } from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
+import type { RawHttpRequest, UnifiedRouteInput } from '@cosmneo/onion-lasagna/http/server';
 
 @Controller('api/users')
 @UseFilters(OnionExceptionFilter)
@@ -63,7 +64,8 @@ export class UsersController {
 Extracts an `HttpRequest` object from the NestJS request:
 
 ```typescript
-import { OnionRequest, type RawHttpRequest } from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
+import { OnionRequest } from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
+import type { RawHttpRequest } from '@cosmneo/onion-lasagna/http/server';
 
 @Get(':id')
 async getItem(@OnionRequest() request: RawHttpRequest) {
@@ -71,7 +73,7 @@ async getItem(@OnionRequest() request: RawHttpRequest) {
 }
 ```
 
-The `RawHttpRequest` structure:
+The `RawHttpRequest` structure (from `@cosmneo/onion-lasagna/http/server`):
 
 ```typescript
 interface RawHttpRequest {
