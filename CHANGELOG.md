@@ -5,119 +5,93 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
----
-
 ## [Unreleased]
+
+### Documentation
+
+- Align README with current unified HTTP layer implementation
+- Complete rewrite of Quick Start examples using current patterns
+- Add Type-Safe Client section with React Query and Vue Query examples
+- Update Package Exports table with new `/http/*` paths
+- Add Built-in Value Objects reference table
+- Restore Orchestrations layer documentation (Compositions, Workflows, Projections)
+- Fix documentation inconsistencies across 12 MDX files
+- Update JSDoc import paths from `unified/*` to `http/*` (15 source files)
+- Add "Coming Soon" callouts to planned CLI features
+- Fix error handler signatures in framework documentation
+- Clarify `InferRouteSuccessResponse` vs `InferRouteResponse` type utilities
+- Fix `idEquals` example in aggregates documentation
+
+## [0.1.4] - 2026-01-01
 
 ### Added
 
-- Comprehensive test coverage for all core layers (881 tests)
-- Production readiness analysis document
+- Context schema validation in route definitions
+- `TypedContext<TRoute>` for typed handler context
+- Comprehensive unified HTTP layer documentation
 
----
+### Changed
+
+- Simplified type inference in `defineRoute` return type
+- Router types now support 8 type parameters
+
+## [0.1.3] - 2025-12-29
+
+### Added
+
+- Unified HTTP layer with route contracts as single source of truth
+- `defineRoute()` and `defineRouter()` for type-safe route definitions
+- `serverRoutes()` builder pattern for handler registration
+- Schema adapters for Zod and TypeBox validation
+- Framework integrations (Hono, Elysia, Fastify, NestJS)
+- Type-safe HTTP client with `createTypedClient()`
+- React Query integration with `createTypedHooks()`
+- Vue Query integration with `createTypedComposables()`
+- OpenAPI spec generation from route definitions
+
+### Changed
+
+- Migrated from BaseController pattern to unified route handlers
+- Import paths reorganized under `/http/*` namespace
+
+## [0.1.2] - 2025-12-28
+
+### Added
+
+- Built-in Value Objects: `BaseUuidV4Vo`, `BaseUuidV7Vo`, `BaseEmailVo`
+- Text Value Objects: `BaseShortTextVo`, `BaseMediumTextVo`, `BaseLongTextVo`
+- Audit Value Objects: `BaseAuditByVo`, `BaseAuditOnVo`
+- Pagination Value Object: `BasePaginationVo`
+
+### Changed
+
+- Value Objects now use built-in validation instead of external validators
+
+## [0.1.1] - 2025-12-27
+
+### Added
+
+- `BaseAggregateRoot` with domain event collection
+- `BaseDomainEvent` for immutable event records
+- `BaseOutboundAdapter` with automatic error wrapping
+- `BaseInboundAdapter` with layered error handling
+
+### Fixed
+
+- Error hierarchy properly maps to HTTP status codes
 
 ## [0.1.0] - 2025-12-26
 
 ### Added
 
-#### Core Layers
+- Initial release
+- `BaseEntity` and `BaseValueObject` base classes
+- Layered error hierarchy (`CodedError`, `DomainError`, `UseCaseError`, `InfraError`)
+- Framework-agnostic architecture supporting Hono, Elysia, Fastify, NestJS
 
-- `BaseEntity` - Base class for domain entities with identity and equality
-- `BaseValueObject` - Base class for immutable value objects with deep equality
-- `BaseAggregateRoot` - Base class for aggregate roots with domain event support
-- `BaseDomainEvent` - Base class for domain events
-- `BaseDto` - Base class for data transfer objects with validation
-- `BaseInboundAdapter` - Base class for use cases (application layer)
-- `BaseOutboundAdapter` - Base class for repositories with automatic error wrapping
-- `BaseController` - Base class for HTTP controllers with request/response mapping
-- `GuardedController` - Controller with access guard support
-
-#### Value Objects
-
-- `BaseUUIDv4` - UUID v4 value object
-- `BaseUUIDv7` - UUID v7 value object (time-sortable)
-- `BaseShortText` - Text up to 100 characters
-- `BaseMediumText` - Text up to 500 characters
-- `BaseLongText` - Text up to 2000 characters
-- `BaseEmail` - Email value object with format validation
-- `BasePagination` - Pagination value object (page, limit, offset)
-- `BaseAuditInfo` - Full audit info (created/updated by/on)
-- `BaseAuditBy` - Audit by user tracking
-- `BaseAuditOn` - Audit timestamp tracking
-
-#### Error Handling
-
-- `CodedError` - Base error class with error codes and cause chain
-- `DomainError` - Domain layer errors
-- `InvariantViolationError` - Domain invariant violations
-- `PartialLoadError` - Partial entity loading errors
-- `UseCaseError` - Application layer errors
-- `ConflictError` - Resource conflict (409)
-- `NotFoundError` - Resource not found (404)
-- `UnprocessableError` - Business rule violations (422)
-- `InfraError` - Infrastructure layer errors
-- `DbError` - Database errors
-- `NetworkError` - Network errors
-- `TimeoutError` - Timeout errors
-- `ExternalServiceError` - External service errors
-- `ControllerError` - Presentation layer errors
-- `AccessDeniedError` - Authorization failures (403)
-- `InvalidRequestError` - Validation failures (400)
-- `ObjectValidationError` - Schema validation errors
-
-#### Validators
-
-- Zod validator implementation with path normalization
-- ArkType validator implementation with path normalization
-- Valibot validator implementation with path normalization
-- TypeBox validator implementation with path normalization
-- `ObjectValidatorPort` interface for validator abstraction
-- `BoundValidator` pattern for schema binding
-- DTO wrappers for each validator
-- Value object wrappers for each validator
-
-#### Framework Integrations
-
-- **Hono** - `registerHonoRoutes()`, `onionErrorHandler`, `mapErrorToHttpException`
-- **NestJS** - `BaseNestController`, `@OnionLasagnaRequest()`, `OnionLasagnaExceptionFilter`, `OnionLasagnaResponseInterceptor`
-- **Elysia** - `registerElysiaRoutes()`, `mapErrorToResponse`
-- **Fastify** - `registerFastifyRoutes()`, `mapErrorToResponse`
-
-#### Utilities
-
-- `wrapError()` / `wrapErrorAsync()` - Error transformation
-- `wrapErrorUnless()` / `wrapErrorUnlessAsync()` - Conditional error passthrough
-- `fieldChanged()` - Partial update helper
-- `computeRoutePath()` - Route path computation
-- `HttpResponse` - HTTP response builder
-
-#### Build & Configuration
-
-- ESM + CJS dual output with TypeScript declarations
-- 11 separate entry points for tree shaking
-- Strict TypeScript configuration
-- ESLint + Prettier configuration
-
----
-
-## Version History
-
-| Version | Date       | Summary                                                                  |
-| ------- | ---------- | ------------------------------------------------------------------------ |
-| 0.1.0   | 2025-12-26 | Initial release with core layers, validators, and framework integrations |
-
----
-
-## Migration Guides
-
-### Upgrading to 0.1.0
-
-This is the initial release. No migration required.
-
----
-
-## Links
-
-- [Documentation](https://onion-lasagna.cosmneo.com)
-- [GitHub Repository](https://github.com/Cosmneo/onion-lasagna)
-- [Issue Tracker](https://github.com/Cosmneo/onion-lasagna/issues)
+[Unreleased]: https://github.com/Cosmneo/onion-lasagna/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/Cosmneo/onion-lasagna/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/Cosmneo/onion-lasagna/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/Cosmneo/onion-lasagna/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/Cosmneo/onion-lasagna/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/Cosmneo/onion-lasagna/releases/tag/v0.1.0
