@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useId, useRef, useState } from "react"
+import React, { useEffect, useId, useRef, useState, useSyncExternalStore } from "react"
 import clsx from "clsx"
 import mermaid from "mermaid"
 import { useTheme } from "next-themes"
@@ -42,16 +42,20 @@ const lightThemeVariables = {
   edgeLabelBackground: "#f8fafc",
 }
 
+// Hydration-safe mounted detection using useSyncExternalStore
+const emptySubscribe = () => {
+  // No-op unsubscribe - external store never changes
+  return () => undefined
+}
+const getClientSnapshot = () => true
+const getServerSnapshot = () => false
+
 const Mermaid = ({ chart, className }: MermaidProps) => {
   const ref = useRef<HTMLDivElement | null>(null)
   const id = useId().replace(/:/g, "")
   const [svg, setSvg] = useState<string>("")
   const { resolvedTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot)
 
   useEffect(() => {
     if (!mounted) return

@@ -6,17 +6,16 @@ icon: "plug"
 
 ## Overview
 
-The bootstrap pattern orchestrates dependency injection across layers. It creates instances in the correct order: **adapters → use cases → controllers → routes**.
+The bootstrap pattern orchestrates dependency injection across layers. It creates instances in the correct order: **adapters → use cases → routes**.
 
 ```
 bootstrap/
 ├── index.ts                 # Main orchestration
 ├── adapters.bootstrap.ts    # Infrastructure adapters
-├── use-cases.bootstrap.ts   # Application use cases
-├── validators.bootstrap.ts  # DTO validators
-├── controller.bootstrap.ts  # Presentation controllers
-└── routes.bootstrap.ts      # Route definitions
+└── use-cases.bootstrap.ts   # Application use cases
 ```
+
+The unified route system handles the presentation layer wiring automatically through handlers.
 
 ---
 
@@ -24,11 +23,11 @@ bootstrap/
 
 The entry point creates all dependencies in order:
 
-```typescript:bootstrap/index.ts
+```typescript
+// bootstrap/index.ts
 import { createAdapters } from './adapters.bootstrap';
 import { createUseCases } from './use-cases.bootstrap';
-import { createControllers } from './controller.bootstrap';
-import { createRoutes } from './routes.bootstrap';
+import { createProjectManagementRoutes } from '../presentation/http/handlers';
 
 export function bootstrapProjectManagement() {
   // 1. Create adapters (infrastructure layer)
@@ -37,16 +36,12 @@ export function bootstrapProjectManagement() {
   // 2. Create use cases with adapters (application layer)
   const useCases = createUseCases(adapters);
 
-  // 3. Create controllers with use cases (presentation layer)
-  const controllers = createControllers(useCases);
+  // 3. Create routes with handlers (presentation layer)
+  const routes = createProjectManagementRoutes(useCases);
 
-  // 4. Create routes with controllers
-  const routes = createRoutes(controllers);
-
-  return { adapters, useCases, controllers, routes };
+  return { adapters, useCases, routes };
 }
 
-// Type export for consumers
 export type ProjectManagementModule = ReturnType<typeof bootstrapProjectManagement>;
 ```
 
@@ -56,9 +51,10 @@ export type ProjectManagementModule = ReturnType<typeof bootstrapProjectManageme
 
 Creates infrastructure adapters (repositories, external services):
 
-```typescript:bootstrap/adapters.bootstrap.ts
-import { ProjectRepository } from '../infra/outbound-adapters/persistence/drizzle/project/project.repository.adapter';
-import { ProjectQueryRepository } from '../infra/outbound-adapters/persistence/drizzle/project-query/project-query.repository.adapter';
+```typescript
+// bootstrap/adapters.bootstrap.ts
+import { ProjectRepository } from '../infra/persistence/project.repository';
+import { ProjectQueryRepository } from '../infra/persistence/project-query.repository';
 
 export function createAdapters() {
   return {
@@ -76,11 +72,12 @@ export type Adapters = ReturnType<typeof createAdapters>;
 
 Creates use cases with injected adapters:
 
-```typescript:bootstrap/use-cases.bootstrap.ts
+```typescript
+// bootstrap/use-cases.bootstrap.ts
 import type { Adapters } from './adapters.bootstrap';
-import { CreateProjectUseCase } from '../app/use-cases/projects/create-project.command';
-import { GetProjectQuery } from '../app/use-cases/projects/get-project.query';
-import { ListProjectsQuery } from '../app/use-cases/projects/list-projects.query';
+import { CreateProjectUseCase } from '../app/use-cases/create-project.command';
+import { GetProjectQuery } from '../app/use-cases/get-project.query';
+import { ListProjectsQuery } from '../app/use-cases/list-projects.query';
 
 export function createUseCases(adapters: Adapters) {
   return {
@@ -95,108 +92,59 @@ export type UseCases = ReturnType<typeof createUseCases>;
 
 ---
 
-## Validators Bootstrap
+## Routes (Handlers)
 
-Creates validators for DTOs in one place:
+Create handlers using the `serverRoutes()` builder:
 
-```typescript:bootstrap/validators.bootstrap.ts
-import { createZodValidator } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
-import {
-  createProjectRequestSchema,
-  createProjectResponseSchema,
-  listProjectsRequestSchema,
-  listProjectsResponseSchema,
-} from '../presentation/http/projects/schemas';
+```typescript
+// presentation/http/handlers/index.ts
+import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
+import { projectManagementRouter } from '../router';
+import type { UseCases } from '../../../bootstrap/use-cases.bootstrap';
 
-// Request validators (used at route level)
-export const createProjectRequestValidator = createZodValidator(createProjectRequestSchema);
-export const listProjectsRequestValidator = createZodValidator(listProjectsRequestSchema);
-
-// Response validators (used in response mappers)
-export const createProjectResponseValidator = createZodValidator(createProjectResponseSchema);
-export const listProjectsResponseValidator = createZodValidator(listProjectsResponseSchema);
-```
-
----
-
-## Controllers Bootstrap
-
-Creates controllers with use cases and mappers:
-
-```typescript:bootstrap/controller.bootstrap.ts
-import { BaseController } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-import { SKIP_DTO_VALIDATION } from '@cosmneo/onion-lasagna/backend/core/global';
-import type { UseCases } from './use-cases.bootstrap';
-import { createProjectResponseValidator } from './validators.bootstrap';
-import { createProjectToInputMapper, createProjectToResponseMapper } from '../presentation/http/projects/create-project/mappers';
-
-export function createControllers(useCases: UseCases) {
-  return {
-    createProjectController: BaseController.create({
-      requestMapper: (req: CreateProjectRequestDto) =>
-        createProjectToInputMapper(req, SKIP_DTO_VALIDATION),
+export function createProjectManagementRoutes(useCases: UseCases) {
+  return serverRoutes(projectManagementRouter)
+    .handle('projects.create', {
+      requestMapper: (req, ctx) => ({
+        name: req.body.name,
+        description: req.body.description,
+        createdBy: ctx.userId,
+      }),
       useCase: useCases.createProjectUseCase,
-      responseMapper: (out: CreateProjectOutputDto) =>
-        createProjectToResponseMapper(out, createProjectResponseValidator),
-    }),
-
-    listProjectsController: BaseController.create({
-      requestMapper: (req: ListProjectsRequestDto) =>
-        listProjectsToInputMapper(req, SKIP_DTO_VALIDATION),
+      responseMapper: (output) => ({
+        status: 201 as const,
+        body: { projectId: output.projectId },
+      }),
+    })
+    .handle('projects.list', {
+      requestMapper: (req) => ({
+        page: req.query?.page ?? 1,
+        pageSize: req.query?.pageSize ?? 20,
+      }),
       useCase: useCases.listProjectsQuery,
-      responseMapper: (out: ListProjectsOutputDto) =>
-        listProjectsToResponseMapper(out, listProjectsResponseValidator),
-    }),
-  };
-}
-
-export type Controllers = ReturnType<typeof createControllers>;
-```
-
-<Callout type="info">
-**SKIP_DTO_VALIDATION** is used for request→input mapping because the request DTO has already been validated at the HTTP layer. Response mappers typically use validators to ensure the response matches the expected schema.
-</Callout>
-
----
-
-## Routes Bootstrap
-
-Creates route definitions with metadata and controllers:
-
-```typescript:bootstrap/routes.bootstrap.ts
-import { computeRoutePath } from '@cosmneo/onion-lasagna/backend/core/presentation';
-import type { HttpRouteInput } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
-import type { Controllers } from './controller.bootstrap';
-import { projectManagementServiceMetadata } from '../presentation/http/service.metadata';
-import { projectsResourceMetadata } from '../presentation/http/resources/projects.metadata';
-import { createProjectEndpointMetadata, listProjectsEndpointMetadata } from '../presentation/http/endpoints';
-import { createProjectRequestValidator, listProjectsRequestValidator } from './validators.bootstrap';
-
-export function createRoutes(controllers: Controllers): HttpRouteInput[] {
-  const service = projectManagementServiceMetadata;
-
-  return [
-    {
-      metadata: {
-        path: computeRoutePath(service, projectsResourceMetadata, createProjectEndpointMetadata),
-        method: createProjectEndpointMetadata.method,
-      },
-      controller: controllers.createProjectController,
-      requestDtoFactory: (req) =>
-        new CreateProjectRequestDto(req as CreateProjectRequestData, createProjectRequestValidator),
-    },
-    {
-      metadata: {
-        path: computeRoutePath(service, projectsResourceMetadata, listProjectsEndpointMetadata),
-        method: listProjectsEndpointMetadata.method,
-      },
-      controller: controllers.listProjectsController,
-      requestDtoFactory: (req) =>
-        new ListProjectsRequestDto(req as ListProjectsRequestData, listProjectsRequestValidator),
-    },
-  ];
+      responseMapper: (output) => ({
+        status: 200 as const,
+        body: output,
+      }),
+    })
+    .handle('projects.get', {
+      requestMapper: (req) => ({
+        projectId: req.pathParams.projectId,
+      }),
+      useCase: useCases.getProjectQuery,
+      responseMapper: (output) => ({
+        status: 200 as const,
+        body: output,
+      }),
+    })
+    .build();
 }
 ```
+
+The `serverRoutes()` builder:
+- Validates requests against route schemas automatically
+- Provides full type inference for `req` and `ctx` parameters
+- Handles error conversion to HTTP responses
 
 ---
 
@@ -204,9 +152,10 @@ export function createRoutes(controllers: Controllers): HttpRouteInput[] {
 
 In your application entry point:
 
-```typescript:index.ts
+```typescript
+// src/index.ts
 import { Hono } from 'hono';
-import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/hono';
 import { bootstrapProjectManagement } from '@repo/backend/bounded-contexts/project-management';
 
 // Bootstrap the bounded context
@@ -214,10 +163,17 @@ const { routes } = bootstrapProjectManagement();
 
 // Create Hono app
 const app = new Hono();
-app.onError(onionErrorHandler);
 
-// Register routes
-registerHonoRoutes(app, routes);
+// Error handler
+app.onError((err, c) => onionErrorHandler(err, c));
+
+// Register routes with middleware and context extraction
+registerHonoRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (c) => ({
+    userId: c.get('jwtPayload')?.sub,
+  }),
+});
 
 export default app;
 ```
@@ -231,27 +187,63 @@ The bootstrap folder should be at the root of your bounded context:
 ```
 bounded-contexts/project-management/
 ├── bootstrap/                    # Dependency wiring
-│   ├── index.ts
-│   ├── adapters.bootstrap.ts
-│   ├── use-cases.bootstrap.ts
-│   ├── validators.bootstrap.ts
-│   ├── controller.bootstrap.ts
-│   └── routes.bootstrap.ts
+│   ├── index.ts                  # Main orchestration
+│   ├── adapters.bootstrap.ts     # Infrastructure adapters
+│   └── use-cases.bootstrap.ts    # Application use cases
 ├── app/                          # Application layer
-│   ├── ports/
-│   └── use-cases/
+│   ├── ports/                    # Use case interfaces
+│   └── use-cases/                # Use case implementations
 ├── domain/                       # Domain layer
+│   ├── entities/
+│   ├── value-objects/
+│   └── events/
 ├── infra/                        # Infrastructure layer
+│   └── persistence/              # Repository implementations
 └── presentation/                 # Presentation layer
     └── http/
+        ├── routes/               # Route definitions
+        ├── handlers/             # Route handlers
+        └── router.ts             # Combined router
+```
+
+---
+
+## Splitting Handlers
+
+For large bounded contexts, split handlers into separate files:
+
+```typescript
+// presentation/http/handlers/projects.handlers.ts
+export function createProjectHandlers(useCases: UseCases) {
+  return serverRoutes(projectManagementRouter)
+    .handle('projects.create', { ... })
+    .handle('projects.list', { ... })
+    .buildPartial();  // Returns partial routes
+}
+
+// presentation/http/handlers/tasks.handlers.ts
+export function createTaskHandlers(useCases: UseCases) {
+  return serverRoutes(projectManagementRouter)
+    .handle('projects.tasks.add', { ... })
+    .handle('projects.tasks.list', { ... })
+    .buildPartial();
+}
+
+// presentation/http/handlers/index.ts
+export function createProjectManagementRoutes(useCases: UseCases) {
+  return [
+    ...createProjectHandlers(useCases),
+    ...createTaskHandlers(useCases),
+  ];
+}
 ```
 
 ---
 
 ## Benefits
 
-- **Clear dependency flow**: Adapters → Use Cases → Controllers → Routes
+- **Clear dependency flow**: Adapters → Use Cases → Routes
+- **Simplified wiring**: No separate controller or validator bootstrap needed
+- **Type safety**: Full type inference from route definitions to handlers
 - **Testability**: Each layer can be tested independently with mocks
-- **Type safety**: TypeScript infers types through the chain
 - **Single entry point**: `bootstrapProjectManagement()` returns everything needed
-- **Separation of concerns**: Each bootstrap file handles one layer

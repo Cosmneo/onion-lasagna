@@ -1,11 +1,15 @@
 ---
 title: "Presentation"
-description: "HTTP handlers, controllers, access guards, and mappers"
+description: "Unified route system for HTTP handling with type-safe routes, handlers, and framework adapters"
 icon: "globe"
 ---
 
-
-HTTP layer: handlers, controllers, access guards, mappers.
+The presentation layer provides a unified route system that powers:
+- Type-safe route definitions with schema validation
+- Server-side handlers with request/response mapping
+- Framework adapters (Hono, Fastify, Elysia, NestJS)
+- OpenAPI specification generation
+- Type-safe client generation
 
 ---
 
@@ -14,297 +18,394 @@ HTTP layer: handlers, controllers, access guards, mappers.
 ```
 presentation/
 └── http/
-    ├── service.metadata.ts          ← Service-level config (basePath)
-    ├── resources/
-    │   └── {resource}.metadata.ts   ← Resource metadata
-    ├── endpoints/
-    │   └── {resource}/
-    │       └── {action}.metadata.ts ← Endpoint metadata
-    └── {resource}/{endpoint}/
-        ├── dtos.ts                  ← Request & Response DTOs
-        ├── schemas.ts               ← Zod/validation schemas
-        ├── mappers.ts               ← DTO transformations
-        └── endpoint.metadata.ts     ← (alternative location)
+    ├── routes/
+    │   ├── users.routes.ts        ← Route definitions with schemas
+    │   └── projects.routes.ts
+    ├── handlers/
+    │   ├── users.handlers.ts      ← Handler implementations
+    │   └── projects.handlers.ts
+    └── router.ts                  ← Combined router definition
 ```
-
-<Callout type="info">
-You can organize files as `dtos.ts` + `mappers.ts` (combined) or `request.dto.ts` + `response.dto.ts` + `to-use-case.mapper.ts` + `to-response.mapper.ts` (separate). Choose one pattern and use it consistently.
-</Callout>
 
 ---
 
-## Route Composition
+## Route Definitions
 
-Routes are built by composing three metadata levels:
+Define routes using `defineRoute()` with full type safety:
 
-### 1. Service Metadata
+```typescript
+import { defineRoute } from '@cosmneo/onion-lasagna/http/route';
+import { zodSchema, z } from '@cosmneo/onion-lasagna/http/schema/zod';
 
-Defines the base path for the entire bounded context:
-
-```typescript:service.metadata.ts
-import type { ServiceMetadata } from '@cosmneo/onion-lasagna/backend/core/presentation';
-
-export const projectManagementServiceMetadata: ServiceMetadata = {
-  id: 'project-management-service',
-  shortId: 'pms',
-  name: 'Project Management',
-  description: 'Manages projects, tasks, and statuses',
-  basePath: '/api/projects',
-  openApi: {
-    title: 'Project Management API',
-    description: 'API for managing projects',
-  },
-};
-```
-
-### 2. Resource Metadata
-
-Defines a resource within the service:
-
-```typescript:resources/projects.metadata.ts
-import type { ResourceMetadata } from '@cosmneo/onion-lasagna/backend/core/presentation';
-
-export const projectsResourceMetadata: ResourceMetadata = {
-  id: 'projects',
-  shortId: 'prj',
-  name: 'Projects',
-  description: 'Project management endpoints',
-  path: '',  // Empty = at service root
-  order: 1,
-  openApi: {
-    tag: 'Projects',
-    tagDescription: 'Project operations',
-  },
-};
-```
-
-### 3. Endpoint Metadata
-
-Defines a specific endpoint:
-
-```typescript:endpoints/projects/create-project.metadata.ts
-import type { HttpEndpointMetadata } from '@cosmneo/onion-lasagna/backend/core/presentation';
-
-export const createProjectEndpointMetadata: HttpEndpointMetadata = {
-  id: 'create-project',
-  shortId: 'cp',
-  name: 'createProject',
-  description: 'Creates a new project',
+export const createUserRoute = defineRoute({
   method: 'POST',
-  path: '',  // Empty = at resource root
-  openApi: {
-    summary: 'Create a new project',
-    successStatus: 201,
+  path: '/api/users',
+  request: {
+    body: {
+      schema: zodSchema(
+        z.object({
+          email: z.string().email(),
+          name: z.string().min(1).max(100),
+        }),
+      ),
+    },
+    context: {
+      schema: zodSchema(
+        z.object({
+          userId: z.string(),
+        }),
+      ),
+    },
   },
-};
+  responses: {
+    201: {
+      description: 'User created',
+      schema: zodSchema(
+        z.object({
+          userId: z.string().uuid(),
+        }),
+      ),
+    },
+    400: { description: 'Validation error' },
+  },
+  docs: {
+    summary: 'Create a new user',
+    tags: ['Users'],
+    operationId: 'createUser',
+  },
+});
 ```
 
-### computeRoutePath
+### Route Definition Options
 
-Combines metadata into a full path:
-
-```typescript
-import { computeRoutePath } from '@cosmneo/onion-lasagna/backend/core/presentation';
-
-// Result: '/api/projects'
-const path = computeRoutePath(
-  projectManagementServiceMetadata,  // basePath: '/api/projects'
-  projectsResourceMetadata,          // path: ''
-  createProjectEndpointMetadata      // path: ''
-);
-
-// For nested resources with path params
-// Result: '/api/projects/{projectId}/tasks'
-const tasksPath = computeRoutePath(
-  projectManagementServiceMetadata,  // basePath: '/api/projects'
-  tasksResourceMetadata,             // path: '/{projectId}/tasks'
-  listTasksEndpointMetadata          // path: ''
-);
-```
-
-<Callout type="info">
-Paths use `{param}` syntax which is framework-agnostic. Framework integrations convert to the appropriate format (e.g., `:param` for Hono/Express).
-</Callout>
+| Property | Description |
+|----------|-------------|
+| `method` | HTTP method: GET, POST, PUT, PATCH, DELETE |
+| `path` | URL path with `:param` syntax for path parameters |
+| `request.body` | Request body schema |
+| `request.query` | Query parameter schema |
+| `request.params` | Path parameter schema |
+| `request.context` | Context schema (from middleware) |
+| `responses` | Response schemas by status code |
+| `docs` | OpenAPI documentation |
 
 ---
 
-## Request/Response DTOs
+## Router Definition
 
-These are the **source of truth** for API contracts.
+Group routes into a router using `defineRouter()`:
 
-```typescript:request.dto.ts
-const findUserByIdRequestSchema = z.object({
-  pathParams: z.object({
-    userId: z.string().uuid(),
-  }),
+```typescript
+import { defineRouter } from '@cosmneo/onion-lasagna/http/route';
+import { createUserRoute, listUsersRoute, getUserRoute } from './routes/users.routes';
+
+export const userRouter = defineRouter({
+  users: {
+    create: createUserRoute,
+    list: listUsersRoute,
+    get: getUserRoute,
+  },
 });
-
-type FindUserByIdRequest = z.infer<typeof findUserByIdRequestSchema>;
 ```
 
-```typescript:response.dto.ts
-const findUserByIdResponseSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string(),
-  name: z.string(),
-});
+Routers can be nested for complex APIs:
 
-type FindUserByIdResponse = z.infer<typeof findUserByIdResponseSchema>;
+```typescript
+export const apiRouter = defineRouter({
+  projects: {
+    create: createProjectRoute,
+    list: listProjectsRoute,
+    get: getProjectRoute,
+    tasks: {
+      add: addTaskRoute,
+      list: listTasksRoute,
+      update: updateTaskRoute,
+    },
+  },
+});
 ```
 
 ---
 
-## Access Guards
+## Server Routes (Handlers)
 
-Access guards are **functions** (not classes) that determine if a request is allowed.
-
-**Type Definition:**
+Create handlers using the `serverRoutes()` builder:
 
 ```typescript
-type AccessGuard<T = unknown> = (
-  request: T,
-) => AccessGuardResult | Promise<AccessGuardResult>;
+import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
+import { userRouter } from './router';
 
-interface AccessGuardResult {
-  isAllowed: boolean;
-  reason?: string;
+export function createUserHandlers(useCases: UseCases) {
+  return serverRoutes(userRouter)
+    .handle('users.create', {
+      requestMapper: (req, ctx) => ({
+        email: req.body.email,
+        name: req.body.name,
+        createdBy: ctx.userId,
+      }),
+      useCase: useCases.createUserUseCase,
+      responseMapper: (output) => ({
+        status: 201 as const,
+        body: { userId: output.userId },
+      }),
+    })
+    .handle('users.list', {
+      requestMapper: (req) => ({
+        page: req.query?.page ?? 1,
+        pageSize: req.query?.pageSize ?? 20,
+      }),
+      useCase: useCases.listUsersUseCase,
+      responseMapper: (output) => ({
+        status: 200 as const,
+        body: output,
+      }),
+    })
+    .build();
 }
 ```
 
-**Example:**
+### Handler Configuration
 
-```typescript:access-guard.ts
-import type { AccessGuard, AccessGuardResult } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+Each handler has three functions:
 
-// Simple guard
-const requireAdmin: AccessGuard<MyRequest> = (request) => ({
-  isAllowed: request.data.role === 'admin',
-  reason: 'Admin access required',
-});
+| Function | Purpose |
+|----------|---------|
+| `requestMapper` | Transform validated HTTP request to use case input |
+| `useCase` | The use case to execute |
+| `responseMapper` | Transform use case output to HTTP response |
 
-// Guard using a use case (via closure)
-const createCanManageResourceGuard = (
-  canManageQuery: CanManageResourceQueryInboundPort,
-): AccessGuard<MyRequest> => async (request) => {
-  const result = await canManageQuery.execute({
-    userId: request.data.userId,
-    resourceId: request.data.resourceId,
-  });
-  return { isAllowed: result.allowed, reason: result.reason };
-};
-```
+The `req` parameter in `requestMapper` is fully typed based on your route definition:
+- `req.body` - Validated request body
+- `req.query` - Validated query parameters
+- `req.pathParams` - Validated path parameters
 
-**Rules:**
-- ✅ Functions, not classes
-- ✅ Can use closures for dependency injection
-- ✅ Delegate authorization logic to use cases
-- ❌ Cannot implement custom business logic
+The `ctx` parameter contains context from middleware (e.g., authenticated user).
 
 ---
 
-## Mappers
+## Framework Integration
 
-Pure functions transforming between HTTP and use case shapes.
+Register routes with your framework of choice:
 
-```typescript:to-use-case.mapper.ts
-function toFindUserByIdInput(request: FindUserByIdRequest): FindUserByIdInput {
-  return { userId: request.pathParams.userId };
-}
-
-// to-response.mapper.ts
-function toFindUserByIdResponse(output: FindUserByIdOutput): FindUserByIdResponse {
-  return { id: output.id, email: output.email, name: output.name };
-}
-```
-
----
-
-## Execution Context
-
-Generated at controller level. **Never a frontend concern.**
+### Hono
 
 ```typescript
-// Inside controller/handler
-const executionContext = {
-  userId: extractUserIdFromToken(request),
-  roles: extractRolesFromToken(request),
-};
-```
+import { Hono } from 'hono';
+import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/hono';
 
----
+const app = new Hono();
 
-## Controllers
+app.onError((err, c) => onionErrorHandler(err, c));
 
-The library provides `BaseController` and `GuardedController` for building type-safe controller pipelines.
-
-### BaseController
-
-Simple pipeline: validate request → map to use case input → execute → map response.
-
-```typescript
-import { BaseController } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-
-const getUserController = BaseController.create({
-  requestMapper: (req: GetUserRequestDto) =>
-    GetUserInputDto.create({ userId: req.data.userId }),
-  useCase: getUserQuery,
-  responseMapper: (output: GetUserOutputDto) =>
-    GetUserResponseDto.create(output.data),
-});
-
-// Execute
-const response = await getUserController.execute(requestDto);
-```
-
-### GuardedController
-
-Extends `BaseController` with an access guard.
-
-```typescript
-import { GuardedController } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-
-const updateUserController = GuardedController.create({
-  requestMapper: (req) => UpdateUserInputDto.create(req.data),
-  useCase: updateUserCommand,
-  responseMapper: (output) => UpdateUserResponseDto.create(output.data),
-  accessGuard: async (req) => ({
-    isAllowed: req.data.role === 'admin',
-    reason: 'Admin access required',
+registerHonoRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (c) => ({
+    userId: c.get('jwtPayload')?.sub,
   }),
 });
 ```
 
-### Generic Type Parameters
-
-Both controllers use 4 generic type parameters, all extending `BaseDto<unknown>`:
+### Fastify
 
 ```typescript
-class BaseController<
-  TRequestDto extends BaseDto<unknown>,  // HTTP request DTO
-  TResponseDto extends BaseDto<unknown>, // HTTP response DTO
-  TInDto extends BaseDto<unknown>,       // Use case input DTO
-  TOutDto extends BaseDto<unknown>,      // Use case output DTO
->
+import Fastify from 'fastify';
+import { registerFastifyRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/fastify';
+
+const app = Fastify();
+
+app.setErrorHandler(onionErrorHandler);
+
+registerFastifyRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (request) => ({
+    userId: request.user?.userId,
+  }),
+});
+```
+
+### Elysia
+
+```typescript
+import { Elysia } from 'elysia';
+import { registerElysiaRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/elysia';
+
+const app = new Elysia()
+  .onError(({ error }) => onionErrorHandler({ error }));
+
+registerElysiaRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (ctx) => ({
+    userId: ctx.store['userId'],
+  }),
+});
+```
+
+### NestJS
+
+NestJS uses a decorator-based approach:
+
+```typescript
+import { Controller, Post, UseGuards, UseFilters } from '@nestjs/common';
+import { OnionRequest, OnionExceptionFilter } from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
+import type { ContextualRawHttpRequest } from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
+
+@Controller('api/users')
+@UseGuards(JwtAuthGuard)
+@UseFilters(OnionExceptionFilter)
+export class UsersController {
+  constructor(private readonly routeHandlers: Map<string, UnifiedRouteInput>) {}
+
+  @Post()
+  async create(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest<AuthContext>,
+  ) {
+    const route = this.routeHandlers.get('POST:/api/users');
+    return route.handler(request, request.context);
+  }
+}
 ```
 
 ---
 
-## Exception Handling
+## Context Extraction
 
-Controllers automatically convert `ObjectValidationError` to `InvalidRequestError`.
+Context extractors provide request context (e.g., authenticated user) to handlers:
 
-For framework-specific exception handling, use the error handlers from framework integrations:
+```typescript
+// Define context type
+interface AuthContext {
+  userId: string;
+  roles: string[];
+}
+
+// Create extractor
+const contextExtractor = (c: Context): AuthContext => ({
+  userId: c.get('jwtPayload')?.sub ?? '',
+  roles: c.get('jwtPayload')?.roles ?? [],
+});
+
+// Use in handler
+.handle('projects.create', {
+  requestMapper: (req, ctx) => ({
+    name: req.body.name,
+    createdBy: ctx.userId,  // From context
+  }),
+  // ...
+})
+```
+
+---
+
+## Error Handling
+
+The unified route system provides automatic error handling:
+
+| Error Type | HTTP Status | Masked |
+|------------|-------------|--------|
+| `ObjectValidationError` | 400 | No |
+| `InvalidRequestError` | 400 | No |
+| `UseCaseError` | 400 | No |
+| `AccessDeniedError` | 403 | No |
+| `NotFoundError` | 404 | No |
+| `ConflictError` | 409 | No |
+| `UnprocessableError` | 422 | No |
+| `DomainError` | 500 | Yes |
+| `InfraError` | 500 | Yes |
+| `ControllerError` | 500 | Yes |
+
+500-level errors are **masked** for security - only a generic message is returned to clients.
+
+Use the framework-specific error handler:
 
 ```typescript
 // Hono
-import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
-app.onError(onionErrorHandler);
-
-// Elysia
-import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
-app.error(onionErrorHandler);
+app.onError((err, c) => onionErrorHandler(err, c));
 
 // Fastify
-import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
 app.setErrorHandler(onionErrorHandler);
+
+// Elysia
+app.onError(({ error }) => onionErrorHandler({ error }));
+
+// NestJS
+@UseFilters(OnionExceptionFilter)
+```
+
+---
+
+## OpenAPI Generation
+
+Generate OpenAPI specifications from your router:
+
+```typescript
+import { generateOpenAPI } from '@cosmneo/onion-lasagna/http/openapi';
+
+const spec = generateOpenAPI(userRouter, {
+  info: {
+    title: 'User API',
+    version: '1.0.0',
+    description: 'API for user management',
+  },
+  servers: [
+    { url: 'https://api.example.com', description: 'Production' },
+    { url: 'http://localhost:3000', description: 'Development' },
+  ],
+  tags: [
+    { name: 'Users', description: 'User operations' },
+  ],
+});
+```
+
+---
+
+## Type-Safe Client
+
+Generate a type-safe client from your router:
+
+```typescript
+import { createClient } from '@cosmneo/onion-lasagna/http/client';
+
+const client = createClient(userRouter, {
+  baseUrl: 'https://api.example.com',
+  headers: { Authorization: `Bearer ${token}` },
+});
+
+// Fully typed API calls
+const user = await client.users.get({
+  pathParams: { userId: '123' },
+});
+
+const newUser = await client.users.create({
+  body: { email: 'john@example.com', name: 'John' },
+});
+```
+
+---
+
+## Partial Builds
+
+For large routers, use `buildPartial()` to build handlers incrementally:
+
+```typescript
+// users.handlers.ts
+export function createUserHandlers(useCases: UseCases) {
+  return serverRoutes(apiRouter)
+    .handle('users.create', { ... })
+    .handle('users.list', { ... })
+    .buildPartial();  // Returns partial routes
+}
+
+// projects.handlers.ts
+export function createProjectHandlers(useCases: UseCases) {
+  return serverRoutes(apiRouter)
+    .handle('projects.create', { ... })
+    .handle('projects.list', { ... })
+    .buildPartial();
+}
+
+// index.ts - Combine all handlers
+const routes = [
+  ...createUserHandlers(useCases),
+  ...createProjectHandlers(useCases),
+];
 ```

@@ -7,7 +7,7 @@ icon: "rabbit"
 ## Installation
 
 ```bash
-bun add elysia
+bun add elysia @elysiajs/cors @elysiajs/jwt
 ```
 
 Import the Elysia integration:
@@ -16,8 +16,9 @@ Import the Elysia integration:
 import {
   registerElysiaRoutes,
   onionErrorHandler,
-  mapErrorToResponse,
-} from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+  type ElysiaContext,
+  type ElysiaMiddleware,
+} from '@cosmneo/onion-lasagna/http/frameworks/elysia';
 ```
 
 ---
@@ -26,11 +27,16 @@ import {
 
 ```typescript
 import { Elysia } from 'elysia';
-import { registerElysiaRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+import { registerElysiaRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/elysia';
+import { bootstrapProjectManagement } from './bootstrap';
+
+const { routes } = bootstrapProjectManagement();
 
 const app = new Elysia()
-  .error(onionErrorHandler)
-  .use(registerElysiaRoutes(routes));
+  .onError(({ error }) => onionErrorHandler({ error }))
+  .get('/health', () => ({ status: 'ok' }));
+
+registerElysiaRoutes(app, routes);
 
 app.listen(3000);
 ```
@@ -39,109 +45,99 @@ app.listen(3000);
 
 ## Registering Routes
 
-The `registerElysiaRoutes` function returns an Elysia plugin:
+The `registerElysiaRoutes` function registers routes with your Elysia app:
 
 ```typescript
-import type { RouteInput } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
+import { registerElysiaRoutes } from '@cosmneo/onion-lasagna/http/frameworks/elysia';
 
-const routes: RouteInput[] = [
-  {
-    metadata: {
-      method: 'GET',
-      path: '/users/{userId}',
-    },
-    controller: getUserController,
-    requestDtoFactory: GetUserRequestDto.create,
-  },
-];
+// Create routes using the builder
+const routes = serverRoutes(userRouter)
+  .handle('users.get', {
+    requestMapper: (req) => ({ userId: req.pathParams.userId }),
+    useCase: getUserQuery,
+    responseMapper: (output) => ({ status: 200 as const, body: output }),
+  })
+  .build();
 
-const app = new Elysia()
-  .use(registerElysiaRoutes(routes));
+// Register with Elysia
+registerElysiaRoutes(app, routes);
 ```
 
-### Path Parameter Conversion
-
-Paths use `{param}` syntax which is automatically converted to Elysia's `:param` format.
+<Callout type="info">
+**Note:** `registerElysiaRoutes` is a function that mutates the app, not a plugin. Call it with `app` as the first argument.
+</Callout>
 
 ---
 
 ## Options
 
 ```typescript
-interface RegisterRoutesOptions {
-  prefix?: string;
-  middlewares?: ElysiaMiddleware[];
+interface RegisterElysiaRoutesOptions {
+  middlewares?: ElysiaMiddleware[];         // Middlewares applied to all routes
+  contextExtractor?: ElysiaContextExtractor; // Extract auth context
 }
 
-const app = new Elysia()
-  .use(registerElysiaRoutes(routes, {
-    prefix: '/api/v1',
-    middlewares: [authMiddleware],
-  }));
+registerElysiaRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (ctx) => ({
+    userId: ctx.store['userId'],
+  }),
+});
 ```
 
 ---
 
-## Contextual Routes (Protected Routes)
+## Context Extraction (Protected Routes)
 
-For routes that need authentication context, use `ContextualRouteInput` with a `contextExtractor`:
+For authenticated routes, provide a `contextExtractor` to pass auth data to handlers:
 
 ```typescript
-import type {
-  ContextualRouteInput,
-  ContextualHttpRequest,
-} from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+import type { ElysiaContext, ElysiaMiddleware } from '@cosmneo/onion-lasagna/http/frameworks/elysia';
 
-interface AuthContext {
-  userId: string;
-  roles: string[];
-}
+// Auth middleware
+const authMiddleware: ElysiaMiddleware = async (ctx: ElysiaContext) => {
+  const authHeader = ctx.headers['authorization'];
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ message: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
-const protectedRoutes: ContextualRouteInput<AuthContext>[] = [
-  {
-    metadata: { method: 'GET', path: '/profile' },
-    controller: getProfileController,
-    requestDtoFactory: (req: ContextualHttpRequest<AuthContext>) =>
-      GetProfileRequestDto.create(req),
-  },
-];
+  const token = authHeader.slice(7);
+  const payload = decodeJwt(token);
+  ctx.store['userId'] = payload.sub;
 
-const app = new Elysia()
-  .use(registerElysiaRoutes(protectedRoutes, {
-    middlewares: [authMiddleware],
-    contextExtractor: (ctx): AuthContext => ({
-      userId: ctx.store.userId,
-      roles: ctx.store.roles ?? [],
-    }),
-  }));
+  return undefined; // Continue to handler
+};
+
+// Register with context extraction
+registerElysiaRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (ctx: ElysiaContext) => ({
+    userId: ctx.store['userId'] as string,
+  }),
+});
 ```
-
-### Route Input Types
-
-| Type | Use Case |
-|------|----------|
-| `HttpRouteInput` | Public routes (no auth context) |
-| `ContextualRouteInput<TContext>` | Protected routes with auth context |
-| `RouteInputOrArray` | Single or array of public routes |
-| `ContextualRouteInputOrArray<TContext>` | Single or array of protected routes |
 
 ---
 
 ## Error Handler
 
-The `onionErrorHandler` is a function that handles errors:
+The `onionErrorHandler` maps domain errors to HTTP responses:
 
 ```typescript
-const app = new Elysia()
-  .error(onionErrorHandler);
+app.onError(({ error }) => onionErrorHandler({ error }));
 ```
 
 ### Error Mapping
 
 | Error Type | HTTP Status | Body |
 |------------|-------------|------|
-| `ObjectValidationError` | 400 | `{ errorCode, message, errorItems }` |
-| `InvalidRequestError` | 400 | `{ errorCode, message, errorItems }` |
+| `ObjectValidationError` | 400 | `{ errorCode, message, details }` |
+| `InvalidRequestError` | 400 | `{ errorCode, message, details }` |
+| `UseCaseError` | 400 | `{ errorCode, message }` |
 | `AccessDeniedError` | 403 | `{ errorCode, message }` |
 | `NotFoundError` | 404 | `{ errorCode, message }` |
 | `ConflictError` | 409 | `{ errorCode, message }` |
@@ -150,48 +146,68 @@ const app = new Elysia()
 | `InfraError` | 500 | Masked |
 | Unknown | 500 | Masked |
 
-<Callout type="warning">
-**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details. See [Error Handling](/docs/patterns/error-handling#translating-domain-errors) for how to expose business errors.
-</Callout>
-
----
-
-## Custom Error Handling
-
-Use `mapErrorToResponse` for custom handling:
-
-```typescript
-import { mapErrorToResponse } from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
-
-const app = new Elysia()
-  .error(({ error }) => {
-    console.error('Error:', error);
-
-    const { statusCode, body } = mapErrorToResponse(error);
-    return new Response(JSON.stringify(body), {
-      status: statusCode,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  });
-```
-
 ---
 
 ## Complete Example
 
 ```typescript
+import 'dotenv/config';
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
-import { registerElysiaRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+import {
+  registerElysiaRoutes,
+  onionErrorHandler,
+  type ElysiaContext,
+  type ElysiaMiddleware,
+} from '@cosmneo/onion-lasagna/http/frameworks/elysia';
+import { bootstrapProjectManagement } from './bootstrap';
 
+const { routes } = bootstrapProjectManagement();
+
+// Auth middleware
+const authMiddleware: ElysiaMiddleware = async (ctx: ElysiaContext) => {
+  const authHeader = ctx.headers['authorization'];
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ message: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const token = authHeader.slice(7);
+  try {
+    const [, payloadBase64] = token.split('.');
+    const payload = JSON.parse(Buffer.from(payloadBase64!, 'base64').toString());
+    ctx.store['userId'] = payload.sub;
+  } catch {
+    return new Response(JSON.stringify({ message: 'Invalid token' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  return undefined;
+};
+
+// Create app
 const app = new Elysia()
   .use(cors())
-  .error(onionErrorHandler)
-  .get('/health', () => ({ status: 'ok' }))
-  .use(registerElysiaRoutes(userRoutes, { prefix: '/api/v1' }))
-  .use(registerElysiaRoutes(orderRoutes, { prefix: '/api/v1' }));
+  .onError(({ error }) => {
+    console.error('Error:', error);
+    return onionErrorHandler({ error });
+  })
+  .get('/health', () => ({ status: 'ok' }));
 
-app.listen(3000);
+// Register routes with auth
+registerElysiaRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (ctx: ElysiaContext) => ({
+    userId: ctx.store['userId'] as string,
+  }),
+});
 
-console.log(`Server running at http://localhost:3000`);
+// Start server
+app.listen(3000, () => {
+  console.log('Server running on http://localhost:3000');
+});
 ```

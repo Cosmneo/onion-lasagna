@@ -7,7 +7,7 @@ icon: "bolt"
 ## Installation
 
 ```bash
-bun add hono
+bun add hono @hono/node-server
 ```
 
 Import the Hono integration:
@@ -16,8 +16,7 @@ Import the Hono integration:
 import {
   registerHonoRoutes,
   onionErrorHandler,
-  mapErrorToHttpException,
-} from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+} from '@cosmneo/onion-lasagna/http/frameworks/hono';
 ```
 
 ---
@@ -25,134 +24,111 @@ import {
 ## Quick Start
 
 ```typescript
+import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/hono';
+import { bootstrapProjectManagement } from './bootstrap';
+
+// Bootstrap your bounded context
+const { routes } = bootstrapProjectManagement();
 
 const app = new Hono();
 
 // Apply error handler
-app.onError(onionErrorHandler);
+app.onError((err, c) => onionErrorHandler(err, c));
 
 // Register routes
 registerHonoRoutes(app, routes);
 
-export default app;
+serve({ fetch: app.fetch, port: 3000 });
 ```
 
 ---
 
 ## Registering Routes
 
-The `registerHonoRoutes` function registers your controllers with Hono:
+The `registerHonoRoutes` function registers routes created with `serverRoutes()`:
 
 ```typescript
-import type { RouteInput } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
+import { registerHonoRoutes } from '@cosmneo/onion-lasagna/http/frameworks/hono';
 
-const routes: RouteInput[] = [
-  {
-    metadata: {
-      method: 'GET',
-      path: '/users/{userId}',  // {param} syntax converted to :param
-    },
-    controller: getUserController,
-    requestDtoFactory: GetUserRequestDto.create,
-  },
-  {
-    metadata: {
-      method: 'POST',
-      path: '/users',
-    },
-    controller: createUserController,
-    requestDtoFactory: CreateUserRequestDto.create,
-  },
-];
+// Create routes using the builder
+const routes = serverRoutes(userRouter)
+  .handle('users.get', {
+    requestMapper: (req) => ({ userId: req.pathParams.userId }),
+    useCase: getUserQuery,
+    responseMapper: (output) => ({ status: 200 as const, body: output }),
+  })
+  .build();
 
+// Register with Hono
 registerHonoRoutes(app, routes);
 ```
-
-### Path Parameter Conversion
-
-Paths use `{param}` syntax which is automatically converted to Hono's `:param` format:
-
-- `/users/{userId}` → `/users/:userId`
-- `/orders/{orderId}/items/{itemId}` → `/orders/:orderId/items/:itemId`
 
 ---
 
 ## Options
 
 ```typescript
-interface RegisterRoutesOptions {
-  prefix?: string;                // Route prefix (e.g., '/api/v1')
-  middlewares?: HonoMiddleware[]; // Middlewares to apply to all routes
+interface RegisterHonoRoutesOptions {
+  prefix?: string;                    // Route prefix (e.g., '/api/v1')
+  middlewares?: HonoMiddleware[];     // Middlewares applied to all routes
+  contextExtractor?: HonoContextExtractor;  // Extract auth context
 }
 
-// With options
 registerHonoRoutes(app, routes, {
-  prefix: '/api/v1',
-  middlewares: [authMiddleware, loggingMiddleware],
+  prefix: '/api',
+  middlewares: [authMiddleware],
+  contextExtractor: (c) => ({
+    userId: c.get('jwtPayload')?.sub,
+  }),
 });
 ```
 
 ---
 
-## Contextual Routes (Protected Routes)
+## Context Extraction (Protected Routes)
 
-For routes that need authentication context (user ID, roles, etc.), use `ContextualRouteInput` with a `contextExtractor`:
+For authenticated routes, provide a `contextExtractor` to pass auth data to handlers:
 
 ```typescript
-import type {
-  ContextualRouteInput,
-  ContextualHttpRequest,
-} from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+import { jwt } from 'hono/jwt';
 
-// Define your auth context type
+// JWT middleware
+const authMiddleware = jwt({
+  secret: process.env.JWT_SECRET,
+});
+
+// Define context type
 interface AuthContext {
   userId: string;
-  roles: string[];
 }
 
-// Define contextual routes
-const protectedRoutes: ContextualRouteInput<AuthContext>[] = [
-  {
-    metadata: { method: 'GET', path: '/profile' },
-    controller: getProfileController,
-    requestDtoFactory: (req: ContextualHttpRequest<AuthContext>) =>
-      GetProfileRequestDto.create(req),
-  },
-];
-
-// Register with contextExtractor
-registerHonoRoutes(app, protectedRoutes, {
+// Register with context extraction
+registerHonoRoutes(app, routes, {
   middlewares: [authMiddleware],
   contextExtractor: (c): AuthContext => ({
-    userId: c.get('userId'),
-    roles: c.get('roles') ?? [],
+    userId: c.get('jwtPayload')?.sub ?? '',
   }),
 });
 ```
 
-The `contextExtractor` runs after middlewares, extracting auth data set by your auth middleware:
+The context is passed to your handler's `requestMapper`:
 
 ```typescript
-// Auth middleware sets context
-const authMiddleware: MiddlewareHandler = async (c, next) => {
-  const token = c.req.header('Authorization');
-  const payload = verifyToken(token);
-  c.set('userId', payload.userId);
-  c.set('roles', payload.roles);
-  await next();
-};
+.handle('projects.create', {
+  requestMapper: (req, ctx) => ({
+    name: req.body.name,
+    createdBy: ctx.userId,  // From contextExtractor
+  }),
+  useCase: createProjectUseCase,
+  responseMapper: (output) => ({
+    status: 201 as const,
+    body: { projectId: output.projectId },
+  }),
+})
 ```
-
-### Route Input Types
-
-| Type | Use Case |
-|------|----------|
-| `HttpRouteInput` | Public routes (no auth context) |
-| `ContextualRouteInput<TContext>` | Protected routes with auth context |
-| `RouteInputOrArray` | Single or array of public routes |
-| `ContextualRouteInputOrArray<TContext>` | Single or array of protected routes |
 
 ---
 
@@ -161,15 +137,16 @@ const authMiddleware: MiddlewareHandler = async (c, next) => {
 The `onionErrorHandler` maps domain errors to HTTP responses:
 
 ```typescript
-app.onError(onionErrorHandler);
+app.onError((err, c) => onionErrorHandler(err, c));
 ```
 
 ### Error Mapping
 
 | Error Type | HTTP Status | Body |
 |------------|-------------|------|
-| `ObjectValidationError` | 400 | `{ errorCode, message, errorItems }` |
-| `InvalidRequestError` | 400 | `{ errorCode, message, errorItems }` |
+| `ObjectValidationError` | 400 | `{ errorCode, message, details }` |
+| `InvalidRequestError` | 400 | `{ errorCode, message, details }` |
+| `UseCaseError` | 400 | `{ errorCode, message }` |
 | `AccessDeniedError` | 403 | `{ errorCode, message }` |
 | `NotFoundError` | 404 | `{ errorCode, message }` |
 | `ConflictError` | 409 | `{ errorCode, message }` |
@@ -179,51 +156,20 @@ app.onError(onionErrorHandler);
 | Unknown | 500 | Masked |
 
 <Callout type="warning">
-**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details. See [Error Handling](/docs/patterns/error-handling#translating-domain-errors) for how to expose business errors.
+**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details.
 </Callout>
 
 ---
 
 ## Custom Error Handling
 
-Use `mapErrorToHttpException` for custom error handling:
+Log errors before handling:
 
 ```typescript
-import { mapErrorToHttpException } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
-
-app.onError((error, c) => {
-  // Log all errors
-  console.error('Error:', error);
-
-  // Use standard mapping
-  const httpException = mapErrorToHttpException(error);
-  return httpException.getResponse();
+app.onError((err, c) => {
+  console.error('Error:', err);
+  return onionErrorHandler(err, c);
 });
-```
-
----
-
-## Controller Structure
-
-Controllers receive the raw Hono context and should return an `HttpResponse` wrapped in a DTO:
-
-```typescript
-import type { HttpResponse } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-
-class GetUserController extends BaseController<
-  GetUserRequestDto,
-  HttpResponseDto<GetUserResponse>,
-  GetUserInputDto,
-  GetUserOutputDto
-> {
-  static create(useCase: GetUserQueryInboundPort) {
-    return new GetUserController({
-      requestMapper: (dto) => GetUserInputDto.fromRequest(dto),
-      useCase,
-      responseMapper: (output) => HttpResponseDto.ok(output.data),
-    });
-  }
-}
 ```
 
 ---
@@ -231,27 +177,50 @@ class GetUserController extends BaseController<
 ## Complete Example
 
 ```typescript
+import 'dotenv/config';
+import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
+import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
-import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+import { jwt } from 'hono/jwt';
+import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/hono';
+import { bootstrapProjectManagement } from './bootstrap';
+
+// Bootstrap
+const { routes } = bootstrapProjectManagement();
 
 // Create app
 const app = new Hono();
 
 // Middleware
+app.use('*', logger());
 app.use('*', cors());
 
 // Error handling
-app.onError(onionErrorHandler);
+app.onError((err, c) => {
+  console.error('Error:', err);
+  return onionErrorHandler(err, c);
+});
 
-// Health check
+// Health check (no auth)
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
-// API routes
-registerHonoRoutes(app, userRoutes, { prefix: '/api/v1' });
-registerHonoRoutes(app, orderRoutes, { prefix: '/api/v1' });
+// Auth middleware
+const authMiddleware = jwt({
+  secret: process.env.JWT_SECRET ?? 'dev-secret',
+});
 
-export default app;
+// API routes with auth
+registerHonoRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (c) => ({
+    userId: c.get('jwtPayload')?.sub,
+  }),
+});
+
+// Start server
+serve({ fetch: app.fetch, port: 3000 });
+console.log('Server running on http://localhost:3000');
 ```
 
 ---
@@ -259,13 +228,12 @@ export default app;
 ## Cloudflare Workers
 
 ```typescript
-// src/index.ts
 import { Hono } from 'hono';
-import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/hono';
 
 const app = new Hono();
 
-app.onError(onionErrorHandler);
+app.onError((err, c) => onionErrorHandler(err, c));
 registerHonoRoutes(app, routes);
 
 export default app;
