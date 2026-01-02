@@ -117,7 +117,7 @@ page.pageSize;  // 20
 page.offset;    // 0 (calculated: (page - 1) * pageSize)
 
 // Custom max page size
-class AdminPagination extends BasePaginationVo {
+class AdminPaginationVo extends BasePaginationVo {
   static override get maxPageSize(): number {
     return 500;
   }

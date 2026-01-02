@@ -12,7 +12,7 @@
  * ```typescript
  * // 1. Define schemas (in infra layer)
  * import { z } from 'zod';
- * import { zodSchema } from '@cosmneo/onion-lasagna/unified/schema/zod';
+ * import { zodSchema } from '@cosmneo/onion-lasagna/http/schema/zod';
  *
  * const userSchema = zodSchema(z.object({
  *   id: z.string().uuid(),
@@ -21,7 +21,7 @@
  * }));
  *
  * // 2. Define routes
- * import { defineRoute, defineRouter } from '@cosmneo/onion-lasagna/unified';
+ * import { defineRoute, defineRouter } from '@cosmneo/onion-lasagna/http';
  *
  * const getUser = defineRoute({
  *   method: 'GET',
@@ -38,13 +38,13 @@
  * });
  *
  * // 3. Create client (frontend)
- * import { createClient } from '@cosmneo/onion-lasagna/unified/client';
+ * import { createClient } from '@cosmneo/onion-lasagna/http/client';
  *
  * const client = createClient(api, { baseUrl: 'http://localhost:3000' });
  * const user = await client.users.get({ pathParams: { userId: '123' } });
  *
  * // 4. Create server routes (backend)
- * import { createServerRoutes } from '@cosmneo/onion-lasagna/unified/server';
+ * import { createServerRoutes } from '@cosmneo/onion-lasagna/http/server';
  *
  * const routes = createServerRoutes(api, {
  *   'users.get': {
@@ -58,7 +58,7 @@
  * });
  *
  * // 5. Generate OpenAPI (documentation)
- * import { generateOpenAPI } from '@cosmneo/onion-lasagna/unified/openapi';
+ * import { generateOpenAPI } from '@cosmneo/onion-lasagna/http/openapi';
  *
  * const spec = generateOpenAPI(api, {
  *   info: { title: 'My API', version: '1.0.0' },
@@ -143,8 +143,8 @@ export {
 } from './schema/types';
 
 // Schema adapters are exported from submodules:
-// - @cosmneo/onion-lasagna/unified/schema/zod
-// - @cosmneo/onion-lasagna/unified/schema/typebox
+// - @cosmneo/onion-lasagna/http/schema/zod
+// - @cosmneo/onion-lasagna/http/schema/typebox
 
 // ============================================================================
 // Client

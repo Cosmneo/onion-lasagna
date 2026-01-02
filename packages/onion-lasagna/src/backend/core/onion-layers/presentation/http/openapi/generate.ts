@@ -72,7 +72,7 @@ function isValidJsonSchema(value: unknown): value is JsonSchema {
  *
  * @example Basic usage
  * ```typescript
- * import { generateOpenAPI } from '@cosmneo/onion-lasagna/unified/openapi';
+ * import { generateOpenAPI } from '@cosmneo/onion-lasagna/http/openapi';
  * import { api } from './routes';
  *
  * const spec = generateOpenAPI(api, {

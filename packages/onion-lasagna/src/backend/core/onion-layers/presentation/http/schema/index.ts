@@ -9,7 +9,7 @@
  *
  * @example Using with Zod
  * ```typescript
- * import { zodSchema, z } from '@cosmneo/onion-lasagna/unified/schema/zod';
+ * import { zodSchema, z } from '@cosmneo/onion-lasagna/http/schema/zod';
  *
  * const userSchema = zodSchema(z.object({
  *   name: z.string(),
@@ -19,7 +19,7 @@
  *
  * @example Using with TypeBox
  * ```typescript
- * import { typeboxSchema, Type } from '@cosmneo/onion-lasagna/unified/schema/typebox';
+ * import { typeboxSchema, Type } from '@cosmneo/onion-lasagna/http/schema/typebox';
  *
  * const userSchema = typeboxSchema(Type.Object({
  *   name: Type.String(),

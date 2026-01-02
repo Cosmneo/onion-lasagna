@@ -7,7 +7,7 @@
  *
  * @example Create a client
  * ```typescript
- * import { createClient } from '@cosmneo/onion-lasagna/unified/client';
+ * import { createClient } from '@cosmneo/onion-lasagna/http/client';
  * import { api } from './routes';
  *
  * const client = createClient(api, {

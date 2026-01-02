@@ -46,7 +46,7 @@ import { ControllerError } from '../../exceptions/controller.error';
  *
  * @example Basic usage with use case
  * ```typescript
- * import { createServerRoutes } from '@cosmneo/onion-lasagna/unified/server';
+ * import { createServerRoutes } from '@cosmneo/onion-lasagna/http/server';
  * import { projectRouter } from './routes';
  *
  * const routes = createServerRoutes(projectRouter, {

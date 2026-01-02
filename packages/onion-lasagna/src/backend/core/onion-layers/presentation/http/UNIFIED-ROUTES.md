@@ -64,7 +64,7 @@ Schema adapters wrap validation libraries (Zod, TypeBox) to provide:
 
 ```typescript
 import { z } from 'zod';
-import { zodSchema } from '@cosmneo/onion-lasagna/unified/schema/zod';
+import { zodSchema } from '@cosmneo/onion-lasagna/http/schema/zod';
 
 // Wrap a Zod schema
 const createProjectSchema = zodSchema(
@@ -104,7 +104,7 @@ const jsonSchema = createProjectSchema.toJsonSchema();
 
 ```typescript
 import { Type } from '@sinclair/typebox';
-import { typeboxSchema } from '@cosmneo/onion-lasagna/unified/schema/typebox';
+import { typeboxSchema } from '@cosmneo/onion-lasagna/http/schema/typebox';
 
 const createProjectSchema = typeboxSchema(
   Type.Object({
@@ -135,7 +135,7 @@ bounded-contexts/
 ```typescript
 // infra/schemas/project.schema.ts
 import { z } from 'zod';
-import { zodSchema } from '@cosmneo/onion-lasagna/unified/schema/zod';
+import { zodSchema } from '@cosmneo/onion-lasagna/http/schema/zod';
 
 export const createProjectBodySchema = zodSchema(
   z.object({
@@ -165,7 +165,7 @@ export type ProjectResponse = typeof projectResponseSchema._output;
 A route definition captures everything about an endpoint:
 
 ```typescript
-import { defineRoute } from '@cosmneo/onion-lasagna/unified/route';
+import { defineRoute } from '@cosmneo/onion-lasagna/http/route';
 import {
   createProjectBodySchema,
   projectResponseSchema,
@@ -277,7 +277,7 @@ const listProjectsRoute = defineRoute({
 Group related routes into a router:
 
 ```typescript
-import { defineRouter } from '@cosmneo/onion-lasagna/unified/route';
+import { defineRouter } from '@cosmneo/onion-lasagna/http/route';
 
 export const projectManagementRouter = defineRouter({
   projects: {
@@ -313,7 +313,7 @@ export const projectManagementRouter = defineRouter({
 Create a fully-typed HTTP client from your router:
 
 ```typescript
-import { createClient } from '@cosmneo/onion-lasagna/unified/client';
+import { createClient } from '@cosmneo/onion-lasagna/http/client';
 import { projectManagementRouter } from './routes';
 
 const api = createClient(projectManagementRouter, {
@@ -380,7 +380,7 @@ const singleProject = await api.projects.get({
 ### Client Error Handling
 
 ```typescript
-import { ClientError } from '@cosmneo/onion-lasagna/unified/client';
+import { ClientError } from '@cosmneo/onion-lasagna/http/client';
 
 try {
   const project = await api.projects.get({
@@ -563,7 +563,7 @@ function validateRequest(route: RouteDefinition, rawRequest: RawHttpRequest) {
 ### Using createServerRoutes
 
 ```typescript
-import { createServerRoutes } from '@cosmneo/onion-lasagna/unified/server';
+import { createServerRoutes } from '@cosmneo/onion-lasagna/http/server';
 import { projectManagementRouter } from './routes';
 
 const routes = createServerRoutes(
@@ -772,7 +772,7 @@ The auto-validation handles **request shape validation**. You still handle **bus
 Generate a complete OpenAPI 3.1 specification:
 
 ```typescript
-import { generateOpenAPI } from '@cosmneo/onion-lasagna/unified/openapi';
+import { generateOpenAPI } from '@cosmneo/onion-lasagna/http/openapi';
 import { projectManagementRouter } from './routes';
 
 const spec = generateOpenAPI(projectManagementRouter, {
@@ -995,7 +995,7 @@ Here's a complete example showing all three outputs:
 
 ```typescript
 import { z } from 'zod';
-import { zodSchema } from '@cosmneo/onion-lasagna/unified/schema/zod';
+import { zodSchema } from '@cosmneo/onion-lasagna/http/schema/zod';
 
 // Request schemas
 export const createProjectBodySchema = zodSchema(
@@ -1046,7 +1046,7 @@ export type ProjectResponse = typeof projectResponseSchema._output;
 ### 2. Define Routes (`client/routes.ts`)
 
 ```typescript
-import { defineRoute, defineRouter } from '@cosmneo/onion-lasagna/unified/route';
+import { defineRoute, defineRouter } from '@cosmneo/onion-lasagna/http/route';
 import {
   createProjectBodySchema,
   listProjectsQuerySchema,
@@ -1111,7 +1111,7 @@ export const projectRouter = defineRouter({
 ### 3. Create Client (`client/index.ts`)
 
 ```typescript
-import { createClient } from '@cosmneo/onion-lasagna/unified/client';
+import { createClient } from '@cosmneo/onion-lasagna/http/client';
 import { projectRouter } from './routes';
 
 export const createProjectClient = (baseUrl: string) =>
@@ -1126,7 +1126,7 @@ export type ProjectClient = ReturnType<typeof createProjectClient>;
 ### 4. Create Server Routes (`server/routes.ts`)
 
 ```typescript
-import { createServerRoutes } from '@cosmneo/onion-lasagna/unified/server';
+import { createServerRoutes } from '@cosmneo/onion-lasagna/http/server';
 import { projectRouter } from '../client/routes';
 import { projectService } from './services/project.service';
 
@@ -1158,7 +1158,7 @@ export const routes = createServerRoutes(projectRouter, {
 ### 5. Generate OpenAPI (`server/openapi.ts`)
 
 ```typescript
-import { generateOpenAPI } from '@cosmneo/onion-lasagna/unified/openapi';
+import { generateOpenAPI } from '@cosmneo/onion-lasagna/http/openapi';
 import { projectRouter } from '../client/routes';
 
 export const openApiSpec = generateOpenAPI(projectRouter, {

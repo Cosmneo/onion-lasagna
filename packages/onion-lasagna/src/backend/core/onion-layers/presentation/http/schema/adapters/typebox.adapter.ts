@@ -48,7 +48,7 @@ function safeStringify(value: unknown): string | undefined {
  * @example Basic usage
  * ```typescript
  * import { Type } from '@sinclair/typebox';
- * import { typeboxSchema } from '@cosmneo/onion-lasagna/unified/schema/typebox';
+ * import { typeboxSchema } from '@cosmneo/onion-lasagna/http/schema/typebox';
  *
  * const userSchema = typeboxSchema(Type.Object({
  *   name: Type.String({ minLength: 1, maxLength: 100 }),

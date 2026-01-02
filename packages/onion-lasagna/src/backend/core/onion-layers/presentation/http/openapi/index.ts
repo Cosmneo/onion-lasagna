@@ -7,7 +7,7 @@
  *
  * @example Generate OpenAPI spec
  * ```typescript
- * import { generateOpenAPI } from '@cosmneo/onion-lasagna/unified/openapi';
+ * import { generateOpenAPI } from '@cosmneo/onion-lasagna/http/openapi';
  * import { api } from './routes';
  *
  * const spec = generateOpenAPI(api, {

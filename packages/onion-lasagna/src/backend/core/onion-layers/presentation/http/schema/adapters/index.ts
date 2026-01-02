@@ -8,7 +8,7 @@
  */
 
 // Re-export from specific adapter files
-// Users should import from '@cosmneo/onion-lasagna/unified/schema/zod' etc.
+// Users should import from '@cosmneo/onion-lasagna/http/schema/zod' etc.
 // This file is for internal use only
 
 export { zodSchema, z } from './zod.adapter';

@@ -30,7 +30,7 @@ const DEFAULT_RETRY_STATUS_CODES = [408, 429, 500, 502, 503, 504];
  *
  * @example Basic usage
  * ```typescript
- * import { createClient, defineRouter, defineRoute } from '@cosmneo/onion-lasagna/unified';
+ * import { createClient, defineRouter, defineRoute } from '@cosmneo/onion-lasagna/http';
  *
  * const api = defineRouter({
  *   users: {

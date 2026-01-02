@@ -47,7 +47,7 @@ export interface DefineRouterOptions {
  *
  * @example Basic router
  * ```typescript
- * import { defineRouter } from '@cosmneo/onion-lasagna/unified';
+ * import { defineRouter } from '@cosmneo/onion-lasagna/http';
  *
  * const api = defineRouter({
  *   users: {

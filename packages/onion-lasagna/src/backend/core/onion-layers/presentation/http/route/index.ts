@@ -8,8 +8,8 @@
  *
  * @example Define a route
  * ```typescript
- * import { defineRoute } from '@cosmneo/onion-lasagna/unified';
- * import { zodSchema, z } from '@cosmneo/onion-lasagna/unified/schema/zod';
+ * import { defineRoute } from '@cosmneo/onion-lasagna/http';
+ * import { zodSchema, z } from '@cosmneo/onion-lasagna/http/schema/zod';
  *
  * const getUser = defineRoute({
  *   method: 'GET',
@@ -29,7 +29,7 @@
  *
  * @example Define a router
  * ```typescript
- * import { defineRouter } from '@cosmneo/onion-lasagna/unified';
+ * import { defineRouter } from '@cosmneo/onion-lasagna/http';
  *
  * const api = defineRouter({
  *   users: {
