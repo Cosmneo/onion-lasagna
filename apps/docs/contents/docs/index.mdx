@@ -21,13 +21,21 @@ graph TD
         External[External APIs]
     end
 
+    subgraph Orchestrations
+        Workflow[Workflows]
+        Composition[Compositions]
+        Projection[Projections]
+    end
+
     subgraph BC[Bounded Contexts]
         Domain[Domain Logic / Use Cases]
     end
 
     Presentation --> Infrastructure
+    Presentation --> Orchestrations
     Presentation --> BC
     Infrastructure --> BC
+    Orchestrations --> BC
 ```
 
 ## Core Principles
