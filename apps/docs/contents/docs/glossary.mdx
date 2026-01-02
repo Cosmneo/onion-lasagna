@@ -9,11 +9,27 @@ icon: "book-open"
 **Bounded Context (BC)**
 : A logical boundary with its own domain model, language, and rules. BCs don't import from each other directly.
 
+**Orchestrations**
+: Coordinates operations across multiple BCs. Three types: Compositions, Workflows, Projections.
+
 **Infrastructure**
 : Implements outbound ports. Contains persistence (databases) and external (API clients).
 
 **Presentation**
 : HTTP handlers, controllers, access guards, and mappers.
+
+---
+
+## Orchestration Types
+
+**Composition**
+: Combines multiple use cases from different BCs into a single operation. Runs synchronously within a single request.
+
+**Workflow**
+: Long-running process that coordinates multiple steps across BCs. May span multiple requests and handle failures.
+
+**Projection**
+: Read-only view that aggregates data from multiple BCs. Optimized for querying across boundaries.
 
 ---
 
