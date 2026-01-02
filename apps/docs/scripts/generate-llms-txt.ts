@@ -10,10 +10,6 @@ import { Paths } from "@/lib/pageroutes"
 const docsDir = path.join(process.cwd(), "contents/docs")
 const outputDir = path.join(process.cwd(), "public")
 
-interface MdxJsxFlowElement {
-  name: string
-  children?: any[]
-}
 
 // Reuse clean logic
 function cleanContent(content: string): string {
@@ -48,14 +44,15 @@ function cleanContent(content: string): string {
   return cleanedContent.trim()
 }
 
-async function getMdxFiles(dir: string): Promise<string[]> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _getMdxFiles(dir: string): Promise<string[]> {
   let files: string[] = []
   const items = await fs.readdir(dir, { withFileTypes: true })
 
   for (const item of items) {
     const fullPath = path.join(dir, item.name)
     if (item.isDirectory()) {
-      const subFiles = await getMdxFiles(fullPath)
+      const subFiles = await _getMdxFiles(fullPath)
       files = files.concat(subFiles)
     } else if (item.name.endsWith(".mdx")) {
       files.push(fullPath)
@@ -124,7 +121,7 @@ async function generate() {
         // file path might be mismatched if Documents href doesn't match file exactly?
         // E.g. href="" -> /index.mdx
         // Let's verify existence
-        let target = filePath
+        const target = filePath
         try {
             await fs.access(target)
         } catch {

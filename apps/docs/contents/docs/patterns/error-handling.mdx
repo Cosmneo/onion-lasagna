@@ -331,33 +331,30 @@ class DeleteStatusUseCase extends BaseInboundAdapter<...> {
 
 ---
 
-## Error Handling in Controllers
+## Error Handling in Route Handlers
 
-`BaseController` automatically converts `ObjectValidationError` to `InvalidRequestError`:
-
-```typescript
-class MyController extends BaseController<...> {
-  // If requestMapper throws ObjectValidationError,
-  // it's converted to InvalidRequestError automatically
-}
-```
-
-For custom error handling, override the `pipeline` method:
+The unified route handler automatically handles validation errors. When a route defines schemas, validation failures are automatically converted to `ObjectValidationError`:
 
 ```typescript
-class MyController extends BaseController<...> {
-  protected async pipeline(input: Request): Promise<Response> {
-    try {
-      return await super.pipeline(input);
-    } catch (error) {
-      if (error instanceof CustomError) {
-        // Custom handling
-      }
-      throw error;
-    }
-  }
-}
+import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
+
+const routes = serverRoutes(router)
+  .handle('users.create', {
+    // If validation fails, ObjectValidationError is thrown automatically
+    requestMapper: (req) => ({
+      email: req.body.email,
+      name: req.body.name,
+    }),
+    useCase: createUserUseCase,
+    responseMapper: (output) => ({
+      status: 201 as const,
+      body: { userId: output.userId },
+    }),
+  })
+  .build();
 ```
+
+The framework error handlers then convert `ObjectValidationError` to HTTP 400 responses with structured validation details.
 
 ---
 
@@ -367,19 +364,19 @@ Each framework integration provides an error handler:
 
 ```typescript
 // Hono
-import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
-app.onError(onionErrorHandler);
+import { onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/hono';
+app.onError((err, c) => onionErrorHandler(err, c));
 
 // Elysia
-import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
-app.error(onionErrorHandler);
+import { onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/elysia';
+app.onError(({ error }) => onionErrorHandler({ error }));
 
 // Fastify
-import { onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
+import { onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/fastify';
 app.setErrorHandler(onionErrorHandler);
 
 // NestJS
-import { OnionLasagnaExceptionFilter } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
-@UseFilters(OnionLasagnaExceptionFilter)
+import { OnionExceptionFilter } from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
+@UseFilters(OnionExceptionFilter)
 export class AppController {}
 ```

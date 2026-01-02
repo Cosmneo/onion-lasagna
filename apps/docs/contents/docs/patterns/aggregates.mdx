@@ -250,14 +250,14 @@ class CreateOrderCommand {
 
 ## Optimistic Locking
 
-Use `version` and `nextVersion()` for optimistic concurrency:
+Use `version` for optimistic concurrency. Increment the version when persisting:
 
 ```typescript
 class OrderRepository {
   async save(order: OrderAggregate): Promise<void> {
     const affectedRows = await this.db.query(
       `UPDATE orders SET ..., version = ? WHERE id = ? AND version = ?`,
-      [order.nextVersion(), order.id.value, order.version],
+      [order.version + 1, order.id.value, order.version],
     );
 
     if (affectedRows === 0) {
@@ -266,6 +266,10 @@ class OrderRepository {
   }
 }
 ```
+
+<Callout type="info">
+The `version` property is public for reading. The `nextVersion()` method is protected - use `version + 1` in repositories to increment the version when saving.
+</Callout>
 
 ---
 
@@ -286,22 +290,22 @@ class OrderAggregate extends BaseAggregateRoot<OrderId, OrderProps> {
 }
 ```
 
-### nextVersion
+### Version Increment
 
-Returns the next version number for optimistic locking:
+When saving to the database, increment the version:
 
 ```typescript
 // In repository
 async save(order: OrderAggregate): Promise<void> {
   await this.db.update({
     ...this.toRow(order),
-    version: order.nextVersion(),
+    version: order.version + 1,
   }).where({ id: order.id.value, version: order.version });
 }
 ```
 
 <Callout type="info">
-`nextVersion()` is protected and returns `version + 1`. Call it when persisting to implement optimistic locking.
+The `version` property is public for reading. Use `version + 1` in your repository when persisting changes to implement optimistic locking.
 </Callout>
 
 ---

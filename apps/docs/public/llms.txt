@@ -281,9 +281,14 @@ packages/backend/
 ---
 
 # Presentation
-> HTTP handlers, controllers, access guards, and mappers
+> Unified route system for HTTP handling with type-safe routes, handlers, and framework adapters
 
-HTTP layer: handlers, controllers, access guards, mappers.
+The presentation layer provides a unified route system that powers:
+- Type-safe route definitions with schema validation
+- Server-side handlers with request/response mapping
+- Framework adapters (Hono, Fastify, Elysia, NestJS)
+- OpenAPI specification generation
+- Type-safe client generation
 
 ---
 
@@ -292,298 +297,396 @@ HTTP layer: handlers, controllers, access guards, mappers.
 ```
 presentation/
 └── http/
-    ├── service.metadata.ts          ← Service-level config (basePath)
-    ├── resources/
-    │   └── {resource}.metadata.ts   ← Resource metadata
-    ├── endpoints/
-    │   └── {resource}/
-    │       └── {action}.metadata.ts ← Endpoint metadata
-    └── {resource}/{endpoint}/
-        ├── dtos.ts                  ← Request & Response DTOs
-        ├── schemas.ts               ← Zod/validation schemas
-        ├── mappers.ts               ← DTO transformations
-        └── endpoint.metadata.ts     ← (alternative location)
+    ├── routes/
+    │   ├── users.routes.ts        ← Route definitions with schemas
+    │   └── projects.routes.ts
+    ├── handlers/
+    │   ├── users.handlers.ts      ← Handler implementations
+    │   └── projects.handlers.ts
+    └── router.ts                  ← Combined router definition
 ```
-
-
-You can organize files as `dtos.ts` + `mappers.ts` (combined) or `request.dto.ts` + `response.dto.ts` + `to-use-case.mapper.ts` + `to-response.mapper.ts` (separate). Choose one pattern and use it consistently.
-
 
 ---
 
-## Route Composition
+## Route Definitions
 
-Routes are built by composing three metadata levels:
+Define routes using `defineRoute()` with full type safety:
 
-### 1. Service Metadata
-
-Defines the base path for the entire bounded context:
-
-```typescript:service.metadata.ts
+```typescript
 
 
 
-  id: 'project-management-service',
-  shortId: 'pms',
-  name: 'Project Management',
-  description: 'Manages projects, tasks, and statuses',
-  basePath: '/api/projects',
-  openApi: {
-    title: 'Project Management API',
-    description: 'API for managing projects',
-  },
-};
-```
 
-### 2. Resource Metadata
-
-Defines a resource within the service:
-
-```typescript:resources/projects.metadata.ts
-
-
-
-  id: 'projects',
-  shortId: 'prj',
-  name: 'Projects',
-  description: 'Project management endpoints',
-  path: '',  // Empty = at service root
-  order: 1,
-  openApi: {
-    tag: 'Projects',
-    tagDescription: 'Project operations',
-  },
-};
-```
-
-### 3. Endpoint Metadata
-
-Defines a specific endpoint:
-
-```typescript:endpoints/projects/create-project.metadata.ts
-
-
-
-  id: 'create-project',
-  shortId: 'cp',
-  name: 'createProject',
-  description: 'Creates a new project',
   method: 'POST',
-  path: '',  // Empty = at resource root
-  openApi: {
-    summary: 'Create a new project',
-    successStatus: 201,
+  path: '/api/users',
+  request: {
+    body: {
+      schema: zodSchema(
+        z.object({
+          email: z.string().email(),
+          name: z.string().min(1).max(100),
+        }),
+      ),
+    },
+    context: {
+      schema: zodSchema(
+        z.object({
+          userId: z.string(),
+        }),
+      ),
+    },
   },
-};
+  responses: {
+    201: {
+      description: 'User created',
+      schema: zodSchema(
+        z.object({
+          userId: z.string().uuid(),
+        }),
+      ),
+    },
+    400: { description: 'Validation error' },
+  },
+  docs: {
+    summary: 'Create a new user',
+    tags: ['Users'],
+    operationId: 'createUser',
+  },
+});
 ```
 
-### computeRoutePath
+### Route Definition Options
 
-Combines metadata into a full path:
+| Property | Description |
+|----------|-------------|
+| `method` | HTTP method: GET, POST, PUT, PATCH, DELETE |
+| `path` | URL path with `:param` syntax for path parameters |
+| `request.body` | Request body schema |
+| `request.query` | Query parameter schema |
+| `request.params` | Path parameter schema |
+| `request.context` | Context schema (from middleware) |
+| `responses` | Response schemas by status code |
+| `docs` | OpenAPI documentation |
+
+---
+
+## Router Definition
+
+Group routes into a router using `defineRouter()`:
 
 ```typescript
 
 
-// Result: '/api/projects'
-const path = computeRoutePath(
-  projectManagementServiceMetadata,  // basePath: '/api/projects'
-  projectsResourceMetadata,          // path: ''
-  createProjectEndpointMetadata      // path: ''
-);
-
-// For nested resources with path params
-// Result: '/api/projects/{projectId}/tasks'
-const tasksPath = computeRoutePath(
-  projectManagementServiceMetadata,  // basePath: '/api/projects'
-  tasksResourceMetadata,             // path: '/{projectId}/tasks'
-  listTasksEndpointMetadata          // path: ''
-);
-```
 
 
-Paths use `{param}` syntax which is framework-agnostic. Framework integrations convert to the appropriate format (e.g., `:param` for Hono/Express).
-
-
----
-
-## Request/Response DTOs
-
-These are the **source of truth** for API contracts.
-
-```typescript:request.dto.ts
-const findUserByIdRequestSchema = z.object({
-  pathParams: z.object({
-    userId: z.string().uuid(),
-  }),
+  users: {
+    create: createUserRoute,
+    list: listUsersRoute,
+    get: getUserRoute,
+  },
 });
-
-type FindUserByIdRequest = z.infer;
 ```
 
-```typescript:response.dto.ts
-const findUserByIdResponseSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string(),
-  name: z.string(),
-});
-
-type FindUserByIdResponse = z.infer;
-```
-
----
-
-## Access Guards
-
-Access guards are **functions** (not classes) that determine if a request is allowed.
-
-**Type Definition:**
+Routers can be nested for complex APIs:
 
 ```typescript
-type AccessGuard = (
-  request: T,
-) => AccessGuardResult | Promise;
 
-interface AccessGuardResult {
-  isAllowed: boolean;
-  reason?: string;
+  projects: {
+    create: createProjectRoute,
+    list: listProjectsRoute,
+    get: getProjectRoute,
+    tasks: {
+      add: addTaskRoute,
+      list: listTasksRoute,
+      update: updateTaskRoute,
+    },
+  },
+});
+```
+
+---
+
+## Server Routes (Handlers)
+
+Create handlers using the `serverRoutes()` builder:
+
+```typescript
+
+
+
+
+  return serverRoutes(userRouter)
+    .handle('users.create', {
+      requestMapper: (req, ctx) => ({
+        email: req.body.email,
+        name: req.body.name,
+        createdBy: ctx.userId,
+      }),
+      useCase: useCases.createUserUseCase,
+      responseMapper: (output) => ({
+        status: 201 as const,
+        body: { userId: output.userId },
+      }),
+    })
+    .handle('users.list', {
+      requestMapper: (req) => ({
+        page: req.query?.page ?? 1,
+        pageSize: req.query?.pageSize ?? 20,
+      }),
+      useCase: useCases.listUsersUseCase,
+      responseMapper: (output) => ({
+        status: 200 as const,
+        body: output,
+      }),
+    })
+    .build();
 }
 ```
 
-**Example:**
+### Handler Configuration
 
-```typescript:access-guard.ts
+Each handler has three functions:
 
+| Function | Purpose |
+|----------|---------|
+| `requestMapper` | Transform validated HTTP request to use case input |
+| `useCase` | The use case to execute |
+| `responseMapper` | Transform use case output to HTTP response |
 
-// Simple guard
-const requireAdmin: AccessGuard = (request) => ({
-  isAllowed: request.data.role === 'admin',
-  reason: 'Admin access required',
-});
+The `req` parameter in `requestMapper` is fully typed based on your route definition:
+- `req.body` - Validated request body
+- `req.query` - Validated query parameters
+- `req.pathParams` - Validated path parameters
 
-// Guard using a use case (via closure)
-const createCanManageResourceGuard = (
-  canManageQuery: CanManageResourceQueryInboundPort,
-): AccessGuard => async (request) => {
-  const result = await canManageQuery.execute({
-    userId: request.data.userId,
-    resourceId: request.data.resourceId,
-  });
-  return { isAllowed: result.allowed, reason: result.reason };
-};
-```
-
-**Rules:**
-- ✅ Functions, not classes
-- ✅ Can use closures for dependency injection
-- ✅ Delegate authorization logic to use cases
-- ❌ Cannot implement custom business logic
+The `ctx` parameter contains context from middleware (e.g., authenticated user).
 
 ---
 
-## Mappers
+## Framework Integration
 
-Pure functions transforming between HTTP and use case shapes.
+Register routes with your framework of choice:
 
-```typescript:to-use-case.mapper.ts
-function toFindUserByIdInput(request: FindUserByIdRequest): FindUserByIdInput {
-  return { userId: request.pathParams.userId };
-}
-
-// to-response.mapper.ts
-function toFindUserByIdResponse(output: FindUserByIdOutput): FindUserByIdResponse {
-  return { id: output.id, email: output.email, name: output.name };
-}
-```
-
----
-
-## Execution Context
-
-Generated at controller level. **Never a frontend concern.**
-
-```typescript
-// Inside controller/handler
-const executionContext = {
-  userId: extractUserIdFromToken(request),
-  roles: extractRolesFromToken(request),
-};
-```
-
----
-
-## Controllers
-
-The library provides `BaseController` and `GuardedController` for building type-safe controller pipelines.
-
-### BaseController
-
-Simple pipeline: validate request → map to use case input → execute → map response.
+### Hono
 
 ```typescript
 
 
-const getUserController = BaseController.create({
-  requestMapper: (req: GetUserRequestDto) =>
-    GetUserInputDto.create({ userId: req.data.userId }),
-  useCase: getUserQuery,
-  responseMapper: (output: GetUserOutputDto) =>
-    GetUserResponseDto.create(output.data),
-});
 
-// Execute
-const response = await getUserController.execute(requestDto);
-```
+const app = new Hono();
 
-### GuardedController
+app.onError((err, c) => onionErrorHandler(err, c));
 
-Extends `BaseController` with an access guard.
-
-```typescript
-
-
-const updateUserController = GuardedController.create({
-  requestMapper: (req) => UpdateUserInputDto.create(req.data),
-  useCase: updateUserCommand,
-  responseMapper: (output) => UpdateUserResponseDto.create(output.data),
-  accessGuard: async (req) => ({
-    isAllowed: req.data.role === 'admin',
-    reason: 'Admin access required',
+registerHonoRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (c) => ({
+    userId: c.get('jwtPayload')?.sub,
   }),
 });
 ```
 
-### Generic Type Parameters
-
-Both controllers use 4 generic type parameters, all extending `BaseDto`:
+### Fastify
 
 ```typescript
-class BaseController,  // HTTP request DTO
-  TResponseDto extends BaseDto, // HTTP response DTO
-  TInDto extends BaseDto,       // Use case input DTO
-  TOutDto extends BaseDto,      // Use case output DTO
->
+
+
+
+const app = Fastify();
+
+app.setErrorHandler(onionErrorHandler);
+
+registerFastifyRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (request) => ({
+    userId: request.user?.userId,
+  }),
+});
+```
+
+### Elysia
+
+```typescript
+
+
+
+const app = new Elysia()
+  .onError(({ error }) => onionErrorHandler({ error }));
+
+registerElysiaRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (ctx) => ({
+    userId: ctx.store['userId'],
+  }),
+});
+```
+
+### NestJS
+
+NestJS uses a decorator-based approach:
+
+```typescript
+
+
+
+
+@Controller('api/users')
+@UseGuards(JwtAuthGuard)
+@UseFilters(OnionExceptionFilter)
+
+  constructor(private readonly routeHandlers: Map) {}
+
+  @Post()
+  async create(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest,
+  ) {
+    const route = this.routeHandlers.get('POST:/api/users');
+    return route.handler(request, request.context);
+  }
+}
 ```
 
 ---
 
-## Exception Handling
+## Context Extraction
 
-Controllers automatically convert `ObjectValidationError` to `InvalidRequestError`.
+Context extractors provide request context (e.g., authenticated user) to handlers:
 
-For framework-specific exception handling, use the error handlers from framework integrations:
+```typescript
+// Define context type
+interface AuthContext {
+  userId: string;
+  roles: string[];
+}
+
+// Create extractor
+const contextExtractor = (c: Context): AuthContext => ({
+  userId: c.get('jwtPayload')?.sub ?? '',
+  roles: c.get('jwtPayload')?.roles ?? [],
+});
+
+// Use in handler
+.handle('projects.create', {
+  requestMapper: (req, ctx) => ({
+    name: req.body.name,
+    createdBy: ctx.userId,  // From context
+  }),
+  // ...
+})
+```
+
+---
+
+## Error Handling
+
+The unified route system provides automatic error handling:
+
+| Error Type | HTTP Status | Masked |
+|------------|-------------|--------|
+| `ObjectValidationError` | 400 | No |
+| `InvalidRequestError` | 400 | No |
+| `UseCaseError` | 400 | No |
+| `AccessDeniedError` | 403 | No |
+| `NotFoundError` | 404 | No |
+| `ConflictError` | 409 | No |
+| `UnprocessableError` | 422 | No |
+| `DomainError` | 500 | Yes |
+| `InfraError` | 500 | Yes |
+| `ControllerError` | 500 | Yes |
+
+500-level errors are **masked** for security - only a generic message is returned to clients.
+
+Use the framework-specific error handler:
 
 ```typescript
 // Hono
-
-app.onError(onionErrorHandler);
-
-// Elysia
-
-app.error(onionErrorHandler);
+app.onError((err, c) => onionErrorHandler(err, c));
 
 // Fastify
-
 app.setErrorHandler(onionErrorHandler);
+
+// Elysia
+app.onError(({ error }) => onionErrorHandler({ error }));
+
+// NestJS
+@UseFilters(OnionExceptionFilter)
+```
+
+---
+
+## OpenAPI Generation
+
+Generate OpenAPI specifications from your router:
+
+```typescript
+
+
+const spec = generateOpenAPI(userRouter, {
+  info: {
+    title: 'User API',
+    version: '1.0.0',
+    description: 'API for user management',
+  },
+  servers: [
+    { url: 'https://api.example.com', description: 'Production' },
+    { url: 'http://localhost:3000', description: 'Development' },
+  ],
+  tags: [
+    { name: 'Users', description: 'User operations' },
+  ],
+});
+```
+
+---
+
+## Type-Safe Client
+
+Generate a type-safe client from your router:
+
+```typescript
+
+
+const client = createClient(userRouter, {
+  baseUrl: 'https://api.example.com',
+  headers: { Authorization: `Bearer ${token}` },
+});
+
+// Fully typed API calls
+const user = await client.users.get({
+  pathParams: { userId: '123' },
+});
+
+const newUser = await client.users.create({
+  body: { email: 'john@example.com', name: 'John' },
+});
+```
+
+---
+
+## Partial Builds
+
+For large routers, use `buildPartial()` to build handlers incrementally:
+
+```typescript
+// users.handlers.ts
+
+  return serverRoutes(apiRouter)
+    .handle('users.create', { ... })
+    .handle('users.list', { ... })
+    .buildPartial();  // Returns partial routes
+}
+
+// projects.handlers.ts
+
+  return serverRoutes(apiRouter)
+    .handle('projects.create', { ... })
+    .handle('projects.list', { ... })
+    .buildPartial();
+}
+
+// index.ts - Combine all handlers
+const routes = [
+  ...createUserHandlers(useCases),
+  ...createProjectHandlers(useCases),
+];
 ```
 ---
 
@@ -1118,235 +1221,237 @@ See [Aggregates](/docs/patterns/aggregates) and [Value Objects](/docs/patterns/v
 ---
 
 # DTOs
-> Data Transfer Objects for carrying data between layers. Immutable, validated at creation.
+> Data Transfer Objects for carrying data between layers using plain TypeScript interfaces with schema validation.
 
-## Types
+## Overview
 
-| DTO | Purpose | Location |
-|-----|---------|----------|
-| **Request DTO** | HTTP request shape | `presentation/http/{endpoint}/request.dto.ts` |
-| **Response DTO** | HTTP response shape | `presentation/http/{endpoint}/response.dto.ts` |
-| **Input DTO** | Use case input | `app/ports/inbound/{use-case}/` |
-| **Output DTO** | Use case output | `app/ports/inbound/{use-case}/` |
+In onion-lasagna, DTOs are **plain TypeScript interfaces** rather than classes. Validation is handled at the HTTP boundary through schema adapters, and data transformation happens in request/response mappers.
+
+## DTO Types
+
+| DTO Type | Purpose | Where Defined |
+|----------|---------|---------------|
+| **Request Body** | HTTP request body shape | Route definition (`request.body.schema`) |
+| **Query Params** | HTTP query parameters | Route definition (`request.query.schema`) |
+| **Path Params** | URL path parameters | Route definition (`request.params.schema`) |
+| **Response Body** | HTTP response shape | Route definition (`responses.{status}.schema`) |
+| **Use Case Input** | Input to use case | TypeScript interface in use case port |
+| **Use Case Output** | Output from use case | TypeScript interface in use case port |
 
 ---
 
-## BaseDto Class
+## Schema-Based Validation
 
-All DTOs extend `BaseDto` which provides:
-- Immutable data access via `.data` getter
-- Automatic validation at construction
-- Support for skipping validation when reconstituting from trusted sources
+Validation is defined in route definitions using schema adapters:
 
 ```typescript
 
 
 
+// Define the route with schemas
 
-// Define your schema
-const createUserRequestSchema = z.object({
-  body: z.object({
-    email: z.string().email(),
-    name: z.string().min(1).max(100),
-    password: z.string().min(8),
-  }),
+  method: 'POST',
+  path: '/api/users',
+  request: {
+    body: {
+      schema: zodSchema(
+        z.object({
+          email: z.string().email(),
+          name: z.string().min(1).max(100),
+          password: z.string().min(8),
+        }),
+      ),
+    },
+  },
+  responses: {
+    201: {
+      description: 'User created',
+      schema: zodSchema(
+        z.object({
+          userId: z.string().uuid(),
+        }),
+      ),
+    },
+  },
 });
-
-type CreateUserRequestData = z.infer;
-
-// Create a DTO class extending BaseDto
-class CreateUserRequestDto extends BaseDto {
-  private constructor(data: CreateUserRequestData) {
-    super(data, createZodValidator(createUserRequestSchema));
-  }
-
-  static create(data: unknown): CreateUserRequestDto {
-    // Validates and throws ObjectValidationError if invalid
-    return new CreateUserRequestDto(data as CreateUserRequestData);
-  }
-
-  // Convenience getters
-  get email(): string {
-    return this.data.body.email;
-  }
-
-  get name(): string {
-    return this.data.body.name;
-  }
-}
 ```
+
+The schema adapter validates incoming requests automatically before your handler runs.
 
 ---
 
 ## Use Case DTOs
 
-Input and output DTOs follow the same pattern:
+Use case input and output are plain TypeScript interfaces:
 
 ```typescript
-const createUserInputSchema = z.object({
-  email: z.string().email(),
-  name: z.string(),
-  hashedPassword: z.string(),
-});
+// Input DTO - what the use case receives
+interface CreateUserInput {
+  email: string;
+  name: string;
+  hashedPassword: string;
+}
 
-type CreateUserInputData = z.infer;
+// Output DTO - what the use case returns
+interface CreateUserOutput {
+  userId: string;
+  email: string;
+  name: string;
+  createdAt: Date;
+}
 
-class CreateUserInputDto extends BaseDto {
-  private constructor(data: CreateUserInputData) {
-    super(data, createZodValidator(createUserInputSchema));
-  }
-
-  static create(data: unknown): CreateUserInputDto {
-    return new CreateUserInputDto(data as CreateUserInputData);
-  }
+// Use case port definition
+interface CreateUserUseCasePort {
+  execute(input: CreateUserInput): Promise;
 }
 ```
 
 ---
 
-## Skipping Validation
+## Request and Response Mapping
 
-Use `SKIP_DTO_VALIDATION` when reconstituting from trusted sources (e.g., database, internal mapping):
+Transform between HTTP layer and use case layer using mappers:
 
 ```typescript
-class UserOutputDto extends BaseDto {
-  private constructor(data: UserOutputData, skipValidation = false) {
-    super(data, skipValidation ? SKIP_DTO_VALIDATION : createZodValidator(schema));
-  }
 
-  static create(data: unknown): UserOutputDto {
-    return new UserOutputDto(data as UserOutputData);
-  }
 
-  // For internal use when data is already validated
-  static fromTrusted(data: UserOutputData): UserOutputDto {
-    return new UserOutputDto(data, true);
-  }
-}
+
+const routes = serverRoutes(userRouter)
+  .handle('users.create', {
+    // Transform validated HTTP request to use case input
+    requestMapper: (req, ctx) => ({
+      email: req.body.email,
+      name: req.body.name,
+      hashedPassword: hashPassword(req.body.password),
+    }),
+
+    useCase: createUserUseCase,
+
+    // Transform use case output to HTTP response
+    responseMapper: (output) => ({
+      status: 201 as const,
+      body: {
+        userId: output.userId,
+      },
+    }),
+  })
+  .build();
 ```
+
+The `req` parameter is **fully typed** based on your route definition schemas.
 
 ---
 
-## Other Validators
+## Schema Adapters
 
-The library supports multiple validators. Replace the Zod validator with your preferred choice:
+Two schema adapters are available:
+
+### Zod Adapter
 
 ```typescript
-// ArkType
 
 
+const userSchema = zodSchema(
+  z.object({
+    id: z.string().uuid(),
+    email: z.string().email(),
+    name: z.string().min(1).max(100),
+  }),
+);
+```
 
-const schema = type({ email: 'string.email', name: 'string' });
-super(data, createArkTypeValidator(schema));
+### TypeBox Adapter
 
-// Valibot
-
+```typescript
 
 
-const schema = v.object({ email: v.pipe(v.string(), v.email()), name: v.string() });
-super(data, createValibotValidator(schema));
-
-// TypeBox
-
-
-
-const schema = Type.Object({ email: Type.String({ format: 'email' }), name: Type.String() });
-super(data, createTypeBoxValidator(schema));
+const userSchema = typeboxSchema(
+  Type.Object({
+    id: Type.String({ format: 'uuid' }),
+    email: Type.String({ format: 'email' }),
+    name: Type.String({ minLength: 1, maxLength: 100 }),
+  }),
+);
 ```
 
 ---
 
 ## Validation Errors
 
-When validation fails, an `ObjectValidationError` is thrown with structured field-level errors:
+When schema validation fails, an `ObjectValidationError` is thrown automatically. The framework converts this to a 400 HTTP response with structured errors:
 
-```typescript
-try {
-  const dto = CreateUserRequestDto.create(invalidData);
-} catch (error) {
-  if (error instanceof ObjectValidationError) {
-    // error.validationErrors is an array of { field: string; message: string }
-    console.log(error.validationErrors);
-    // [{ field: 'body.email', message: 'Invalid email format' }]
-  }
+```json
+{
+  "errorCode": "VALIDATION_ERROR",
+  "message": "Validation failed",
+  "details": [
+    { "path": ["body", "email"], "message": "Invalid email" },
+    { "path": ["body", "password"], "message": "String must contain at least 8 character(s)" }
+  ]
 }
 ```
-
-Controllers automatically convert `ObjectValidationError` to `InvalidRequestError` with a 400 status code.
 
 ---
 
-## Centralized Validators (Recommended)
+## Context DTOs
 
-For larger projects, create validators in a central bootstrap file and inject them:
+For authenticated routes, define a context schema to validate JWT payload or middleware data:
 
-```typescript:bootstrap/validators.bootstrap.ts
+```typescript
+// Auth context schema
 
-
-
-// Create validators once, reuse everywhere
-
-
-```
-
-Then inject into mappers:
-
-```typescript:presentation/http/projects/create-project/mappers.ts
+  z.object({
+    userId: z.string(),
+  }),
+);
 
 
-
-// Request mapper - validator injected at runtime
-
-  request: CreateProjectRequestDto,
-  validator: DtoValidator,
-): CreateProjectInputDto {
-  return new CreateProjectInputDto(
-    {
-      name: request.data.body.name,
-      description: request.data.body.description,
+  method: 'POST',
+  path: '/api/projects',
+  request: {
+    body: {
+      schema: zodSchema(
+        z.object({
+          name: z.string().min(1),
+        }),
+      ),
     },
-    validator,  // Validator injected here
-  );
-}
-
-// Response mapper with validator
-
-  output: CreateProjectOutputDto,
-  validator: DtoValidator,
-): CreateProjectResponseDto {
-  return new CreateProjectResponseDto(
-    { statusCode: 201, body: { projectId: output.data.projectId } },
-    validator,
-  );
-}
-```
-
-Wire in controllers:
-
-```typescript:bootstrap/controller.bootstrap.ts
-
-
-
-const createProjectController = BaseController.create({
-  // Input already validated at HTTP layer, skip re-validation
-  requestMapper: (req: CreateProjectRequestDto) =>
-    createProjectToInputMapper(req, SKIP_DTO_VALIDATION),
-  useCase: createProjectUseCase,
-  // Response needs validation before sending to client
-  responseMapper: (out: CreateProjectOutputDto) =>
-    createProjectToResponseMapper(out, createProjectResponseValidator),
+    context: {
+      schema: authContextSchema,
+    },
+  },
+  // ...
 });
 ```
 
+Access context in your handler:
 
-**When to skip validation:**
-- Request → Input mapping: Request DTO already validated at HTTP boundary
-- Internal mappings: Data comes from trusted sources (database, other validated DTOs)
+```typescript
+.handle('projects.create', {
+  requestMapper: (req, ctx) => ({
+    name: req.body.name,
+    createdBy: ctx.userId,  // Fully typed from context schema
+  }),
+  // ...
+})
+```
 
-**When to validate:**
-- Response → HTTP: Ensure response matches expected schema before sending
-- External data: Data from third-party APIs or user input
+---
 
+## Type Inference
+
+Schema adapters provide full type inference:
+
+```typescript
+
+
+// Infer types from route definition
+type CreateUserBody = InferRouteBody;
+// { email: string; name: string; password: string }
+
+type CreateUserResponse = InferRouteSuccessResponse;
+// { userId: string }
+```
 
 ---
 
@@ -1354,11 +1459,11 @@ const createProjectController = BaseController.create({
 
 | Aspect | DTO | Value Object |
 |--------|-----|--------------|
-| **Purpose** | Transfer data | Represent domain concept |
+| **Purpose** | Transfer data across boundaries | Represent domain concept |
 | **Location** | Presentation / App layer | Domain layer |
-| **Behavior** | Minimal (data access) | May have methods |
+| **Form** | Plain interface + schema | Class with behavior |
+| **Validation** | Schema adapter at boundary | `create()` factory method |
 | **Identity** | None | Compared by value |
-| **Base Class** | `BaseDto` | `BaseValueObject` |
 ---
 
 # Value Objects
@@ -1911,14 +2016,14 @@ class CreateOrderCommand {
 
 ## Optimistic Locking
 
-Use `version` and `nextVersion()` for optimistic concurrency:
+Use `version` for optimistic concurrency. Increment the version when persisting:
 
 ```typescript
 class OrderRepository {
   async save(order: OrderAggregate): Promise {
     const affectedRows = await this.db.query(
       `UPDATE orders SET ..., version = ? WHERE id = ? AND version = ?`,
-      [order.nextVersion(), order.id.value, order.version],
+      [order.version + 1, order.id.value, order.version],
     );
 
     if (affectedRows === 0) {
@@ -1927,6 +2032,10 @@ class OrderRepository {
   }
 }
 ```
+
+
+The `version` property is public for reading. The `nextVersion()` method is protected - use `version + 1` in repositories to increment the version when saving.
+
 
 ---
 
@@ -1947,22 +2056,22 @@ class OrderAggregate extends BaseAggregateRoot {
 }
 ```
 
-### nextVersion
+### Version Increment
 
-Returns the next version number for optimistic locking:
+When saving to the database, increment the version:
 
 ```typescript
 // In repository
 async save(order: OrderAggregate): Promise {
   await this.db.update({
     ...this.toRow(order),
-    version: order.nextVersion(),
+    version: order.version + 1,
   }).where({ id: order.id.value, version: order.version });
 }
 ```
 
 
-`nextVersion()` is protected and returns `version + 1`. Call it when persisting to implement optimistic locking.
+The `version` property is public for reading. Use `version + 1` in your repository when persisting changes to implement optimistic locking.
 
 
 ---
@@ -2110,214 +2219,336 @@ class CreateUserCommand {
 - ❌ Don't put business logic in repositories
 ---
 
-# Validators
-> Validator abstraction for schema validation. Supports Zod, ArkType, Valibot, and TypeBox.
+# Schema Adapters
+> Schema adapters for request/response validation and OpenAPI generation. Supports Zod and TypeBox.
 
 ## Overview
 
-The library provides a validator abstraction layer that allows you to use your preferred validation library while maintaining consistent patterns across your codebase.
+Schema adapters wrap validation libraries (Zod, TypeBox) with a consistent interface for:
+- Request/response validation in route definitions
+- JSON Schema generation for OpenAPI documentation
+- Full TypeScript type inference
 
-Supported validators:
-- **Zod** - TypeScript-first schema validation
-- **ArkType** - TypeScript's 1:1 validator
-- **Valibot** - Modular, tree-shakeable validation
-- **TypeBox** - JSON Schema Type Builder
-
----
-
-## ObjectValidatorPort
-
-The core abstraction is `ObjectValidatorPort`:
-
-```typescript
-interface ObjectValidatorPort {
-  validateObject: ValidateObject;
-  withSchema: (schema: TSchema) => BoundValidator;
-}
-
-interface BoundValidator {
-  validate: (value: unknown) => T;
-}
-```
-
-Each validator implementation converts validation errors to `ObjectValidationError` with structured field-level error messages.
+Available adapters:
+- **Zod** - TypeScript-first schema validation (`zodSchema`)
+- **TypeBox** - JSON Schema Type Builder (`typeboxSchema`)
 
 ---
 
-## Factory Functions
+## Schema Adapter Interface
 
-Each validator exports a factory function that creates a `BoundValidator`:
+All adapters implement `SchemaAdapter`:
 
 ```typescript
-// Zod
+interface SchemaAdapter {
+  validate(data: unknown): ValidationResult;
+  toJsonSchema(options?: JsonSchemaOptions): JsonSchema;
+  _output: TOutput;  // Phantom type for inference
+  _input: TInput;    // Phantom type for inference
+}
 
-
-
-const schema = z.object({ email: z.string().email() });
-const validator = createZodValidator(schema);
-
-// ArkType
-
-
-
-const schema = type({ email: 'string.email' });
-const validator = createArkTypeValidator(schema);
-
-// Valibot
-
-
-
-const schema = v.object({ email: v.pipe(v.string(), v.email()) });
-const validator = createValibotValidator(schema);
-
-// TypeBox
-
-
-
-const schema = Type.Object({ email: Type.String({ format: 'email' }) });
-const validator = createTypeBoxValidator(schema);
+type ValidationResult =
+  | { success: true; data: T }
+  | { success: false; issues: ValidationIssue[] };
 ```
 
 ---
 
-## Using with BaseDto
+## Zod Adapter
 
-Inject validators into `BaseDto` constructors:
-
-```typescript
-
-
-
-class CreateUserDto extends BaseDto {
-  private constructor(data: CreateUserData) {
-    super(data, createZodValidator(createUserSchema));
-  }
-
-  static create(data: unknown): CreateUserDto {
-    return new CreateUserDto(data as CreateUserData);
-  }
-}
-```
-
----
-
-## Dto Wrapper Classes
-
-Each validator exports a convenience `Dto` class as a simpler alternative to extending `BaseDto`:
+The Zod adapter wraps Zod schemas for use in route definitions:
 
 ```typescript
 
 
+// Create a schema adapter
+const userSchema = zodSchema(
+  z.object({
+    id: z.string().uuid(),
+    email: z.string().email(),
+    name: z.string().min(1).max(100),
+    age: z.number().int().min(0).optional(),
+  }),
+);
 
-const userSchema = z.object({
-  name: z.string(),
-  email: z.string().email(),
+// Use in route definition
+
+
+
+  method: 'GET',
+  path: '/api/users/:userId',
+  responses: {
+    200: {
+      description: 'User found',
+      schema: userSchema,
+    },
+  },
 });
-
-type User = z.infer;
-
-// Create a validated DTO directly
-const userDto = new Dto(userSchema, { name: 'John', email: 'john@example.com' });
-console.log(userDto.data); // { name: 'John', email: 'john@example.com' }
-```
-
-Available in all validators:
-
-```typescript
-
-
-
-
 ```
 
 ---
 
-## Value Objects vs DTOs
+## TypeBox Adapter
 
-**Value Objects** validate in their domain layer using plain TypeScript - they don't use external validators. This keeps domain invariants in the domain.
-
-**DTOs** use validators at boundaries (API input validation) where you need schema-based validation of untrusted data.
+TypeBox schemas ARE JSON Schema, making them ideal for OpenAPI generation:
 
 ```typescript
-// Value Object - domain validation (plain TypeScript)
+
+
+// Create a schema adapter
+const userSchema = typeboxSchema(
+  Type.Object({
+    id: Type.String({ format: 'uuid' }),
+    email: Type.String({ format: 'email' }),
+    name: Type.String({ minLength: 1, maxLength: 100 }),
+    age: Type.Optional(Type.Integer({ minimum: 0 })),
+  }),
+);
+
+// Use in route definition
+
+  method: 'GET',
+  path: '/api/users/:userId',
+  responses: {
+    200: {
+      description: 'User found',
+      schema: userSchema,
+    },
+  },
+});
+```
+
+---
+
+## Using in Route Definitions
+
+Schema adapters are used in route definitions for request and response validation:
+
+```typescript
+
+
+
+
+  method: 'POST',
+  path: '/api/users',
+  request: {
+    // Request body validation
+    body: {
+      schema: zodSchema(
+        z.object({
+          email: z.string().email(),
+          name: z.string().min(1),
+          password: z.string().min(8),
+        }),
+      ),
+    },
+    // Query parameter validation
+    query: {
+      schema: zodSchema(
+        z.object({
+          sendWelcomeEmail: z.coerce.boolean().optional(),
+        }),
+      ),
+    },
+    // Path parameter validation
+    params: {
+      schema: zodSchema(
+        z.object({
+          orgId: z.string().uuid(),
+        }),
+      ),
+    },
+    // Context validation (from middleware)
+    context: {
+      schema: zodSchema(
+        z.object({
+          userId: z.string(),
+        }),
+      ),
+    },
+  },
+  responses: {
+    201: {
+      description: 'User created',
+      schema: zodSchema(
+        z.object({
+          userId: z.string().uuid(),
+        }),
+      ),
+    },
+    400: {
+      description: 'Validation error',
+    },
+  },
+});
+```
+
+---
+
+## Automatic Validation
+
+When you register routes with a framework adapter, request validation happens automatically:
+
+```typescript
+
+
+const routes = serverRoutes(userRouter)
+  .handle('users.create', {
+    // req.body, req.query, req.pathParams are already validated and typed
+    requestMapper: (req, ctx) => ({
+      email: req.body.email,      // string (validated)
+      name: req.body.name,        // string (validated)
+      createdBy: ctx.userId,      // string (from context schema)
+    }),
+    useCase: createUserUseCase,
+    responseMapper: (output) => ({
+      status: 201 as const,
+      body: { userId: output.userId },
+    }),
+  })
+  .build();
+```
+
+If validation fails, a 400 response is returned with structured errors:
+
+```json
+{
+  "errorCode": "VALIDATION_ERROR",
+  "message": "Request validation failed",
+  "details": [
+    { "path": ["body", "email"], "message": "Invalid email" }
+  ]
+}
+```
+
+---
+
+## JSON Schema Generation
+
+Schema adapters can generate JSON Schema for OpenAPI documentation:
+
+```typescript
+const userSchema = zodSchema(
+  z.object({
+    name: z.string().describe('User full name'),
+    email: z.string().email().describe('User email address'),
+  }),
+);
+
+// Get JSON Schema
+const jsonSchema = userSchema.toJsonSchema();
+// {
+//   type: 'object',
+//   properties: {
+//     name: { type: 'string', description: 'User full name' },
+//     email: { type: 'string', format: 'email', description: 'User email address' },
+//   },
+//   required: ['name', 'email'],
+// }
+```
+
+Use `generateOpenAPI()` to create a full OpenAPI spec from your router:
+
+```typescript
+
+
+const spec = generateOpenAPI(userRouter, {
+  info: { title: 'User API', version: '1.0.0' },
+  servers: [{ url: 'https://api.example.com' }],
+});
+```
+
+---
+
+## Type Inference
+
+Schema adapters provide full type inference:
+
+```typescript
+
+
+const userSchema = zodSchema(
+  z.object({
+    name: z.string(),
+    age: z.number(),
+  }),
+);
+
+// Infer types from schema
+type User = InferOutput;
+// { name: string; age: number }
+```
+
+Types are automatically inferred in handlers:
+
+```typescript
+.handle('users.create', {
+  requestMapper: (req, ctx) => {
+    // req.body is typed based on the route's body schema
+    const email: string = req.body.email;  // TypeScript knows this is string
+    return { email, createdBy: ctx.userId };
+  },
+  // ...
+})
+```
+
+---
+
+## Value Objects vs Schema Adapters
+
+| Aspect | Schema Adapters | Value Objects |
+|--------|-----------------|---------------|
+| **Purpose** | Boundary validation | Domain invariants |
+| **Location** | Route definitions (presentation) | Domain layer |
+| **Validation** | Schema-based (JSON Schema compatible) | Plain TypeScript |
+| **When to use** | HTTP request/response validation | Domain concepts |
+
+**Schema adapters** validate untrusted input at system boundaries:
+
+```typescript
+// Route definition with schema validation
+const createUserRoute = defineRoute({
+  request: {
+    body: { schema: zodSchema(z.object({ email: z.string().email() })) },
+  },
+});
+```
+
+**Value Objects** enforce domain invariants:
+
+```typescript
+// Domain validation with business rules
 class Email extends BaseValueObject {
-  static create(value: Email['value']): Email {
-    if (!Email.EMAIL_REGEX.test(value)) {
-      throw new InvariantViolationError({ message: 'Invalid email', code: 'INVALID_EMAIL' });
+  static create(value: string): Email {
+    if (!Email.isValidEmail(value)) {
+      throw new InvariantViolationError({ message: 'Invalid email' });
     }
     return new Email(value);
   }
 }
-
-// DTO - boundary validation (schema-based)
-class CreateUserDto extends BaseDto {
-  private constructor(data: CreateUserData) {
-    super(data, createZodValidator(createUserSchema));
-  }
-}
 ```
 
 ---
 
-## Error Handling
+## Adapter Comparison
 
-When validation fails, validators throw `ObjectValidationError`:
+| Feature | Zod | TypeBox |
+|---------|-----|---------|
+| Bundle size | ~12kb | ~15kb |
+| Type inference | Excellent | Good |
+| Error messages | Detailed, customizable | Basic |
+| JSON Schema | Conversion required | Native (zero-cost) |
+| Best for | General use | OpenAPI-first APIs |
 
-```typescript
+Choose **Zod** for:
+- Better error messages
+- More validation features (refinements, transforms)
+- Familiar API
 
-
-try {
-  const dto = CreateUserDto.create({ email: 'invalid' });
-} catch (error) {
-  if (error instanceof ObjectValidationError) {
-    console.log(error.code);            // 'OBJECT_VALIDATION_ERROR'
-    console.log(error.validationErrors); // [{ field: 'email', message: 'Invalid email' }]
-  }
-}
-```
-
-The `validationErrors` array contains structured errors:
-
-```typescript
-interface ValidationError {
-  field: string;   // Dot-notation path: 'user.email', 'items[0].name'
-  message: string; // Human-readable error message
-}
-```
-
----
-
-## Swapping Validators
-
-To switch validators, update your imports and schema definitions:
-
-```typescript
-// Before (Zod)
-
-
-const schema = z.object({ name: z.string() });
-const validator = createZodValidator(schema);
-
-// After (Valibot)
-
-
-const schema = v.object({ name: v.string() });
-const validator = createValibotValidator(schema);
-```
-
-The `BoundValidator` interface remains the same, so your `BaseDto` classes continue working without changes.
-
----
-
-## Validator Comparison
-
-| Feature | Zod | ArkType | Valibot | TypeBox |
-|---------|-----|---------|---------|---------|
-| Bundle size | ~12kb | ~20kb | ~5kb | ~15kb |
-| Type inference | Excellent | Excellent | Excellent | Good |
-| Error messages | Detailed | Detailed | Customizable | Basic |
-| Performance | Fast | Very fast | Fast | Very fast |
-| Ecosystem | Large | Growing | Growing | Large |
+Choose **TypeBox** for:
+- Native JSON Schema (faster OpenAPI generation)
+- Better performance
+- Smaller runtime overhead
 ---
 
 # Error Handling
@@ -2650,33 +2881,30 @@ class DeleteStatusUseCase extends BaseInboundAdapter {
 
 ---
 
-## Error Handling in Controllers
+## Error Handling in Route Handlers
 
-`BaseController` automatically converts `ObjectValidationError` to `InvalidRequestError`:
-
-```typescript
-class MyController extends BaseController {
-  // If requestMapper throws ObjectValidationError,
-  // it's converted to InvalidRequestError automatically
-}
-```
-
-For custom error handling, override the `pipeline` method:
+The unified route handler automatically handles validation errors. When a route defines schemas, validation failures are automatically converted to `ObjectValidationError`:
 
 ```typescript
-class MyController extends BaseController {
-  protected async pipeline(input: Request): Promise {
-    try {
-      return await super.pipeline(input);
-    } catch (error) {
-      if (error instanceof CustomError) {
-        // Custom handling
-      }
-      throw error;
-    }
-  }
-}
+
+
+const routes = serverRoutes(router)
+  .handle('users.create', {
+    // If validation fails, ObjectValidationError is thrown automatically
+    requestMapper: (req) => ({
+      email: req.body.email,
+      name: req.body.name,
+    }),
+    useCase: createUserUseCase,
+    responseMapper: (output) => ({
+      status: 201 as const,
+      body: { userId: output.userId },
+    }),
+  })
+  .build();
 ```
+
+The framework error handlers then convert `ObjectValidationError` to HTTP 400 responses with structured validation details.
 
 ---
 
@@ -2687,11 +2915,11 @@ Each framework integration provides an error handler:
 ```typescript
 // Hono
 
-app.onError(onionErrorHandler);
+app.onError((err, c) => onionErrorHandler(err, c));
 
 // Elysia
 
-app.error(onionErrorHandler);
+app.onError(({ error }) => onionErrorHandler({ error }));
 
 // Fastify
 
@@ -2699,7 +2927,7 @@ app.setErrorHandler(onionErrorHandler);
 
 // NestJS
 
-@UseFilters(OnionLasagnaExceptionFilter)
+@UseFilters(OnionExceptionFilter)
 
 ```
 ---
@@ -2709,17 +2937,16 @@ app.setErrorHandler(onionErrorHandler);
 
 ## Overview
 
-The bootstrap pattern orchestrates dependency injection across layers. It creates instances in the correct order: **adapters → use cases → controllers → routes**.
+The bootstrap pattern orchestrates dependency injection across layers. It creates instances in the correct order: **adapters → use cases → routes**.
 
 ```
 bootstrap/
 ├── index.ts                 # Main orchestration
 ├── adapters.bootstrap.ts    # Infrastructure adapters
-├── use-cases.bootstrap.ts   # Application use cases
-├── validators.bootstrap.ts  # DTO validators
-├── controller.bootstrap.ts  # Presentation controllers
-└── routes.bootstrap.ts      # Route definitions
+└── use-cases.bootstrap.ts   # Application use cases
 ```
+
+The unified route system handles the presentation layer wiring automatically through handlers.
 
 ---
 
@@ -2727,8 +2954,8 @@ bootstrap/
 
 The entry point creates all dependencies in order:
 
-```typescript:bootstrap/index.ts
-
+```typescript
+// bootstrap/index.ts
 
 
 
@@ -2740,16 +2967,12 @@ The entry point creates all dependencies in order:
   // 2. Create use cases with adapters (application layer)
   const useCases = createUseCases(adapters);
 
-  // 3. Create controllers with use cases (presentation layer)
-  const controllers = createControllers(useCases);
+  // 3. Create routes with handlers (presentation layer)
+  const routes = createProjectManagementRoutes(useCases);
 
-  // 4. Create routes with controllers
-  const routes = createRoutes(controllers);
-
-  return { adapters, useCases, controllers, routes };
+  return { adapters, useCases, routes };
 }
 
-// Type export for consumers
 
 ```
 
@@ -2759,7 +2982,8 @@ The entry point creates all dependencies in order:
 
 Creates infrastructure adapters (repositories, external services):
 
-```typescript:bootstrap/adapters.bootstrap.ts
+```typescript
+// bootstrap/adapters.bootstrap.ts
 
 
 
@@ -2779,7 +3003,8 @@ Creates infrastructure adapters (repositories, external services):
 
 Creates use cases with injected adapters:
 
-```typescript:bootstrap/use-cases.bootstrap.ts
+```typescript
+// bootstrap/use-cases.bootstrap.ts
 
 
 
@@ -2798,108 +3023,59 @@ Creates use cases with injected adapters:
 
 ---
 
-## Validators Bootstrap
+## Routes (Handlers)
 
-Creates validators for DTOs in one place:
+Create handlers using the `serverRoutes()` builder:
 
-```typescript:bootstrap/validators.bootstrap.ts
-
-
-  createProjectRequestSchema,
-  createProjectResponseSchema,
-  listProjectsRequestSchema,
-  listProjectsResponseSchema,
-} from '../presentation/http/projects/schemas';
-
-// Request validators (used at route level)
-
-
-
-// Response validators (used in response mappers)
-
-
-```
-
----
-
-## Controllers Bootstrap
-
-Creates controllers with use cases and mappers:
-
-```typescript:bootstrap/controller.bootstrap.ts
+```typescript
+// presentation/http/handlers/index.ts
 
 
 
 
 
-
-
-  return {
-    createProjectController: BaseController.create({
-      requestMapper: (req: CreateProjectRequestDto) =>
-        createProjectToInputMapper(req, SKIP_DTO_VALIDATION),
+  return serverRoutes(projectManagementRouter)
+    .handle('projects.create', {
+      requestMapper: (req, ctx) => ({
+        name: req.body.name,
+        description: req.body.description,
+        createdBy: ctx.userId,
+      }),
       useCase: useCases.createProjectUseCase,
-      responseMapper: (out: CreateProjectOutputDto) =>
-        createProjectToResponseMapper(out, createProjectResponseValidator),
-    }),
-
-    listProjectsController: BaseController.create({
-      requestMapper: (req: ListProjectsRequestDto) =>
-        listProjectsToInputMapper(req, SKIP_DTO_VALIDATION),
+      responseMapper: (output) => ({
+        status: 201 as const,
+        body: { projectId: output.projectId },
+      }),
+    })
+    .handle('projects.list', {
+      requestMapper: (req) => ({
+        page: req.query?.page ?? 1,
+        pageSize: req.query?.pageSize ?? 20,
+      }),
       useCase: useCases.listProjectsQuery,
-      responseMapper: (out: ListProjectsOutputDto) =>
-        listProjectsToResponseMapper(out, listProjectsResponseValidator),
-    }),
-  };
-}
-
-
-```
-
-
-**SKIP_DTO_VALIDATION** is used for request→input mapping because the request DTO has already been validated at the HTTP layer. Response mappers typically use validators to ensure the response matches the expected schema.
-
-
----
-
-## Routes Bootstrap
-
-Creates route definitions with metadata and controllers:
-
-```typescript:bootstrap/routes.bootstrap.ts
-
-
-
-
-
-
-
-
-
-  const service = projectManagementServiceMetadata;
-
-  return [
-    {
-      metadata: {
-        path: computeRoutePath(service, projectsResourceMetadata, createProjectEndpointMetadata),
-        method: createProjectEndpointMetadata.method,
-      },
-      controller: controllers.createProjectController,
-      requestDtoFactory: (req) =>
-        new CreateProjectRequestDto(req as CreateProjectRequestData, createProjectRequestValidator),
-    },
-    {
-      metadata: {
-        path: computeRoutePath(service, projectsResourceMetadata, listProjectsEndpointMetadata),
-        method: listProjectsEndpointMetadata.method,
-      },
-      controller: controllers.listProjectsController,
-      requestDtoFactory: (req) =>
-        new ListProjectsRequestDto(req as ListProjectsRequestData, listProjectsRequestValidator),
-    },
-  ];
+      responseMapper: (output) => ({
+        status: 200 as const,
+        body: output,
+      }),
+    })
+    .handle('projects.get', {
+      requestMapper: (req) => ({
+        projectId: req.pathParams.projectId,
+      }),
+      useCase: useCases.getProjectQuery,
+      responseMapper: (output) => ({
+        status: 200 as const,
+        body: output,
+      }),
+    })
+    .build();
 }
 ```
+
+The `serverRoutes()` builder:
+- Validates requests against route schemas automatically
+- Provides full type inference for `req` and `ctx` parameters
+- Handles error conversion to HTTP responses
 
 ---
 
@@ -2907,7 +3083,8 @@ Creates route definitions with metadata and controllers:
 
 In your application entry point:
 
-```typescript:index.ts
+```typescript
+// src/index.ts
 
 
 
@@ -2917,10 +3094,17 @@ const { routes } = bootstrapProjectManagement();
 
 // Create Hono app
 const app = new Hono();
-app.onError(onionErrorHandler);
 
-// Register routes
-registerHonoRoutes(app, routes);
+// Error handler
+app.onError((err, c) => onionErrorHandler(err, c));
+
+// Register routes with middleware and context extraction
+registerHonoRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (c) => ({
+    userId: c.get('jwtPayload')?.sub,
+  }),
+});
 
 
 ```
@@ -2934,30 +3118,66 @@ The bootstrap folder should be at the root of your bounded context:
 ```
 bounded-contexts/project-management/
 ├── bootstrap/                    # Dependency wiring
-│   ├── index.ts
-│   ├── adapters.bootstrap.ts
-│   ├── use-cases.bootstrap.ts
-│   ├── validators.bootstrap.ts
-│   ├── controller.bootstrap.ts
-│   └── routes.bootstrap.ts
+│   ├── index.ts                  # Main orchestration
+│   ├── adapters.bootstrap.ts     # Infrastructure adapters
+│   └── use-cases.bootstrap.ts    # Application use cases
 ├── app/                          # Application layer
-│   ├── ports/
-│   └── use-cases/
+│   ├── ports/                    # Use case interfaces
+│   └── use-cases/                # Use case implementations
 ├── domain/                       # Domain layer
+│   ├── entities/
+│   ├── value-objects/
+│   └── events/
 ├── infra/                        # Infrastructure layer
+│   └── persistence/              # Repository implementations
 └── presentation/                 # Presentation layer
     └── http/
+        ├── routes/               # Route definitions
+        ├── handlers/             # Route handlers
+        └── router.ts             # Combined router
+```
+
+---
+
+## Splitting Handlers
+
+For large bounded contexts, split handlers into separate files:
+
+```typescript
+// presentation/http/handlers/projects.handlers.ts
+
+  return serverRoutes(projectManagementRouter)
+    .handle('projects.create', { ... })
+    .handle('projects.list', { ... })
+    .buildPartial();  // Returns partial routes
+}
+
+// presentation/http/handlers/tasks.handlers.ts
+
+  return serverRoutes(projectManagementRouter)
+    .handle('projects.tasks.add', { ... })
+    .handle('projects.tasks.list', { ... })
+    .buildPartial();
+}
+
+// presentation/http/handlers/index.ts
+
+  return [
+    ...createProjectHandlers(useCases),
+    ...createTaskHandlers(useCases),
+  ];
+}
 ```
 
 ---
 
 ## Benefits
 
-- **Clear dependency flow**: Adapters → Use Cases → Controllers → Routes
+- **Clear dependency flow**: Adapters → Use Cases → Routes
+- **Simplified wiring**: No separate controller or validator bootstrap needed
+- **Type safety**: Full type inference from route definitions to handlers
 - **Testability**: Each layer can be tested independently with mocks
-- **Type safety**: TypeScript infers types through the chain
 - **Single entry point**: `bootstrapProjectManagement()` returns everything needed
-- **Separation of concerns**: Each bootstrap file handles one layer
 ---
 
 # Hono Integration
@@ -2966,7 +3186,7 @@ bounded-contexts/project-management/
 ## Installation
 
 ```bash
-bun add hono
+bun add hono @hono/node-server
 ```
 
 Import the Hono integration:
@@ -2975,8 +3195,7 @@ Import the Hono integration:
 
   registerHonoRoutes,
   onionErrorHandler,
-  mapErrorToHttpException,
-} from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+} from '@cosmneo/onion-lasagna/http/frameworks/hono';
 ```
 
 ---
@@ -2987,131 +3206,108 @@ Import the Hono integration:
 
 
 
+
+
+// Bootstrap your bounded context
+const { routes } = bootstrapProjectManagement();
+
 const app = new Hono();
 
 // Apply error handler
-app.onError(onionErrorHandler);
+app.onError((err, c) => onionErrorHandler(err, c));
 
 // Register routes
 registerHonoRoutes(app, routes);
 
-
+serve({ fetch: app.fetch, port: 3000 });
 ```
 
 ---
 
 ## Registering Routes
 
-The `registerHonoRoutes` function registers your controllers with Hono:
+The `registerHonoRoutes` function registers routes created with `serverRoutes()`:
 
 ```typescript
 
 
-const routes: RouteInput[] = [
-  {
-    metadata: {
-      method: 'GET',
-      path: '/users/{userId}',  // {param} syntax converted to :param
-    },
-    controller: getUserController,
-    requestDtoFactory: GetUserRequestDto.create,
-  },
-  {
-    metadata: {
-      method: 'POST',
-      path: '/users',
-    },
-    controller: createUserController,
-    requestDtoFactory: CreateUserRequestDto.create,
-  },
-];
 
+// Create routes using the builder
+const routes = serverRoutes(userRouter)
+  .handle('users.get', {
+    requestMapper: (req) => ({ userId: req.pathParams.userId }),
+    useCase: getUserQuery,
+    responseMapper: (output) => ({ status: 200 as const, body: output }),
+  })
+  .build();
+
+// Register with Hono
 registerHonoRoutes(app, routes);
 ```
-
-### Path Parameter Conversion
-
-Paths use `{param}` syntax which is automatically converted to Hono's `:param` format:
-
-- `/users/{userId}` → `/users/:userId`
-- `/orders/{orderId}/items/{itemId}` → `/orders/:orderId/items/:itemId`
 
 ---
 
 ## Options
 
 ```typescript
-interface RegisterRoutesOptions {
-  prefix?: string;                // Route prefix (e.g., '/api/v1')
-  middlewares?: HonoMiddleware[]; // Middlewares to apply to all routes
+interface RegisterHonoRoutesOptions {
+  prefix?: string;                    // Route prefix (e.g., '/api/v1')
+  middlewares?: HonoMiddleware[];     // Middlewares applied to all routes
+  contextExtractor?: HonoContextExtractor;  // Extract auth context
 }
 
-// With options
 registerHonoRoutes(app, routes, {
-  prefix: '/api/v1',
-  middlewares: [authMiddleware, loggingMiddleware],
+  prefix: '/api',
+  middlewares: [authMiddleware],
+  contextExtractor: (c) => ({
+    userId: c.get('jwtPayload')?.sub,
+  }),
 });
 ```
 
 ---
 
-## Contextual Routes (Protected Routes)
+## Context Extraction (Protected Routes)
 
-For routes that need authentication context (user ID, roles, etc.), use `ContextualRouteInput` with a `contextExtractor`:
+For authenticated routes, provide a `contextExtractor` to pass auth data to handlers:
 
 ```typescript
 
-  ContextualRouteInput,
-  ContextualHttpRequest,
-} from '@cosmneo/onion-lasagna/backend/frameworks/hono';
 
-// Define your auth context type
+// JWT middleware
+const authMiddleware = jwt({
+  secret: process.env.JWT_SECRET,
+});
+
+// Define context type
 interface AuthContext {
   userId: string;
-  roles: string[];
 }
 
-// Define contextual routes
-const protectedRoutes: ContextualRouteInput[] = [
-  {
-    metadata: { method: 'GET', path: '/profile' },
-    controller: getProfileController,
-    requestDtoFactory: (req: ContextualHttpRequest) =>
-      GetProfileRequestDto.create(req),
-  },
-];
-
-// Register with contextExtractor
-registerHonoRoutes(app, protectedRoutes, {
+// Register with context extraction
+registerHonoRoutes(app, routes, {
   middlewares: [authMiddleware],
   contextExtractor: (c): AuthContext => ({
-    userId: c.get('userId'),
-    roles: c.get('roles') ?? [],
+    userId: c.get('jwtPayload')?.sub ?? '',
   }),
 });
 ```
 
-The `contextExtractor` runs after middlewares, extracting auth data set by your auth middleware:
+The context is passed to your handler's `requestMapper`:
 
 ```typescript
-// Auth middleware sets context
-const authMiddleware: MiddlewareHandler = async (c, next) => {
-  const token = c.req.header('Authorization');
-  const payload = verifyToken(token);
-  c.set('userId', payload.userId);
-  c.set('roles', payload.roles);
-  await next();
-};
+.handle('projects.create', {
+  requestMapper: (req, ctx) => ({
+    name: req.body.name,
+    createdBy: ctx.userId,  // From contextExtractor
+  }),
+  useCase: createProjectUseCase,
+  responseMapper: (output) => ({
+    status: 201 as const,
+    body: { projectId: output.projectId },
+  }),
+})
 ```
-
-### Route Input Types
-
-| Type | Use Case |
-|------|----------|
-| `HttpRouteInput` | Public routes (no auth context) |
-| `ContextualRouteInput` | Protected routes with auth context |
-| `RouteInputOrArray` | Single or array of public routes |
-| `ContextualRouteInputOrArray` | Single or array of protected routes |
 
 ---
 
@@ -3120,15 +3316,16 @@ const authMiddleware: MiddlewareHandler = async (c, next) => {
 The `onionErrorHandler` maps domain errors to HTTP responses:
 
 ```typescript
-app.onError(onionErrorHandler);
+app.onError((err, c) => onionErrorHandler(err, c));
 ```
 
 ### Error Mapping
 
 | Error Type | HTTP Status | Body |
 |------------|-------------|------|
-| `ObjectValidationError` | 400 | `{ errorCode, message, errorItems }` |
-| `InvalidRequestError` | 400 | `{ errorCode, message, errorItems }` |
+| `ObjectValidationError` | 400 | `{ errorCode, message, details }` |
+| `InvalidRequestError` | 400 | `{ errorCode, message, details }` |
+| `UseCaseError` | 400 | `{ errorCode, message }` |
 | `AccessDeniedError` | 403 | `{ errorCode, message }` |
 | `NotFoundError` | 404 | `{ errorCode, message }` |
 | `ConflictError` | 409 | `{ errorCode, message }` |
@@ -3138,49 +3335,20 @@ app.onError(onionErrorHandler);
 | Unknown | 500 | Masked |
 
 
-**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details. See [Error Handling](/docs/patterns/error-handling#translating-domain-errors) for how to expose business errors.
+**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details.
 
 
 ---
 
 ## Custom Error Handling
 
-Use `mapErrorToHttpException` for custom error handling:
+Log errors before handling:
 
 ```typescript
-
-
-app.onError((error, c) => {
-  // Log all errors
-  console.error('Error:', error);
-
-  // Use standard mapping
-  const httpException = mapErrorToHttpException(error);
-  return httpException.getResponse();
+app.onError((err, c) => {
+  console.error('Error:', err);
+  return onionErrorHandler(err, c);
 });
-```
-
----
-
-## Controller Structure
-
-Controllers receive the raw Hono context and should return an `HttpResponse` wrapped in a DTO:
-
-```typescript
-
-
-class GetUserController extends BaseController,
-  GetUserInputDto,
-  GetUserOutputDto
-> {
-  static create(useCase: GetUserQueryInboundPort) {
-    return new GetUserController({
-      requestMapper: (dto) => GetUserInputDto.fromRequest(dto),
-      useCase,
-      responseMapper: (output) => HttpResponseDto.ok(output.data),
-    });
-  }
-}
 ```
 
 ---
@@ -3192,23 +3360,46 @@ class GetUserController extends BaseController,
 
 
 
+
+
+
+
+
+// Bootstrap
+const { routes } = bootstrapProjectManagement();
+
 // Create app
 const app = new Hono();
 
 // Middleware
+app.use('*', logger());
 app.use('*', cors());
 
 // Error handling
-app.onError(onionErrorHandler);
+app.onError((err, c) => {
+  console.error('Error:', err);
+  return onionErrorHandler(err, c);
+});
 
-// Health check
+// Health check (no auth)
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
-// API routes
-registerHonoRoutes(app, userRoutes, { prefix: '/api/v1' });
-registerHonoRoutes(app, orderRoutes, { prefix: '/api/v1' });
+// Auth middleware
+const authMiddleware = jwt({
+  secret: process.env.JWT_SECRET ?? 'dev-secret',
+});
 
+// API routes with auth
+registerHonoRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (c) => ({
+    userId: c.get('jwtPayload')?.sub,
+  }),
+});
 
+// Start server
+serve({ fetch: app.fetch, port: 3000 });
+console.log('Server running on http://localhost:3000');
 ```
 
 ---
@@ -3216,13 +3407,12 @@ registerHonoRoutes(app, orderRoutes, { prefix: '/api/v1' });
 ## Cloudflare Workers
 
 ```typescript
-// src/index.ts
 
 
 
 const app = new Hono();
 
-app.onError(onionErrorHandler);
+app.onError((err, c) => onionErrorHandler(err, c));
 registerHonoRoutes(app, routes);
 
 
@@ -3242,7 +3432,7 @@ compatibility_date = "2024-01-01"
 ## Installation
 
 ```bash
-bun add elysia
+bun add elysia @elysiajs/cors @elysiajs/jwt
 ```
 
 Import the Elysia integration:
@@ -3251,8 +3441,9 @@ Import the Elysia integration:
 
   registerElysiaRoutes,
   onionErrorHandler,
-  mapErrorToResponse,
-} from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
+  type ElysiaContext,
+  type ElysiaMiddleware,
+} from '@cosmneo/onion-lasagna/http/frameworks/elysia';
 ```
 
 ---
@@ -3263,9 +3454,14 @@ Import the Elysia integration:
 
 
 
+
+const { routes } = bootstrapProjectManagement();
+
 const app = new Elysia()
-  .error(onionErrorHandler)
-  .use(registerElysiaRoutes(routes));
+  .onError(({ error }) => onionErrorHandler({ error }))
+  .get('/health', () => ({ status: 'ok' }));
+
+registerElysiaRoutes(app, routes);
 
 app.listen(3000);
 ```
@@ -3274,109 +3470,99 @@ app.listen(3000);
 
 ## Registering Routes
 
-The `registerElysiaRoutes` function returns an Elysia plugin:
+The `registerElysiaRoutes` function registers routes with your Elysia app:
 
 ```typescript
 
 
-const routes: RouteInput[] = [
-  {
-    metadata: {
-      method: 'GET',
-      path: '/users/{userId}',
-    },
-    controller: getUserController,
-    requestDtoFactory: GetUserRequestDto.create,
-  },
-];
 
-const app = new Elysia()
-  .use(registerElysiaRoutes(routes));
+// Create routes using the builder
+const routes = serverRoutes(userRouter)
+  .handle('users.get', {
+    requestMapper: (req) => ({ userId: req.pathParams.userId }),
+    useCase: getUserQuery,
+    responseMapper: (output) => ({ status: 200 as const, body: output }),
+  })
+  .build();
+
+// Register with Elysia
+registerElysiaRoutes(app, routes);
 ```
 
-### Path Parameter Conversion
 
-Paths use `{param}` syntax which is automatically converted to Elysia's `:param` format.
+**Note:** `registerElysiaRoutes` is a function that mutates the app, not a plugin. Call it with `app` as the first argument.
+
 
 ---
 
 ## Options
 
 ```typescript
-interface RegisterRoutesOptions {
-  prefix?: string;
-  middlewares?: ElysiaMiddleware[];
+interface RegisterElysiaRoutesOptions {
+  middlewares?: ElysiaMiddleware[];         // Middlewares applied to all routes
+  contextExtractor?: ElysiaContextExtractor; // Extract auth context
 }
 
-const app = new Elysia()
-  .use(registerElysiaRoutes(routes, {
-    prefix: '/api/v1',
-    middlewares: [authMiddleware],
-  }));
+registerElysiaRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (ctx) => ({
+    userId: ctx.store['userId'],
+  }),
+});
 ```
 
 ---
 
-## Contextual Routes (Protected Routes)
+## Context Extraction (Protected Routes)
 
-For routes that need authentication context, use `ContextualRouteInput` with a `contextExtractor`:
+For authenticated routes, provide a `contextExtractor` to pass auth data to handlers:
 
 ```typescript
 
-  ContextualRouteInput,
-  ContextualHttpRequest,
-} from '@cosmneo/onion-lasagna/backend/frameworks/elysia';
 
-interface AuthContext {
-  userId: string;
-  roles: string[];
-}
+// Auth middleware
+const authMiddleware: ElysiaMiddleware = async (ctx: ElysiaContext) => {
+  const authHeader = ctx.headers['authorization'];
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ message: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
-const protectedRoutes: ContextualRouteInput[] = [
-  {
-    metadata: { method: 'GET', path: '/profile' },
-    controller: getProfileController,
-    requestDtoFactory: (req: ContextualHttpRequest) =>
-      GetProfileRequestDto.create(req),
-  },
-];
+  const token = authHeader.slice(7);
+  const payload = decodeJwt(token);
+  ctx.store['userId'] = payload.sub;
 
-const app = new Elysia()
-  .use(registerElysiaRoutes(protectedRoutes, {
-    middlewares: [authMiddleware],
-    contextExtractor: (ctx): AuthContext => ({
-      userId: ctx.store.userId,
-      roles: ctx.store.roles ?? [],
-    }),
-  }));
+  return undefined; // Continue to handler
+};
+
+// Register with context extraction
+registerElysiaRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (ctx: ElysiaContext) => ({
+    userId: ctx.store['userId'] as string,
+  }),
+});
 ```
-
-### Route Input Types
-
-| Type | Use Case |
-|------|----------|
-| `HttpRouteInput` | Public routes (no auth context) |
-| `ContextualRouteInput` | Protected routes with auth context |
-| `RouteInputOrArray` | Single or array of public routes |
-| `ContextualRouteInputOrArray` | Single or array of protected routes |
 
 ---
 
 ## Error Handler
 
-The `onionErrorHandler` is a function that handles errors:
+The `onionErrorHandler` maps domain errors to HTTP responses:
 
 ```typescript
-const app = new Elysia()
-  .error(onionErrorHandler);
+app.onError(({ error }) => onionErrorHandler({ error }));
 ```
 
 ### Error Mapping
 
 | Error Type | HTTP Status | Body |
 |------------|-------------|------|
-| `ObjectValidationError` | 400 | `{ errorCode, message, errorItems }` |
-| `InvalidRequestError` | 400 | `{ errorCode, message, errorItems }` |
+| `ObjectValidationError` | 400 | `{ errorCode, message, details }` |
+| `InvalidRequestError` | 400 | `{ errorCode, message, details }` |
+| `UseCaseError` | 400 | `{ errorCode, message }` |
 | `AccessDeniedError` | 403 | `{ errorCode, message }` |
 | `NotFoundError` | 404 | `{ errorCode, message }` |
 | `ConflictError` | 409 | `{ errorCode, message }` |
@@ -3384,31 +3570,6 @@ const app = new Elysia()
 | `DomainError` | 500 | Masked |
 | `InfraError` | 500 | Masked |
 | Unknown | 500 | Masked |
-
-
-**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details. See [Error Handling](/docs/patterns/error-handling#translating-domain-errors) for how to expose business errors.
-
-
----
-
-## Custom Error Handling
-
-Use `mapErrorToResponse` for custom handling:
-
-```typescript
-
-
-const app = new Elysia()
-  .error(({ error }) => {
-    console.error('Error:', error);
-
-    const { statusCode, body } = mapErrorToResponse(error);
-    return new Response(JSON.stringify(body), {
-      status: statusCode,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  });
-```
 
 ---
 
@@ -3419,16 +3580,61 @@ const app = new Elysia()
 
 
 
+  registerElysiaRoutes,
+  onionErrorHandler,
+  type ElysiaContext,
+  type ElysiaMiddleware,
+} from '@cosmneo/onion-lasagna/http/frameworks/elysia';
+
+
+const { routes } = bootstrapProjectManagement();
+
+// Auth middleware
+const authMiddleware: ElysiaMiddleware = async (ctx: ElysiaContext) => {
+  const authHeader = ctx.headers['authorization'];
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ message: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const token = authHeader.slice(7);
+  try {
+    const [, payloadBase64] = token.split('.');
+    const payload = JSON.parse(Buffer.from(payloadBase64!, 'base64').toString());
+    ctx.store['userId'] = payload.sub;
+  } catch {
+    return new Response(JSON.stringify({ message: 'Invalid token' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  return undefined;
+};
+
+// Create app
 const app = new Elysia()
   .use(cors())
-  .error(onionErrorHandler)
-  .get('/health', () => ({ status: 'ok' }))
-  .use(registerElysiaRoutes(userRoutes, { prefix: '/api/v1' }))
-  .use(registerElysiaRoutes(orderRoutes, { prefix: '/api/v1' }));
+  .onError(({ error }) => {
+    console.error('Error:', error);
+    return onionErrorHandler({ error });
+  })
+  .get('/health', () => ({ status: 'ok' }));
 
-app.listen(3000);
+// Register routes with auth
+registerElysiaRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (ctx: ElysiaContext) => ({
+    userId: ctx.store['userId'] as string,
+  }),
+});
 
-console.log(`Server running at http://localhost:3000`);
+// Start server
+app.listen(3000, () => {
+  console.log('Server running on http://localhost:3000');
+});
 ```
 ---
 
@@ -3438,7 +3644,7 @@ console.log(`Server running at http://localhost:3000`);
 ## Installation
 
 ```bash
-bun add fastify
+bun add fastify @fastify/cors @fastify/jwt
 ```
 
 Import the Fastify integration:
@@ -3447,8 +3653,7 @@ Import the Fastify integration:
 
   registerFastifyRoutes,
   onionErrorHandler,
-  mapErrorToResponse,
-} from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
+} from '@cosmneo/onion-lasagna/http/frameworks/fastify';
 ```
 
 ---
@@ -3458,6 +3663,9 @@ Import the Fastify integration:
 ```typescript
 
 
+
+
+const { routes } = bootstrapProjectManagement();
 
 const app = Fastify();
 
@@ -3474,88 +3682,77 @@ app.listen({ port: 3000 });
 
 ## Registering Routes
 
-The `registerFastifyRoutes` function registers your controllers with Fastify:
+The `registerFastifyRoutes` function registers routes with Fastify:
 
 ```typescript
 
 
-const routes: RouteInput[] = [
-  {
-    metadata: {
-      method: 'GET',
-      path: '/users/{userId}',
-    },
-    controller: getUserController,
-    requestDtoFactory: GetUserRequestDto.create,
-  },
-];
 
+// Create routes using the builder
+const routes = serverRoutes(userRouter)
+  .handle('users.get', {
+    requestMapper: (req) => ({ userId: req.pathParams.userId }),
+    useCase: getUserQuery,
+    responseMapper: (output) => ({ status: 200 as const, body: output }),
+  })
+  .build();
+
+// Register with Fastify
 registerFastifyRoutes(app, routes);
 ```
-
-### Path Parameter Conversion
-
-Paths use `{param}` syntax which is automatically converted to Fastify's `:param` format.
 
 ---
 
 ## Options
 
 ```typescript
-interface RegisterRoutesOptions {
-  prefix?: string;
-  middlewares?: FastifyMiddleware[];
+interface RegisterFastifyRoutesOptions {
+  prefix?: string;                      // Route prefix (e.g., '/api')
+  preHandlers?: FastifyMiddleware[];    // Fastify preHandlers (preferred)
+  middlewares?: FastifyMiddleware[];    // Alias for preHandlers
+  contextExtractor?: FastifyContextExtractor;  // Extract auth context
 }
 
 registerFastifyRoutes(app, routes, {
-  prefix: '/api/v1',
-  middlewares: [authMiddleware],
+  prefix: '/api',
+  preHandlers: [authMiddleware],
+  contextExtractor: (request) => ({
+    userId: request.user?.userId,
+  }),
 });
 ```
 
 ---
 
-## Contextual Routes (Protected Routes)
+## Context Extraction (Protected Routes)
 
-For routes that need authentication context, use `ContextualRouteInput` with a `contextExtractor`:
+For authenticated routes, provide a `contextExtractor` to pass auth data to handlers:
 
 ```typescript
 
-  ContextualRouteInput,
-  ContextualHttpRequest,
-} from '@cosmneo/onion-lasagna/backend/frameworks/fastify';
 
-interface AuthContext {
-  userId: string;
-  roles: string[];
-}
+// Register JWT plugin
+await app.register(fastifyJwt, {
+  secret: process.env.JWT_SECRET,
+});
 
-const protectedRoutes: ContextualRouteInput[] = [
-  {
-    metadata: { method: 'GET', path: '/profile' },
-    controller: getProfileController,
-    requestDtoFactory: (req: ContextualHttpRequest) =>
-      GetProfileRequestDto.create(req),
-  },
-];
+// Auth preHandler
+const authMiddleware = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    await request.jwtVerify();
+  } catch (err) {
+    reply.status(401).send({ message: 'Unauthorized' });
+  }
+};
 
-registerFastifyRoutes(app, protectedRoutes, {
-  middlewares: [authMiddleware],
-  contextExtractor: (request): AuthContext => ({
-    userId: request.user.id,
-    roles: request.user.roles ?? [],
+// Register with context extraction
+registerFastifyRoutes(app, routes, {
+  preHandlers: [authMiddleware],
+  contextExtractor: (request) => ({
+    userId: request.user?.sub,
   }),
 });
 ```
-
-### Route Input Types
-
-| Type | Use Case |
-|------|----------|
-| `HttpRouteInput` | Public routes (no auth context) |
-| `ContextualRouteInput` | Protected routes with auth context |
-| `RouteInputOrArray` | Single or array of public routes |
-| `ContextualRouteInputOrArray` | Single or array of protected routes |
 
 ---
 
@@ -3571,8 +3768,9 @@ app.setErrorHandler(onionErrorHandler);
 
 | Error Type | HTTP Status | Body |
 |------------|-------------|------|
-| `ObjectValidationError` | 400 | `{ errorCode, message, errorItems }` |
-| `InvalidRequestError` | 400 | `{ errorCode, message, errorItems }` |
+| `ObjectValidationError` | 400 | `{ errorCode, message, details }` |
+| `InvalidRequestError` | 400 | `{ errorCode, message, details }` |
+| `UseCaseError` | 400 | `{ errorCode, message }` |
 | `AccessDeniedError` | 403 | `{ errorCode, message }` |
 | `NotFoundError` | 404 | `{ errorCode, message }` |
 | `ConflictError` | 409 | `{ errorCode, message }` |
@@ -3581,24 +3779,16 @@ app.setErrorHandler(onionErrorHandler);
 | `InfraError` | 500 | Masked |
 | Unknown | 500 | Masked |
 
-
-**Masked errors** return `{ "message": "An unexpected error occurred", "errorCode": "INTERNAL_ERROR" }`. Domain and infrastructure errors are masked to prevent leaking implementation details. See [Error Handling](/docs/patterns/error-handling#translating-domain-errors) for how to expose business errors.
-
-
 ---
 
 ## Custom Error Handling
 
-Use `mapErrorToResponse` for custom handling:
+Log errors before handling:
 
 ```typescript
-
-
 app.setErrorHandler((error, request, reply) => {
   console.error('Error:', error);
-
-  const { statusCode, body } = mapErrorToResponse(error);
-  reply.status(statusCode).send(body);
+  return onionErrorHandler(error, request, reply);
 });
 ```
 
@@ -3611,42 +3801,53 @@ app.setErrorHandler((error, request, reply) => {
 
 
 
+
+
+
+const { routes } = bootstrapProjectManagement();
+
 const app = Fastify({ logger: true });
 
 // Plugins
 await app.register(cors);
+await app.register(jwt, {
+  secret: process.env.JWT_SECRET ?? 'dev-secret',
+});
 
 // Error handling
-app.setErrorHandler(onionErrorHandler);
+app.setErrorHandler((error, request, reply) => {
+  console.error('Error:', error);
+  return onionErrorHandler(error, request, reply);
+});
 
-// Health check
+// Health check (no auth)
 app.get('/health', () => ({ status: 'ok' }));
 
-// API routes
-registerFastifyRoutes(app, userRoutes, { prefix: '/api/v1' });
-registerFastifyRoutes(app, orderRoutes, { prefix: '/api/v1' });
+// Auth preHandler
+const authMiddleware = async (request, reply) => {
+  try {
+    await request.jwtVerify();
+  } catch (err) {
+    reply.status(401).send({ message: 'Unauthorized' });
+  }
+};
 
-// Start
+// API routes with auth
+registerFastifyRoutes(app, routes, {
+  preHandlers: [authMiddleware],
+  contextExtractor: (request) => ({
+    userId: request.user?.sub,
+  }),
+});
+
+// Start server
 try {
   await app.listen({ port: 3000 });
-  console.log('Server running at http://localhost:3000');
+  console.log('Server running on http://localhost:3000');
 } catch (err) {
   app.log.error(err);
   process.exit(1);
 }
-```
-
----
-
-## Type Providers
-
-Fastify's type system works with the integration:
-
-```typescript
-
-
-
-const app = Fastify().withTypeProvider();
 ```
 ---
 
@@ -3663,12 +3864,22 @@ Import the NestJS integration:
 
 ```typescript
 
-  OnionLasagnaRequest,
-  OnionLasagnaExceptionFilter,
-  OnionLasagnaResponseInterceptor,
-  BaseNestController,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+  OnionRequest,
+  OnionExceptionFilter,
+  type ContextualRawHttpRequest,
+  type NestContextExtractor,
+} from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
 ```
+
+---
+
+## Overview
+
+NestJS integration differs from other frameworks because NestJS uses decorators and its own module system. The integration provides:
+
+- `OnionRequest` - Decorator to extract HTTP request data
+- `OnionExceptionFilter` - Exception filter for domain errors
+- Type-safe context extraction for authenticated routes
 
 ---
 
@@ -3677,48 +3888,45 @@ Import the NestJS integration:
 ```typescript
 
 
-  OnionLasagnaRequest,
-  OnionLasagnaExceptionFilter,
-  OnionLasagnaResponseInterceptor,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+  OnionRequest,
+  OnionExceptionFilter,
+  type ContextualRawHttpRequest,
+} from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
 
+@Controller('api/users')
+@UseFilters(OnionExceptionFilter)
 
-@Controller('users')
-@UseFilters(OnionLasagnaExceptionFilter)
-@UseInterceptors(OnionLasagnaResponseInterceptor)
-
-  constructor(private readonly getUserQuery: GetUserQueryInboundPort) {}
+  constructor(private readonly routeHandlers: Map) {}
 
   @Get(':userId')
-  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
-    const dto = GetUserRequestDto.create(request);
-    return this.getUserQuery.execute(dto);
+  async getUser(@OnionRequest() request: RawHttpRequest) {
+    const route = this.routeHandlers.get('GET:/api/users/{userId}');
+    return route.handler(request);
   }
 }
 ```
 
 ---
 
-## @OnionLasagnaRequest Decorator
+## @OnionRequest Decorator
 
 Extracts an `HttpRequest` object from the NestJS request:
 
 ```typescript
 
 
-
 @Get(':id')
-async getItem(@OnionLasagnaRequest() request: HttpRequest) {
-  // request contains: pathParams, queryParams, body, headers
+async getItem(@OnionRequest() request: RawHttpRequest) {
+  // request contains: pathParams, query, body, headers
 }
 ```
 
-The `HttpRequest` structure:
+The `RawHttpRequest` structure:
 
 ```typescript
-interface HttpRequest {
+interface RawHttpRequest {
   pathParams: Record;
-  queryParams: Record;
+  query: Record;
   body: unknown;
   headers: Record;
 }
@@ -3726,48 +3934,43 @@ interface HttpRequest {
 
 ### With Context Extractor (Protected Routes)
 
-For routes that need authentication context, pass a `contextExtractor` function to the decorator:
+For routes that need authentication context, pass a context extractor:
 
 ```typescript
 
 
-  OnionLasagnaRequest,
+
+  OnionRequest,
   type NestContextExtractor,
-  type ContextualHttpRequest,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+  type ContextualRawHttpRequest,
+} from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
 
 interface AuthContext {
-  user: { id: string; email: string };
-  requestId: string;
+  userId: string;
 }
 
-const extractAuthContext: NestContextExtractor = (ctx) => {
+const extractAuthContext: NestContextExtractor = (ctx: ExecutionContext) => {
   const request = ctx.switchToHttp().getRequest();
   return {
-    user: request.user,        // Set by AuthGuard
-    requestId: request.id,
+    userId: request.user?.userId ?? '',
   };
 };
 
-@Controller('users')
+@Controller('api/projects')
+@UseGuards(JwtAuthGuard)
 
-  @UseGuards(AuthGuard)
-  @Get('profile')
-  getProfile(
-    @OnionLasagnaRequest(extractAuthContext) request: ContextualHttpRequest
+  @Get()
+  async list(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest,
   ) {
-    // request.context.user is type-safe
-    const dto = GetProfileRequestDto.create(request);
-    return this.getProfileQuery.execute(dto);
+    // request.context.userId is type-safe
   }
 }
 ```
 
-The `ContextualHttpRequest` extends `HttpRequest` with a `context` property containing your auth data.
-
 ---
 
-## OnionLasagnaExceptionFilter
+## OnionExceptionFilter
 
 Maps domain errors to HTTP responses:
 
@@ -3777,11 +3980,11 @@ Maps domain errors to HTTP responses:
 
 // Apply to controller
 @Controller('users')
-@UseFilters(OnionLasagnaExceptionFilter)
+@UseFilters(OnionExceptionFilter)
 
 
 // Or apply globally in main.ts
-app.useGlobalFilters(new OnionLasagnaExceptionFilter());
+app.useGlobalFilters(new OnionExceptionFilter());
 ```
 
 ### Error Mapping
@@ -3790,6 +3993,7 @@ app.useGlobalFilters(new OnionLasagnaExceptionFilter());
 |------------|-------------|
 | `ObjectValidationError` | 400 |
 | `InvalidRequestError` | 400 |
+| `UseCaseError` | 400 |
 | `AccessDeniedError` | 403 |
 | `NotFoundError` | 404 |
 | `ConflictError` | 409 |
@@ -3798,50 +4002,65 @@ app.useGlobalFilters(new OnionLasagnaExceptionFilter());
 
 ---
 
-## OnionLasagnaResponseInterceptor
+## Using Unified Route Handlers
 
-Extracts `HttpResponse` data from controller returns:
-
-```typescript
-
-
-
-@Controller('users')
-@UseInterceptors(OnionLasagnaResponseInterceptor)
-
-
-// Or apply globally
-app.useGlobalInterceptors(new OnionLasagnaResponseInterceptor());
-```
-
-This allows controllers to return `HttpResponse` objects and have them automatically unwrapped.
-
----
-
-## BaseNestController
-
-A base class for NestJS controllers using onion patterns:
+For consistency with other frameworks, you can use the unified route handlers:
 
 ```typescript
 
 
-@Controller('users')
+
+  OnionRequest,
+  type ContextualRawHttpRequest,
+  type NestContextExtractor,
+} from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
+
+
+interface AuthContext {
+  userId: string;
+}
+
+const extractAuthContext: NestContextExtractor = (ctx) => {
+  const request = ctx.switchToHttp().getRequest();
+  return { userId: request.user?.userId ?? '' };
+};
+
+@Controller('api/projects')
+@UseGuards(JwtAuthGuard)
 
   constructor(
-    private readonly getUserQuery: GetUserQueryInboundPort,
-    private readonly createUserCommand: CreateUserCommandInboundPort,
-  ) {
-    super();
-  }
+    @Inject('ROUTE_HANDLERS')
+    private readonly routeHandlers: Map,
+  ) {}
 
-  @Get(':userId')
-  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
-    return this.execute(request, GetUserRequestDto, this.getUserQuery);
+  private async callHandler(
+    method: string,
+    path: string,
+    request: ContextualRawHttpRequest,
+    res: Response,
+  ) {
+    const route = this.routeHandlers.get(`${method}:${path}`);
+    if (!route) throw new Error(`Route not found: ${method}:${path}`);
+
+    const response = await route.handler(request, request.context);
+    res.status(response.status);
+    return response.body;
   }
 
   @Post()
-  async createUser(@OnionLasagnaRequest() request: HttpRequest) {
-    return this.execute(request, CreateUserRequestDto, this.createUserCommand);
+  async create(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('POST', '/api/projects', request, res);
+  }
+
+  @Get()
+  async list(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('GET', '/api/projects', request, res);
   }
 }
 ```
@@ -3855,17 +4074,19 @@ A base class for NestJS controllers using onion patterns:
 
 
 
+const { routes } = bootstrapProjectManagement();
+
+// Create a map of routes for injection
+const routeHandlersMap = new Map(
+  routes.map((route) => [`${route.method}:${route.path}`, route]),
+);
 
 @Module({
-  controllers: [UsersController],
+  controllers: [ProjectsController],
   providers: [
     {
-      provide: 'GetUserQueryInboundPort',
-      useClass: GetUserQuery,
-    },
-    {
-      provide: 'UserRepository',
-      useClass: UserRepository,
+      provide: 'ROUTE_HANDLERS',
+      useValue: routeHandlersMap,
     },
   ],
 })
@@ -3876,24 +4097,18 @@ A base class for NestJS controllers using onion patterns:
 
 ## Global Setup
 
-Configure filters and interceptors globally in `main.ts`:
+Configure the exception filter globally in `main.ts`:
 
 ```typescript
 
 
-  OnionLasagnaExceptionFilter,
-  OnionLasagnaResponseInterceptor,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
 
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Global exception filter
-  app.useGlobalFilters(new OnionLasagnaExceptionFilter());
-
-  // Global response interceptor
-  app.useGlobalInterceptors(new OnionLasagnaResponseInterceptor());
+  app.useGlobalFilters(new OnionExceptionFilter());
 
   await app.listen(3000);
 }
@@ -3906,36 +4121,104 @@ bootstrap();
 ## Complete Example
 
 ```typescript
-// users.controller.ts
+// main.ts
 
 
-  OnionLasagnaRequest,
-  OnionLasagnaExceptionFilter,
-  OnionLasagnaResponseInterceptor,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
 
 
-@Controller('users')
-@UseFilters(OnionLasagnaExceptionFilter)
-@UseInterceptors(OnionLasagnaResponseInterceptor)
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  app.enableCors();
+  app.useGlobalFilters(new OnionExceptionFilter());
+
+  await app.listen(process.env.PORT ?? 3000);
+  console.log(`Server running on http://localhost:${process.env.PORT ?? 3000}`);
+}
+
+bootstrap();
+```
+
+```typescript
+// projects.controller.ts
+
+
+
+  OnionRequest,
+  type ContextualRawHttpRequest,
+  type NestContextExtractor,
+} from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
+
+
+
+interface AuthContext {
+  userId: string;
+}
+
+const extractAuthContext: NestContextExtractor = (ctx) => {
+  const request = ctx.switchToHttp().getRequest();
+  return { userId: request.user?.userId ?? '' };
+};
+
+@Controller('api/projects')
+@UseGuards(JwtAuthGuard)
 
   constructor(
-    private readonly getUserQuery: GetUserQueryInboundPort,
-    private readonly createUserCommand: CreateUserCommandInboundPort,
+    @Inject('ROUTE_HANDLERS')
+    private readonly routeHandlers: Map,
   ) {}
 
-  @Get(':userId')
-  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
-    const dto = GetUserRequestDto.create(request);
-    const result = await this.getUserQuery.execute(dto);
-    return HttpResponse.ok(result.data);
+  private async callHandler(
+    method: string,
+    path: string,
+    request: ContextualRawHttpRequest,
+    res: Response,
+  ) {
+    const route = this.routeHandlers.get(`${method}:${path}`);
+    if (!route) throw new Error(`Route not found: ${method}:${path}`);
+
+    const response = await route.handler(request, request.context);
+    res.status(response.status);
+    if (response.headers) {
+      for (const [key, value] of Object.entries(response.headers)) {
+        res.setHeader(key, value);
+      }
+    }
+    return response.body;
   }
 
   @Post()
-  async createUser(@OnionLasagnaRequest() request: HttpRequest) {
-    const dto = CreateUserRequestDto.create(request);
-    const result = await this.createUserCommand.execute(dto);
-    return HttpResponse.created(result.data);
+  async create(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('POST', '/api/projects', request, res);
+  }
+
+  @Get()
+  async list(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('GET', '/api/projects', request, res);
+  }
+
+  @Get(':projectId')
+  async get(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('GET', '/api/projects/{projectId}', request, res);
+  }
+
+  @Delete(':projectId')
+  @HttpCode(204)
+  async delete(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('DELETE', '/api/projects/{projectId}', request, res);
   }
 }
 ```
@@ -3944,184 +4227,209 @@ bootstrap();
 # New Endpoint
 > Step-by-step guide to creating a new HTTP endpoint
 
-## Decision: Direct BC vs Orchestration
+## Overview
 
-| Scenario | Approach |
-|----------|----------|
-| Single BC, self-contained | Direct BC call |
-| Multiple BCs needed | Orchestration |
+Creating a new endpoint involves these steps:
+
+1. Define the route with schemas
+2. Add the route to your router
+3. Create the use case
+4. Create the handler
+5. Wire in bootstrap
 
 ---
 
 ## Steps
 
-### 1. Create Request/Response DTOs
+### 1. Define the Route
 
-```typescript:presentation/http/users/get-user/request.dto.ts
-const getUserRequestSchema = z.object({
-  pathParams: z.object({
-    userId: z.string().uuid(),
-  }),
-});
-type GetUserRequest = z.infer;
+Create a route definition with schemas for request validation and response documentation:
 
-// presentation/http/users/get-user/response.dto.ts
-const getUserResponseSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string(),
-  name: z.string(),
-});
-type GetUserResponse = z.infer;
-```
-
-### 2. Create Endpoint Metadata
-
-```typescript:presentation/http/users/get-user/endpoint.metadata.ts
+```typescript
+// presentation/http/routes/users.routes.ts
 
 
 
-  id: 'get-user',
-  shortId: 'gu',
-  name: 'getUser',
-  description: 'Gets a user by their ID.',
+
   method: 'GET',
-  path: '/{userId}',  // Use {param} syntax - converted to :param by framework
-  openApi: {
-    summary: 'Get user by ID',
+  path: '/api/users/:userId',
+  request: {
+    params: {
+      schema: zodSchema(
+        z.object({
+          userId: z.string().uuid(),
+        }),
+      ),
+    },
   },
-};
+  responses: {
+    200: {
+      description: 'User found',
+      schema: zodSchema(
+        z.object({
+          id: z.string().uuid(),
+          email: z.string().email(),
+          name: z.string(),
+        }),
+      ),
+    },
+    404: {
+      description: 'User not found',
+    },
+  },
+  docs: {
+    summary: 'Get user by ID',
+    tags: ['Users'],
+    operationId: 'getUser',
+  },
+});
 ```
 
+### 2. Add to Router
 
-Paths use `{param}` syntax which is framework-agnostic. Framework integrations convert to the appropriate format (e.g., `:param` for Hono/Express).
+Add the route to your router definition:
+
+```typescript
+// presentation/http/router.ts
 
 
-**OpenAPI successStatus defaults:**
 
-| Method | Default Status | When to Override |
-|--------|----------------|------------------|
-| GET | 200 | Rarely needed |
-| POST | 201 | Use 200 for non-creation operations |
-| PUT | 200 | Use 204 for no-content responses |
-| PATCH | 200 | Use 204 for no-content responses |
-| DELETE | 204 | Use 200 if returning deleted resource |
 
-```typescript:endpoint.metadata.ts
-// POST that creates - use default 201
-openApi: { summary: 'Create user' }
-
-// POST that doesn't create - override to 200
-openApi: { summary: 'Login', successStatus: 200 }
-
-// DELETE with no response body - use default 204
-openApi: { summary: 'Delete user' }
+  users: {
+    get: getUserRoute,
+    create: createUserRoute,
+    list: listUsersRoute,
+  },
+});
 ```
 
-### 3. Define Inbound Port (in BC)
+### 3. Create the Use Case
 
-```typescript:app/ports/inbound/get-user.query.inbound.ts
-interface GetUserQueryInboundPort {
+Define the use case port and implementation:
+
+```typescript
+// app/ports/get-user.query.port.ts
+interface GetUserQueryPort {
   execute(input: GetUserInput): Promise;
+}
+
+interface GetUserInput {
+  userId: string;
+}
+
+interface GetUserOutput {
+  id: string;
+  email: string;
+  name: string;
 }
 ```
 
-### 4. Implement Use Case
-
-```typescript:app/use-cases/queries/get-user.use-case.ts
+```typescript
+// app/use-cases/get-user.query.ts
 
 
 class GetUserQuery
   extends BaseInboundAdapter
-  implements GetUserQueryInboundPort
+  implements GetUserQueryPort
 {
-  constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {
+  constructor(private readonly userRepo: UserRepositoryPort) {
     super();
   }
 
-  protected async handle(input: GetUserInputDto): Promise {
-    const user = await this.userRepo.findById(UserId.create(input.data.userId));
+  protected async handle(input: GetUserInput): Promise {
+    const user = await this.userRepo.findById(input.userId);
+
     if (!user) {
-      throw new NotFoundError({ message: `User ${input.data.userId} not found` });
+      throw new NotFoundError({
+        message: `User ${input.userId} not found`,
+        code: 'USER_NOT_FOUND',
+      });
     }
-    return GetUserOutputDto.create({
+
+    return {
       id: user.id.value,
-      email: user.email,
+      email: user.email.value,
       name: user.name,
-    });
+    };
   }
 }
 ```
 
-**Note:** Extend `BaseInboundAdapter` and implement `handle()` for automatic error wrapping. The inherited `execute()` method handles error boundaries.
+### 4. Create the Handler
 
-### 5. Create Mappers
+Add the handler using the `serverRoutes()` builder:
 
-```typescript:presentation/http/users/get-user/to-use-case.mapper.ts
-function toGetUserInput(request: GetUserRequest): GetUserInput {
-  return { userId: request.pathParams.userId };
-}
+```typescript
+// presentation/http/handlers/users.handlers.ts
 
-// presentation/http/users/get-user/to-response.mapper.ts
-function toGetUserResponse(output: GetUserOutput): GetUserResponse {
-  return { id: output.id, email: output.email, name: output.name };
+
+
+
+
+  return serverRoutes(userRouter)
+    .handle('users.get', {
+      requestMapper: (req) => ({
+        userId: req.pathParams.userId,
+      }),
+      useCase: useCases.getUserQuery,
+      responseMapper: (output) => ({
+        status: 200 as const,
+        body: {
+          id: output.id,
+          email: output.email,
+          name: output.name,
+        },
+      }),
+    })
+    .buildPartial();
 }
 ```
 
-### 6. Create Access Guard (if needed)
+### 5. Wire in Bootstrap
 
-Access guards are **functions**, not classes:
+Add the use case to your bootstrap:
 
-```typescript:presentation/http/users/get-user/access-guard.ts
+```typescript
+// bootstrap/use-cases.bootstrap.ts
 
 
-// Simple guard - allow any authenticated user
-const getUserAccessGuard: AccessGuard = (request) => ({
-  isAllowed: true,
-});
 
-// Guard with authorization check
-const getUserAccessGuardWithAuth: AccessGuard = async (request) => {
-  const isOwner = request.data.pathParams.userId === request.data.currentUserId;
   return {
-    isAllowed: isOwner,
-    reason: isOwner ? undefined : 'You can only view your own profile',
+    // ... other use cases
+    getUserQuery: new GetUserQuery(adapters.userRepository),
   };
-};
+}
 ```
 
-### 7. Wire in Bootstrap
+---
 
-```typescript:bootstrap/user.bootstrap.ts
-const userReadRepo = new UserRepository(new UserPersistence());
-const getUserQuery = new GetUserQuery(userReadRepo);
-```
+## Route Definition Options
 
-### 8. Create Controller
+### Request Configuration
 
-Use `BaseController` or `GuardedController` to wire the pipeline:
+| Property | Description |
+|----------|-------------|
+| `request.body.schema` | Request body schema |
+| `request.query.schema` | Query parameters schema |
+| `request.params.schema` | Path parameters schema |
+| `request.headers.schema` | Request headers schema |
+| `request.context.schema` | Context schema (from middleware) |
 
-```typescript:presentation/http/users/get-user/controller.ts
+### Response Configuration
 
+| Property | Description |
+|----------|-------------|
+| `responses[status].description` | Response description for OpenAPI |
+| `responses[status].schema` | Response body schema |
 
-// Without access guard
-const getUserController = BaseController.create({
-  requestMapper: (req: GetUserRequestDto) =>
-    GetUserInputDto.create({ userId: req.data.pathParams.userId }),
-  useCase: getUserQuery,
-  responseMapper: (output: GetUserOutputDto) =>
-    GetUserResponseDto.create(output.data),
-});
+### Documentation
 
-// With access guard
-const getUserControllerGuarded = GuardedController.create({
-  requestMapper: (req: GetUserRequestDto) =>
-    GetUserInputDto.create({ userId: req.data.pathParams.userId }),
-  useCase: getUserQuery,
-  responseMapper: (output: GetUserOutputDto) =>
-    GetUserResponseDto.create(output.data),
-  accessGuard: getUserAccessGuard,
-});
-```
+| Property | Description |
+|----------|-------------|
+| `docs.summary` | Short description for OpenAPI |
+| `docs.description` | Detailed description |
+| `docs.tags` | OpenAPI tags for grouping |
+| `docs.operationId` | Unique operation identifier |
 
 ---
 
@@ -4129,100 +4437,129 @@ const getUserControllerGuarded = GuardedController.create({
 
 For operations that return no content (HTTP 204):
 
-### Port with void output
+### Route Definition
 
-```typescript:app/ports/inbound/delete-user.command.port.ts
+```typescript
 
-
-interface DeleteUserPort extends BaseInboundPort {}
+  method: 'DELETE',
+  path: '/api/users/:userId',
+  request: {
+    params: {
+      schema: zodSchema(
+        z.object({
+          userId: z.string().uuid(),
+        }),
+      ),
+    },
+  },
+  responses: {
+    204: {
+      description: 'User deleted',
+    },
+    404: {
+      description: 'User not found',
+    },
+  },
+  docs: {
+    summary: 'Delete a user',
+    tags: ['Users'],
+    operationId: 'deleteUser',
+  },
+});
 ```
 
-### Use Case returning void
+### Handler
 
-Since `BaseInboundAdapter` requires a DTO output, create a void adapter in your codebase:
-
-
-`BaseVoidInboundAdapter` is **not** a library export—it's a pattern you implement. Create this class once in your project and reuse it for all void-returning use cases.
-
-
-```typescript:app/use-cases/base-void-inbound-adapter.ts
-
-
-
-
-  implements BaseInboundPort
-{
-  protected abstract handle(input: TInDto): Promise;
-
-  public async execute(input: TInDto): Promise {
-    return wrapErrorUnlessAsync(
-      () => this.handle(input),
-      (cause) => new UseCaseError({ message: 'Unexpected use case error', cause }),
-      [ObjectValidationError, UseCaseError, DomainError, InfraError],
-    );
-  }
-}
+```typescript
+.handle('users.delete', {
+  requestMapper: (req) => ({
+    userId: req.pathParams.userId,
+  }),
+  useCase: useCases.deleteUserUseCase,
+  responseMapper: () => ({
+    status: 204 as const,
+    body: undefined,
+  }),
+})
 ```
 
-```typescript:app/use-cases/commands/delete-user.command.ts
-class DeleteUserUseCase extends BaseVoidInboundAdapter implements DeleteUserPort {
-  constructor(private readonly userRepo: UserRepositoryPort) {
-    super();
-  }
+---
 
-  protected async handle(input: DeleteUserInputDto): Promise {
-    const user = await this.userRepo.findById(UserId.create(input.data.userId));
-    if (!user) {
-      throw new NotFoundError({ message: `User ${input.data.userId} not found` });
-    }
-    await this.userRepo.delete(user.id);
-  }
-}
+## Protected Endpoints
+
+For endpoints requiring authentication, add a context schema:
+
+### Route with Context
+
+```typescript
+
+  method: 'POST',
+  path: '/api/posts',
+  request: {
+    body: {
+      schema: zodSchema(
+        z.object({
+          title: z.string().min(1),
+          content: z.string(),
+        }),
+      ),
+    },
+    context: {
+      schema: zodSchema(
+        z.object({
+          userId: z.string(),
+        }),
+      ),
+    },
+  },
+  responses: {
+    201: {
+      description: 'Post created',
+      schema: zodSchema(z.object({ postId: z.string() })),
+    },
+  },
+});
 ```
 
-### Response mapper for 204
+### Handler with Context
 
-```typescript:presentation/http/users/delete-user/mappers.ts
-
-
-
-  validator: DtoValidator,
-): DeleteUserResponseDto {
-  return new DeleteUserResponseDto(
-    { statusCode: 204, body: null },
-    validator,
-  );
-}
+```typescript
+.handle('posts.create', {
+  requestMapper: (req, ctx) => ({
+    title: req.body.title,
+    content: req.body.content,
+    authorId: ctx.userId,  // From context schema
+  }),
+  useCase: useCases.createPostUseCase,
+  responseMapper: (output) => ({
+    status: 201 as const,
+    body: { postId: output.postId },
+  }),
+})
 ```
 
-### Controller for void operations
+The context is provided by the `contextExtractor` in framework registration:
 
-```typescript:bootstrap/controller.bootstrap.ts
-deleteUserController: BaseController.create({
-  requestMapper: (req: DeleteUserRequestDto) =>
-    deleteUserToInputMapper(req, SKIP_DTO_VALIDATION),
-  useCase: deleteUserUseCase,
-  // Response mapper ignores output (void) and returns 204
-  responseMapper: () => deleteUserToResponseMapper(SKIP_DTO_VALIDATION),
-}),
+```typescript
+registerHonoRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (c) => ({
+    userId: c.get('jwtPayload')?.sub,
+  }),
+});
 ```
-
-
-For void operations, the `responseMapper` receives `void` and returns a 204 response with `body: null`.
-
 
 ---
 
 ## Checklist
 
-- [ ] Request/Response DTOs created
-- [ ] Endpoint metadata created
-- [ ] Inbound port defined
-- [ ] Use case implemented
-- [ ] Mappers created
-- [ ] Access guard created (if needed)
-- [ ] Bootstrap wired
-- [ ] Controller created (or generated)
+- [ ] Route definition created with schemas
+- [ ] Route added to router
+- [ ] Use case port defined
+- [ ] Use case implemented with `BaseInboundAdapter`
+- [ ] Handler added using `serverRoutes()` builder
+- [ ] Use case wired in bootstrap
+- [ ] Routes exported from bootstrap
 ---
 
 # New Bounded Context
@@ -4274,15 +4611,26 @@ class UserAggregate {
 }
 ```
 
-### 3. Define Exceptions
+### 3. Define Domain Exceptions
+
+Domain exceptions extend `DomainError` for consistent error handling:
 
 ```typescript:domain/exceptions/user-not-found.error.ts
-class UserNotFoundError extends Error {
+
+
+
   constructor(userId: string) {
-    super(`User not found: ${userId}`);
+    super({
+      message: `User not found: ${userId}`,
+      code: 'USER_NOT_FOUND',
+    });
   }
 }
 ```
+
+
+Domain errors are masked (return 500) in HTTP responses. Translate them to use case errors (`NotFoundError`, `ConflictError`, `UnprocessableError`) in your use cases if you want clients to see meaningful error messages.
+
 
 ### 4. Define Outbound Ports
 

@@ -4,184 +4,209 @@ description: "Step-by-step guide to creating a new HTTP endpoint"
 icon: "route"
 ---
 
-## Decision: Direct BC vs Orchestration
+## Overview
 
-| Scenario | Approach |
-|----------|----------|
-| Single BC, self-contained | Direct BC call |
-| Multiple BCs needed | Orchestration |
+Creating a new endpoint involves these steps:
+
+1. Define the route with schemas
+2. Add the route to your router
+3. Create the use case
+4. Create the handler
+5. Wire in bootstrap
 
 ---
 
 ## Steps
 
-### 1. Create Request/Response DTOs
+### 1. Define the Route
 
-```typescript:presentation/http/users/get-user/request.dto.ts
-const getUserRequestSchema = z.object({
-  pathParams: z.object({
-    userId: z.string().uuid(),
-  }),
-});
-type GetUserRequest = z.infer<typeof getUserRequestSchema>;
+Create a route definition with schemas for request validation and response documentation:
 
-// presentation/http/users/get-user/response.dto.ts
-const getUserResponseSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string(),
-  name: z.string(),
-});
-type GetUserResponse = z.infer<typeof getUserResponseSchema>;
-```
+```typescript
+// presentation/http/routes/users.routes.ts
+import { defineRoute } from '@cosmneo/onion-lasagna/http/route';
+import { zodSchema, z } from '@cosmneo/onion-lasagna/http/schema/zod';
 
-### 2. Create Endpoint Metadata
-
-```typescript:presentation/http/users/get-user/endpoint.metadata.ts
-import type { HttpEndpointMetadata } from '@cosmneo/onion-lasagna/backend/core/presentation';
-
-export const getUserMetadata: HttpEndpointMetadata = {
-  id: 'get-user',
-  shortId: 'gu',
-  name: 'getUser',
-  description: 'Gets a user by their ID.',
+export const getUserRoute = defineRoute({
   method: 'GET',
-  path: '/{userId}',  // Use {param} syntax - converted to :param by framework
-  openApi: {
-    summary: 'Get user by ID',
+  path: '/api/users/:userId',
+  request: {
+    params: {
+      schema: zodSchema(
+        z.object({
+          userId: z.string().uuid(),
+        }),
+      ),
+    },
   },
-};
+  responses: {
+    200: {
+      description: 'User found',
+      schema: zodSchema(
+        z.object({
+          id: z.string().uuid(),
+          email: z.string().email(),
+          name: z.string(),
+        }),
+      ),
+    },
+    404: {
+      description: 'User not found',
+    },
+  },
+  docs: {
+    summary: 'Get user by ID',
+    tags: ['Users'],
+    operationId: 'getUser',
+  },
+});
 ```
 
-<Callout type="info">
-Paths use `{param}` syntax which is framework-agnostic. Framework integrations convert to the appropriate format (e.g., `:param` for Hono/Express).
-</Callout>
+### 2. Add to Router
 
-**OpenAPI successStatus defaults:**
+Add the route to your router definition:
 
-| Method | Default Status | When to Override |
-|--------|----------------|------------------|
-| GET | 200 | Rarely needed |
-| POST | 201 | Use 200 for non-creation operations |
-| PUT | 200 | Use 204 for no-content responses |
-| PATCH | 200 | Use 204 for no-content responses |
-| DELETE | 204 | Use 200 if returning deleted resource |
+```typescript
+// presentation/http/router.ts
+import { defineRouter } from '@cosmneo/onion-lasagna/http/route';
+import { getUserRoute, createUserRoute, listUsersRoute } from './routes/users.routes';
 
-```typescript:endpoint.metadata.ts
-// POST that creates - use default 201
-openApi: { summary: 'Create user' }
-
-// POST that doesn't create - override to 200
-openApi: { summary: 'Login', successStatus: 200 }
-
-// DELETE with no response body - use default 204
-openApi: { summary: 'Delete user' }
+export const userRouter = defineRouter({
+  users: {
+    get: getUserRoute,
+    create: createUserRoute,
+    list: listUsersRoute,
+  },
+});
 ```
 
-### 3. Define Inbound Port (in BC)
+### 3. Create the Use Case
 
-```typescript:app/ports/inbound/get-user.query.inbound.ts
-interface GetUserQueryInboundPort {
+Define the use case port and implementation:
+
+```typescript
+// app/ports/get-user.query.port.ts
+interface GetUserQueryPort {
   execute(input: GetUserInput): Promise<GetUserOutput>;
+}
+
+interface GetUserInput {
+  userId: string;
+}
+
+interface GetUserOutput {
+  id: string;
+  email: string;
+  name: string;
 }
 ```
 
-### 4. Implement Use Case
-
-```typescript:app/use-cases/queries/get-user.use-case.ts
+```typescript
+// app/use-cases/get-user.query.ts
 import { BaseInboundAdapter, NotFoundError } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
 
 class GetUserQuery
-  extends BaseInboundAdapter<GetUserInputDto, GetUserOutputDto>
-  implements GetUserQueryInboundPort
+  extends BaseInboundAdapter<GetUserInput, GetUserOutput>
+  implements GetUserQueryPort
 {
-  constructor(private readonly userRepo: UserReadRepositoryOutboundPort) {
+  constructor(private readonly userRepo: UserRepositoryPort) {
     super();
   }
 
-  protected async handle(input: GetUserInputDto): Promise<GetUserOutputDto> {
-    const user = await this.userRepo.findById(UserId.create(input.data.userId));
+  protected async handle(input: GetUserInput): Promise<GetUserOutput> {
+    const user = await this.userRepo.findById(input.userId);
+
     if (!user) {
-      throw new NotFoundError({ message: `User ${input.data.userId} not found` });
+      throw new NotFoundError({
+        message: `User ${input.userId} not found`,
+        code: 'USER_NOT_FOUND',
+      });
     }
-    return GetUserOutputDto.create({
+
+    return {
       id: user.id.value,
-      email: user.email,
+      email: user.email.value,
       name: user.name,
-    });
+    };
   }
 }
 ```
 
-**Note:** Extend `BaseInboundAdapter` and implement `handle()` for automatic error wrapping. The inherited `execute()` method handles error boundaries.
+### 4. Create the Handler
 
-### 5. Create Mappers
+Add the handler using the `serverRoutes()` builder:
 
-```typescript:presentation/http/users/get-user/to-use-case.mapper.ts
-function toGetUserInput(request: GetUserRequest): GetUserInput {
-  return { userId: request.pathParams.userId };
-}
+```typescript
+// presentation/http/handlers/users.handlers.ts
+import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
+import { userRouter } from '../router';
+import type { UseCases } from '../../../bootstrap/use-cases.bootstrap';
 
-// presentation/http/users/get-user/to-response.mapper.ts
-function toGetUserResponse(output: GetUserOutput): GetUserResponse {
-  return { id: output.id, email: output.email, name: output.name };
+export function createUserHandlers(useCases: UseCases) {
+  return serverRoutes(userRouter)
+    .handle('users.get', {
+      requestMapper: (req) => ({
+        userId: req.pathParams.userId,
+      }),
+      useCase: useCases.getUserQuery,
+      responseMapper: (output) => ({
+        status: 200 as const,
+        body: {
+          id: output.id,
+          email: output.email,
+          name: output.name,
+        },
+      }),
+    })
+    .buildPartial();
 }
 ```
 
-### 6. Create Access Guard (if needed)
+### 5. Wire in Bootstrap
 
-Access guards are **functions**, not classes:
+Add the use case to your bootstrap:
 
-```typescript:presentation/http/users/get-user/access-guard.ts
-import type { AccessGuard } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+```typescript
+// bootstrap/use-cases.bootstrap.ts
+import { GetUserQuery } from '../app/use-cases/get-user.query';
 
-// Simple guard - allow any authenticated user
-const getUserAccessGuard: AccessGuard<GetUserRequestDto> = (request) => ({
-  isAllowed: true,
-});
-
-// Guard with authorization check
-const getUserAccessGuardWithAuth: AccessGuard<GetUserRequestDto> = async (request) => {
-  const isOwner = request.data.pathParams.userId === request.data.currentUserId;
+export function createUseCases(adapters: Adapters) {
   return {
-    isAllowed: isOwner,
-    reason: isOwner ? undefined : 'You can only view your own profile',
+    // ... other use cases
+    getUserQuery: new GetUserQuery(adapters.userRepository),
   };
-};
+}
 ```
 
-### 7. Wire in Bootstrap
+---
 
-```typescript:bootstrap/user.bootstrap.ts
-const userReadRepo = new UserRepository(new UserPersistence());
-const getUserQuery = new GetUserQuery(userReadRepo);
-```
+## Route Definition Options
 
-### 8. Create Controller
+### Request Configuration
 
-Use `BaseController` or `GuardedController` to wire the pipeline:
+| Property | Description |
+|----------|-------------|
+| `request.body.schema` | Request body schema |
+| `request.query.schema` | Query parameters schema |
+| `request.params.schema` | Path parameters schema |
+| `request.headers.schema` | Request headers schema |
+| `request.context.schema` | Context schema (from middleware) |
 
-```typescript:presentation/http/users/get-user/controller.ts
-import { BaseController, GuardedController } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+### Response Configuration
 
-// Without access guard
-const getUserController = BaseController.create({
-  requestMapper: (req: GetUserRequestDto) =>
-    GetUserInputDto.create({ userId: req.data.pathParams.userId }),
-  useCase: getUserQuery,
-  responseMapper: (output: GetUserOutputDto) =>
-    GetUserResponseDto.create(output.data),
-});
+| Property | Description |
+|----------|-------------|
+| `responses[status].description` | Response description for OpenAPI |
+| `responses[status].schema` | Response body schema |
 
-// With access guard
-const getUserControllerGuarded = GuardedController.create({
-  requestMapper: (req: GetUserRequestDto) =>
-    GetUserInputDto.create({ userId: req.data.pathParams.userId }),
-  useCase: getUserQuery,
-  responseMapper: (output: GetUserOutputDto) =>
-    GetUserResponseDto.create(output.data),
-  accessGuard: getUserAccessGuard,
-});
-```
+### Documentation
+
+| Property | Description |
+|----------|-------------|
+| `docs.summary` | Short description for OpenAPI |
+| `docs.description` | Detailed description |
+| `docs.tags` | OpenAPI tags for grouping |
+| `docs.operationId` | Unique operation identifier |
 
 ---
 
@@ -189,97 +214,126 @@ const getUserControllerGuarded = GuardedController.create({
 
 For operations that return no content (HTTP 204):
 
-### Port with void output
+### Route Definition
 
-```typescript:app/ports/inbound/delete-user.command.port.ts
-import type { BaseInboundPort } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-
-interface DeleteUserPort extends BaseInboundPort<DeleteUserInputDto, void> {}
+```typescript
+export const deleteUserRoute = defineRoute({
+  method: 'DELETE',
+  path: '/api/users/:userId',
+  request: {
+    params: {
+      schema: zodSchema(
+        z.object({
+          userId: z.string().uuid(),
+        }),
+      ),
+    },
+  },
+  responses: {
+    204: {
+      description: 'User deleted',
+    },
+    404: {
+      description: 'User not found',
+    },
+  },
+  docs: {
+    summary: 'Delete a user',
+    tags: ['Users'],
+    operationId: 'deleteUser',
+  },
+});
 ```
 
-### Use Case returning void
+### Handler
 
-Since `BaseInboundAdapter` requires a DTO output, create a void adapter in your codebase:
-
-<Callout type="info">
-`BaseVoidInboundAdapter` is **not** a library export—it's a pattern you implement. Create this class once in your project and reuse it for all void-returning use cases.
-</Callout>
-
-```typescript:app/use-cases/base-void-inbound-adapter.ts
-import { BaseInboundPort, UseCaseError, DomainError, InfraError } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-import { ObjectValidationError, wrapErrorUnlessAsync } from '@cosmneo/onion-lasagna/backend/core/global';
-
-export abstract class BaseVoidInboundAdapter<TInDto extends BaseDto<unknown>>
-  implements BaseInboundPort<TInDto, void>
-{
-  protected abstract handle(input: TInDto): Promise<void>;
-
-  public async execute(input: TInDto): Promise<void> {
-    return wrapErrorUnlessAsync(
-      () => this.handle(input),
-      (cause) => new UseCaseError({ message: 'Unexpected use case error', cause }),
-      [ObjectValidationError, UseCaseError, DomainError, InfraError],
-    );
-  }
-}
+```typescript
+.handle('users.delete', {
+  requestMapper: (req) => ({
+    userId: req.pathParams.userId,
+  }),
+  useCase: useCases.deleteUserUseCase,
+  responseMapper: () => ({
+    status: 204 as const,
+    body: undefined,
+  }),
+})
 ```
 
-```typescript:app/use-cases/commands/delete-user.command.ts
-class DeleteUserUseCase extends BaseVoidInboundAdapter<DeleteUserInputDto> implements DeleteUserPort {
-  constructor(private readonly userRepo: UserRepositoryPort) {
-    super();
-  }
+---
 
-  protected async handle(input: DeleteUserInputDto): Promise<void> {
-    const user = await this.userRepo.findById(UserId.create(input.data.userId));
-    if (!user) {
-      throw new NotFoundError({ message: `User ${input.data.userId} not found` });
-    }
-    await this.userRepo.delete(user.id);
-  }
-}
+## Protected Endpoints
+
+For endpoints requiring authentication, add a context schema:
+
+### Route with Context
+
+```typescript
+export const createPostRoute = defineRoute({
+  method: 'POST',
+  path: '/api/posts',
+  request: {
+    body: {
+      schema: zodSchema(
+        z.object({
+          title: z.string().min(1),
+          content: z.string(),
+        }),
+      ),
+    },
+    context: {
+      schema: zodSchema(
+        z.object({
+          userId: z.string(),
+        }),
+      ),
+    },
+  },
+  responses: {
+    201: {
+      description: 'Post created',
+      schema: zodSchema(z.object({ postId: z.string() })),
+    },
+  },
+});
 ```
 
-### Response mapper for 204
+### Handler with Context
 
-```typescript:presentation/http/users/delete-user/mappers.ts
-import type { DtoValidator } from '@cosmneo/onion-lasagna/backend/core/global';
-
-export function deleteUserToResponseMapper(
-  validator: DtoValidator<DeleteUserResponseData>,
-): DeleteUserResponseDto {
-  return new DeleteUserResponseDto(
-    { statusCode: 204, body: null },
-    validator,
-  );
-}
+```typescript
+.handle('posts.create', {
+  requestMapper: (req, ctx) => ({
+    title: req.body.title,
+    content: req.body.content,
+    authorId: ctx.userId,  // From context schema
+  }),
+  useCase: useCases.createPostUseCase,
+  responseMapper: (output) => ({
+    status: 201 as const,
+    body: { postId: output.postId },
+  }),
+})
 ```
 
-### Controller for void operations
+The context is provided by the `contextExtractor` in framework registration:
 
-```typescript:bootstrap/controller.bootstrap.ts
-deleteUserController: BaseController.create({
-  requestMapper: (req: DeleteUserRequestDto) =>
-    deleteUserToInputMapper(req, SKIP_DTO_VALIDATION),
-  useCase: deleteUserUseCase,
-  // Response mapper ignores output (void) and returns 204
-  responseMapper: () => deleteUserToResponseMapper(SKIP_DTO_VALIDATION),
-}),
+```typescript
+registerHonoRoutes(app, routes, {
+  middlewares: [authMiddleware],
+  contextExtractor: (c) => ({
+    userId: c.get('jwtPayload')?.sub,
+  }),
+});
 ```
-
-<Callout type="info">
-For void operations, the `responseMapper` receives `void` and returns a 204 response with `body: null`.
-</Callout>
 
 ---
 
 ## Checklist
 
-- [ ] Request/Response DTOs created
-- [ ] Endpoint metadata created
-- [ ] Inbound port defined
-- [ ] Use case implemented
-- [ ] Mappers created
-- [ ] Access guard created (if needed)
-- [ ] Bootstrap wired
-- [ ] Controller created (or generated)
+- [ ] Route definition created with schemas
+- [ ] Route added to router
+- [ ] Use case port defined
+- [ ] Use case implemented with `BaseInboundAdapter`
+- [ ] Handler added using `serverRoutes()` builder
+- [ ] Use case wired in bootstrap
+- [ ] Routes exported from bootstrap

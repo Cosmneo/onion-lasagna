@@ -30,7 +30,7 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    ignores: [".next/", "next-env.d.ts"],
+    ignores: [".next/", "next-env.d.ts", "scripts/*.js"],
   },
 ])
 

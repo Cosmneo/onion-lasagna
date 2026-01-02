@@ -14,62 +14,69 @@ Import the NestJS integration:
 
 ```typescript
 import {
-  OnionLasagnaRequest,
-  OnionLasagnaExceptionFilter,
-  OnionLasagnaResponseInterceptor,
-  BaseNestController,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+  OnionRequest,
+  OnionExceptionFilter,
+  type ContextualRawHttpRequest,
+  type NestContextExtractor,
+} from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
 ```
+
+---
+
+## Overview
+
+NestJS integration differs from other frameworks because NestJS uses decorators and its own module system. The integration provides:
+
+- `OnionRequest` - Decorator to extract HTTP request data
+- `OnionExceptionFilter` - Exception filter for domain errors
+- Type-safe context extraction for authenticated routes
 
 ---
 
 ## Quick Start
 
 ```typescript
-import { Module, Controller, Get, UseFilters, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards, UseFilters } from '@nestjs/common';
 import {
-  OnionLasagnaRequest,
-  OnionLasagnaExceptionFilter,
-  OnionLasagnaResponseInterceptor,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
-import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+  OnionRequest,
+  OnionExceptionFilter,
+  type ContextualRawHttpRequest,
+} from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
 
-@Controller('users')
-@UseFilters(OnionLasagnaExceptionFilter)
-@UseInterceptors(OnionLasagnaResponseInterceptor)
+@Controller('api/users')
+@UseFilters(OnionExceptionFilter)
 export class UsersController {
-  constructor(private readonly getUserQuery: GetUserQueryInboundPort) {}
+  constructor(private readonly routeHandlers: Map<string, UnifiedRouteInput>) {}
 
   @Get(':userId')
-  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
-    const dto = GetUserRequestDto.create(request);
-    return this.getUserQuery.execute(dto);
+  async getUser(@OnionRequest() request: RawHttpRequest) {
+    const route = this.routeHandlers.get('GET:/api/users/{userId}');
+    return route.handler(request);
   }
 }
 ```
 
 ---
 
-## @OnionLasagnaRequest Decorator
+## @OnionRequest Decorator
 
 Extracts an `HttpRequest` object from the NestJS request:
 
 ```typescript
-import { OnionLasagnaRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
-import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import { OnionRequest, type RawHttpRequest } from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
 
 @Get(':id')
-async getItem(@OnionLasagnaRequest() request: HttpRequest) {
-  // request contains: pathParams, queryParams, body, headers
+async getItem(@OnionRequest() request: RawHttpRequest) {
+  // request contains: pathParams, query, body, headers
 }
 ```
 
-The `HttpRequest` structure:
+The `RawHttpRequest` structure:
 
 ```typescript
-interface HttpRequest {
+interface RawHttpRequest {
   pathParams: Record<string, string>;
-  queryParams: Record<string, string | string[]>;
+  query: Record<string, string | string[]>;
   body: unknown;
   headers: Record<string, string>;
 }
@@ -77,62 +84,57 @@ interface HttpRequest {
 
 ### With Context Extractor (Protected Routes)
 
-For routes that need authentication context, pass a `contextExtractor` function to the decorator:
+For routes that need authentication context, pass a context extractor:
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
+import type { ExecutionContext } from '@nestjs/common';
 import {
-  OnionLasagnaRequest,
+  OnionRequest,
   type NestContextExtractor,
-  type ContextualHttpRequest,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+  type ContextualRawHttpRequest,
+} from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
 
 interface AuthContext {
-  user: { id: string; email: string };
-  requestId: string;
+  userId: string;
 }
 
-const extractAuthContext: NestContextExtractor<AuthContext> = (ctx) => {
+const extractAuthContext: NestContextExtractor<AuthContext> = (ctx: ExecutionContext) => {
   const request = ctx.switchToHttp().getRequest();
   return {
-    user: request.user,        // Set by AuthGuard
-    requestId: request.id,
+    userId: request.user?.userId ?? '',
   };
 };
 
-@Controller('users')
-export class UsersController {
-  @UseGuards(AuthGuard)
-  @Get('profile')
-  getProfile(
-    @OnionLasagnaRequest(extractAuthContext) request: ContextualHttpRequest<AuthContext>
+@Controller('api/projects')
+@UseGuards(JwtAuthGuard)
+export class ProjectsController {
+  @Get()
+  async list(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest<AuthContext>,
   ) {
-    // request.context.user is type-safe
-    const dto = GetProfileRequestDto.create(request);
-    return this.getProfileQuery.execute(dto);
+    // request.context.userId is type-safe
   }
 }
 ```
 
-The `ContextualHttpRequest<TContext>` extends `HttpRequest` with a `context` property containing your auth data.
-
 ---
 
-## OnionLasagnaExceptionFilter
+## OnionExceptionFilter
 
 Maps domain errors to HTTP responses:
 
 ```typescript
 import { UseFilters } from '@nestjs/common';
-import { OnionLasagnaExceptionFilter } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import { OnionExceptionFilter } from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
 
 // Apply to controller
 @Controller('users')
-@UseFilters(OnionLasagnaExceptionFilter)
+@UseFilters(OnionExceptionFilter)
 export class UsersController {}
 
 // Or apply globally in main.ts
-app.useGlobalFilters(new OnionLasagnaExceptionFilter());
+app.useGlobalFilters(new OnionExceptionFilter());
 ```
 
 ### Error Mapping
@@ -141,6 +143,7 @@ app.useGlobalFilters(new OnionLasagnaExceptionFilter());
 |------------|-------------|
 | `ObjectValidationError` | 400 |
 | `InvalidRequestError` | 400 |
+| `UseCaseError` | 400 |
 | `AccessDeniedError` | 403 |
 | `NotFoundError` | 404 |
 | `ConflictError` | 409 |
@@ -149,50 +152,65 @@ app.useGlobalFilters(new OnionLasagnaExceptionFilter());
 
 ---
 
-## OnionLasagnaResponseInterceptor
+## Using Unified Route Handlers
 
-Extracts `HttpResponse` data from controller returns:
-
-```typescript
-import { UseInterceptors } from '@nestjs/common';
-import { OnionLasagnaResponseInterceptor } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
-
-@Controller('users')
-@UseInterceptors(OnionLasagnaResponseInterceptor)
-export class UsersController {}
-
-// Or apply globally
-app.useGlobalInterceptors(new OnionLasagnaResponseInterceptor());
-```
-
-This allows controllers to return `HttpResponse` objects and have them automatically unwrapped.
-
----
-
-## BaseNestController
-
-A base class for NestJS controllers using onion patterns:
+For consistency with other frameworks, you can use the unified route handlers:
 
 ```typescript
-import { BaseNestController } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import { Controller, Get, Post, Patch, Delete, Inject, UseGuards, Res, HttpCode } from '@nestjs/common';
+import type { Response } from 'express';
+import {
+  OnionRequest,
+  type ContextualRawHttpRequest,
+  type NestContextExtractor,
+} from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
+import type { UnifiedRouteInput } from '@cosmneo/onion-lasagna/http/server';
 
-@Controller('users')
-export class UsersController extends BaseNestController {
+interface AuthContext {
+  userId: string;
+}
+
+const extractAuthContext: NestContextExtractor<AuthContext> = (ctx) => {
+  const request = ctx.switchToHttp().getRequest();
+  return { userId: request.user?.userId ?? '' };
+};
+
+@Controller('api/projects')
+@UseGuards(JwtAuthGuard)
+export class ProjectsController {
   constructor(
-    private readonly getUserQuery: GetUserQueryInboundPort,
-    private readonly createUserCommand: CreateUserCommandInboundPort,
-  ) {
-    super();
-  }
+    @Inject('ROUTE_HANDLERS')
+    private readonly routeHandlers: Map<string, UnifiedRouteInput>,
+  ) {}
 
-  @Get(':userId')
-  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
-    return this.execute(request, GetUserRequestDto, this.getUserQuery);
+  private async callHandler(
+    method: string,
+    path: string,
+    request: ContextualRawHttpRequest<AuthContext>,
+    res: Response,
+  ) {
+    const route = this.routeHandlers.get(`${method}:${path}`);
+    if (!route) throw new Error(`Route not found: ${method}:${path}`);
+
+    const response = await route.handler(request, request.context);
+    res.status(response.status);
+    return response.body;
   }
 
   @Post()
-  async createUser(@OnionLasagnaRequest() request: HttpRequest) {
-    return this.execute(request, CreateUserRequestDto, this.createUserCommand);
+  async create(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest<AuthContext>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('POST', '/api/projects', request, res);
+  }
+
+  @Get()
+  async list(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest<AuthContext>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('GET', '/api/projects', request, res);
   }
 }
 ```
@@ -203,48 +221,44 @@ export class UsersController extends BaseNestController {
 
 ```typescript
 import { Module } from '@nestjs/common';
-import { UsersController } from './users.controller';
-import { GetUserQuery } from './use-cases/get-user.query';
-import { UserRepository } from './repositories/user.repository';
+import { ProjectsController } from './projects.controller';
+import { bootstrapProjectManagement } from '@repo/backend/bounded-contexts/project-management';
+
+const { routes } = bootstrapProjectManagement();
+
+// Create a map of routes for injection
+const routeHandlersMap = new Map(
+  routes.map((route) => [`${route.method}:${route.path}`, route]),
+);
 
 @Module({
-  controllers: [UsersController],
+  controllers: [ProjectsController],
   providers: [
     {
-      provide: 'GetUserQueryInboundPort',
-      useClass: GetUserQuery,
-    },
-    {
-      provide: 'UserRepository',
-      useClass: UserRepository,
+      provide: 'ROUTE_HANDLERS',
+      useValue: routeHandlersMap,
     },
   ],
 })
-export class UsersModule {}
+export class ProjectsModule {}
 ```
 
 ---
 
 ## Global Setup
 
-Configure filters and interceptors globally in `main.ts`:
+Configure the exception filter globally in `main.ts`:
 
 ```typescript
 import { NestFactory } from '@nestjs/core';
-import {
-  OnionLasagnaExceptionFilter,
-  OnionLasagnaResponseInterceptor,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+import { OnionExceptionFilter } from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Global exception filter
-  app.useGlobalFilters(new OnionLasagnaExceptionFilter());
-
-  // Global response interceptor
-  app.useGlobalInterceptors(new OnionLasagnaResponseInterceptor());
+  app.useGlobalFilters(new OnionExceptionFilter());
 
   await app.listen(3000);
 }
@@ -257,36 +271,104 @@ bootstrap();
 ## Complete Example
 
 ```typescript
-// users.controller.ts
-import { Controller, Get, Post, UseFilters, UseInterceptors } from '@nestjs/common';
-import {
-  OnionLasagnaRequest,
-  OnionLasagnaExceptionFilter,
-  OnionLasagnaResponseInterceptor,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
-import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+// main.ts
+import 'dotenv/config';
+import { NestFactory } from '@nestjs/core';
+import { OnionExceptionFilter } from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
+import { AppModule } from './app.module';
 
-@Controller('users')
-@UseFilters(OnionLasagnaExceptionFilter)
-@UseInterceptors(OnionLasagnaResponseInterceptor)
-export class UsersController {
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  app.enableCors();
+  app.useGlobalFilters(new OnionExceptionFilter());
+
+  await app.listen(process.env.PORT ?? 3000);
+  console.log(`Server running on http://localhost:${process.env.PORT ?? 3000}`);
+}
+
+bootstrap();
+```
+
+```typescript
+// projects.controller.ts
+import { Controller, Get, Post, Patch, Delete, UseGuards, Inject, Res, HttpCode } from '@nestjs/common';
+import type { Response } from 'express';
+import {
+  OnionRequest,
+  type ContextualRawHttpRequest,
+  type NestContextExtractor,
+} from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
+import type { UnifiedRouteInput } from '@cosmneo/onion-lasagna/http/server';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+
+interface AuthContext {
+  userId: string;
+}
+
+const extractAuthContext: NestContextExtractor<AuthContext> = (ctx) => {
+  const request = ctx.switchToHttp().getRequest();
+  return { userId: request.user?.userId ?? '' };
+};
+
+@Controller('api/projects')
+@UseGuards(JwtAuthGuard)
+export class ProjectsController {
   constructor(
-    private readonly getUserQuery: GetUserQueryInboundPort,
-    private readonly createUserCommand: CreateUserCommandInboundPort,
+    @Inject('ROUTE_HANDLERS')
+    private readonly routeHandlers: Map<string, UnifiedRouteInput>,
   ) {}
 
-  @Get(':userId')
-  async getUser(@OnionLasagnaRequest() request: HttpRequest) {
-    const dto = GetUserRequestDto.create(request);
-    const result = await this.getUserQuery.execute(dto);
-    return HttpResponse.ok(result.data);
+  private async callHandler(
+    method: string,
+    path: string,
+    request: ContextualRawHttpRequest<AuthContext>,
+    res: Response,
+  ) {
+    const route = this.routeHandlers.get(`${method}:${path}`);
+    if (!route) throw new Error(`Route not found: ${method}:${path}`);
+
+    const response = await route.handler(request, request.context);
+    res.status(response.status);
+    if (response.headers) {
+      for (const [key, value] of Object.entries(response.headers)) {
+        res.setHeader(key, value);
+      }
+    }
+    return response.body;
   }
 
   @Post()
-  async createUser(@OnionLasagnaRequest() request: HttpRequest) {
-    const dto = CreateUserRequestDto.create(request);
-    const result = await this.createUserCommand.execute(dto);
-    return HttpResponse.created(result.data);
+  async create(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest<AuthContext>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('POST', '/api/projects', request, res);
+  }
+
+  @Get()
+  async list(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest<AuthContext>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('GET', '/api/projects', request, res);
+  }
+
+  @Get(':projectId')
+  async get(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest<AuthContext>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('GET', '/api/projects/{projectId}', request, res);
+  }
+
+  @Delete(':projectId')
+  @HttpCode(204)
+  async delete(
+    @OnionRequest(extractAuthContext) request: ContextualRawHttpRequest<AuthContext>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.callHandler('DELETE', '/api/projects/{projectId}', request, res);
   }
 }
 ```

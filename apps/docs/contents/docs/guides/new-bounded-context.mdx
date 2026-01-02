@@ -50,15 +50,26 @@ class UserAggregate {
 }
 ```
 
-### 3. Define Exceptions
+### 3. Define Domain Exceptions
+
+Domain exceptions extend `DomainError` for consistent error handling:
 
 ```typescript:domain/exceptions/user-not-found.error.ts
-class UserNotFoundError extends Error {
+import { DomainError } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+export class UserNotFoundError extends DomainError {
   constructor(userId: string) {
-    super(`User not found: ${userId}`);
+    super({
+      message: `User not found: ${userId}`,
+      code: 'USER_NOT_FOUND',
+    });
   }
 }
 ```
+
+<Callout type="info">
+Domain errors are masked (return 500) in HTTP responses. Translate them to use case errors (`NotFoundError`, `ConflictError`, `UnprocessableError`) in your use cases if you want clients to see meaningful error messages.
+</Callout>
 
 ### 4. Define Outbound Ports
 
