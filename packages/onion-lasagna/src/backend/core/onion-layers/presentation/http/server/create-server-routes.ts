@@ -128,7 +128,6 @@ export function createServerRoutesInternal<T extends RouterConfig>(
   };
 
   for (const { key, route } of collectedRoutes) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handlerConfig = handlers[key] as
       | RouteHandlerConfig<RouteDefinition, any, any>
       | undefined;

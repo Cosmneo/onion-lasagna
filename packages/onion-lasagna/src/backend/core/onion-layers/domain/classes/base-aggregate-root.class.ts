@@ -1,6 +1,7 @@
 import type { BaseValueObject } from './base-value-object.class';
 import { BaseEntity } from './base-entity.class';
 import type { BaseDomainEvent } from './base-domain-event.class';
+import { PartialLoadError } from '../exceptions/partial-load.error';
 
 /**
  * Base class for Aggregate Roots in Domain-Driven Design.
@@ -92,6 +93,7 @@ export abstract class BaseAggregateRoot<
   TProps extends object,
 > extends BaseEntity<TId, TProps> {
   private _domainEvents: BaseDomainEvent[] = [];
+  private _loadedFields = new Set<keyof TProps | string>();
 
   /**
    * Creates a new Aggregate Root instance.
@@ -195,5 +197,103 @@ export abstract class BaseAggregateRoot<
    */
   protected clearDomainEvents(): void {
     this._domainEvents = [];
+  }
+
+  /**
+   * Marks one or more fields as loaded.
+   *
+   * Call this method during reconstitution to indicate which fields/relations
+   * were loaded from the database. Fields not marked as loaded will trigger
+   * a PartialLoadError when accessed via requireLoaded().
+   *
+   * @param fields - The field names to mark as loaded
+   *
+   * @example
+   * ```typescript
+   * static reconstitute(id: OrderId, props: OrderProps, version: number): Order {
+   *   const order = new Order(id, props, version);
+   *   order.markLoaded('customerId', 'status');
+   *   return order;
+   * }
+   * ```
+   */
+  protected markLoaded(...fields: (keyof TProps | string)[]): void {
+    for (const field of fields) {
+      this._loadedFields.add(field);
+    }
+  }
+
+  /**
+   * Checks if a field is marked as loaded.
+   *
+   * Useful for conditional logic based on load state.
+   *
+   * @param field - The field name to check
+   * @returns `true` if the field is marked as loaded
+   *
+   * @example
+   * ```typescript
+   * get itemCount(): number {
+   *   if (!this.isLoaded('items')) {
+   *     return 0;
+   *   }
+   *   return this.props.items.length;
+   * }
+   * ```
+   */
+  protected isLoaded(field: keyof TProps | string): boolean {
+    return this._loadedFields.has(field);
+  }
+
+  /**
+   * Ensures a field is loaded, throwing PartialLoadError if not.
+   *
+   * Use this as a guard in getters that access potentially unloaded relations.
+   * Returns the field value if loaded, enabling fluent usage.
+   *
+   * @typeParam K - The field key type
+   * @param field - The field name to check
+   * @param errorCode - Optional custom error code (defaults to FIELD_NOT_LOADED)
+   * @returns The field value if loaded
+   * @throws {PartialLoadError} When the field is not marked as loaded
+   *
+   * @example
+   * ```typescript
+   * get items(): readonly OrderItem[] {
+   *   return this.requireLoaded('items');
+   * }
+   *
+   * // With custom error code
+   * get customer(): Customer {
+   *   return this.requireLoaded('customer', 'ORDER_CUSTOMER_NOT_LOADED');
+   * }
+   * ```
+   */
+  protected requireLoaded<K extends keyof TProps>(field: K, errorCode?: string): TProps[K] {
+    if (!this._loadedFields.has(field)) {
+      throw new PartialLoadError({
+        message: `Field '${String(field)}' was not loaded`,
+        code: errorCode ?? `${String(field).toUpperCase()}_NOT_LOADED`,
+      });
+    }
+    return this.props[field];
+  }
+
+  /**
+   * Returns a read-only view of loaded fields.
+   *
+   * Useful for debugging and inspection, particularly in tests
+   * or logging scenarios.
+   *
+   * @returns A read-only set of loaded field names
+   *
+   * @example
+   * ```typescript
+   * console.log('Loaded fields:', Array.from(order.loadedFields));
+   * // Output: Loaded fields: ['customerId', 'status', 'placedAt']
+   * ```
+   */
+  public get loadedFields(): ReadonlySet<keyof TProps | string> {
+    return this._loadedFields;
   }
 }

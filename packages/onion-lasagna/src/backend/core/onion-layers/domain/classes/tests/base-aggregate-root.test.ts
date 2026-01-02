@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { BaseAggregateRoot } from '../base-aggregate-root.class';
 import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../base-value-object.class';
 import { BaseDomainEvent } from '../base-domain-event.class';
+import { PartialLoadError } from '../../exceptions/partial-load.error';
 
 // Test ID value object
 class TestId extends BaseValueObject<string> {
@@ -58,6 +59,22 @@ class TestAggregate extends BaseAggregateRoot<TestId, TestAggregateProps> {
 
   clearEvents(): void {
     this.clearDomainEvents();
+  }
+
+  // Expose load state methods for testing
+  testMarkLoaded(...fields: (keyof TestAggregateProps | string)[]): void {
+    this.markLoaded(...fields);
+  }
+
+  testIsLoaded(field: keyof TestAggregateProps | string): boolean {
+    return this.isLoaded(field);
+  }
+
+  testRequireLoaded<K extends keyof TestAggregateProps>(
+    field: K,
+    errorCode?: string,
+  ): TestAggregateProps[K] {
+    return this.requireLoaded(field, errorCode);
   }
 }
 
@@ -233,6 +250,156 @@ describe('BaseAggregateRoot', () => {
       const aggregate2 = TestAggregate.create('id-2', 'Name');
 
       expect(aggregate1.equals(aggregate2)).toBe(false);
+    });
+  });
+
+  describe('Load State Tracking', () => {
+    describe('markLoaded()', () => {
+      it('should mark a single field as loaded', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+
+        aggregate.testMarkLoaded('name');
+
+        expect(aggregate.loadedFields.has('name')).toBe(true);
+        expect(aggregate.loadedFields.size).toBe(1);
+      });
+
+      it('should mark multiple fields as loaded in a single call', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+
+        aggregate.testMarkLoaded('name', 'status');
+
+        expect(aggregate.loadedFields.has('name')).toBe(true);
+        expect(aggregate.loadedFields.has('status')).toBe(true);
+        expect(aggregate.loadedFields.size).toBe(2);
+      });
+
+      it('should handle duplicate field marking idempotently', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+
+        aggregate.testMarkLoaded('name');
+        aggregate.testMarkLoaded('name');
+        aggregate.testMarkLoaded('name');
+
+        expect(aggregate.loadedFields.has('name')).toBe(true);
+        expect(aggregate.loadedFields.size).toBe(1);
+      });
+
+      it('should allow marking string fields not in TProps', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+
+        aggregate.testMarkLoaded('customRelation');
+
+        expect(aggregate.loadedFields.has('customRelation')).toBe(true);
+      });
+    });
+
+    describe('isLoaded()', () => {
+      it('should return true for loaded fields', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+        aggregate.testMarkLoaded('name');
+
+        expect(aggregate.testIsLoaded('name')).toBe(true);
+      });
+
+      it('should return false for unloaded fields', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+
+        expect(aggregate.testIsLoaded('name')).toBe(false);
+        expect(aggregate.testIsLoaded('status')).toBe(false);
+      });
+
+      it('should return false for non-existent fields', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+
+        expect(aggregate.testIsLoaded('nonExistent')).toBe(false);
+      });
+    });
+
+    describe('requireLoaded()', () => {
+      it('should return field value when field is loaded', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+        aggregate.testMarkLoaded('name');
+
+        const name = aggregate.testRequireLoaded('name');
+
+        expect(name).toBe('Test');
+      });
+
+      it('should throw PartialLoadError when field is not loaded', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+
+        expect(() => aggregate.testRequireLoaded('name')).toThrow(PartialLoadError);
+      });
+
+      it('should include field name in error message', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+
+        expect(() => aggregate.testRequireLoaded('name')).toThrow("Field 'name' was not loaded");
+      });
+
+      it('should use default error code based on field name', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+
+        try {
+          aggregate.testRequireLoaded('name');
+        } catch (error) {
+          expect(error).toBeInstanceOf(PartialLoadError);
+          expect((error as PartialLoadError).code).toBe('NAME_NOT_LOADED');
+        }
+      });
+
+      it('should use custom error code when provided', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+
+        try {
+          aggregate.testRequireLoaded('name', 'CUSTOM_ERROR_CODE');
+        } catch (error) {
+          expect(error).toBeInstanceOf(PartialLoadError);
+          expect((error as PartialLoadError).code).toBe('CUSTOM_ERROR_CODE');
+        }
+      });
+    });
+
+    describe('loadedFields getter', () => {
+      it('should return empty set initially', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+
+        expect(aggregate.loadedFields.size).toBe(0);
+      });
+
+      it('should reflect all marked fields', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+        aggregate.testMarkLoaded('name', 'status');
+
+        expect(Array.from(aggregate.loadedFields).sort()).toEqual(['name', 'status']);
+      });
+    });
+
+    describe('Integration', () => {
+      it('should not interfere with domain events', () => {
+        const aggregate = TestAggregate.create('123', 'Test');
+        aggregate.testMarkLoaded('name', 'status');
+
+        expect(aggregate.hasDomainEvents).toBe(true);
+        expect(aggregate.loadedFields.size).toBe(2);
+      });
+
+      it('should work alongside version tracking', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 10);
+        aggregate.testMarkLoaded('name');
+
+        expect(aggregate.version).toBe(10);
+        expect(aggregate.testIsLoaded('name')).toBe(true);
+      });
+
+      it('should work in reconstitute pattern', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 5);
+        aggregate.testMarkLoaded('name', 'status');
+
+        expect(aggregate.testRequireLoaded('name')).toBe('Test');
+        expect(aggregate.testRequireLoaded('status')).toBe('active');
+      });
     });
   });
 });
