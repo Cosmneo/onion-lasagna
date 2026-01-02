@@ -29,7 +29,7 @@ import type { ValidationResult } from './validation.type';
  * @example Creating an adapter (using Zod)
  * ```typescript
  * import { z } from 'zod';
- * import { zodSchema } from '@cosmneo/onion-lasagna/unified/schema/zod';
+ * import { zodSchema } from '@cosmneo/onion-lasagna/http/schema/zod';
  *
  * const userSchema = zodSchema(z.object({
  *   name: z.string().min(1),

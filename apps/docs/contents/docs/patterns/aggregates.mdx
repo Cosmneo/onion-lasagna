@@ -279,13 +279,18 @@ The `version` property is public for reading. The `nextVersion()` method is prot
 
 ### idEquals
 
-Compares two IDs for equality using the Value Object's `equals` method:
+Compares two IDs of the same type using the Value Object's `equals` method:
 
 ```typescript
 class OrderAggregate extends BaseAggregateRoot<OrderId, OrderProps> {
-  // Use idEquals when comparing entity IDs
+  // Use idEquals for comparing aggregate IDs (same TId type)
+  isSameOrder(otherId: OrderId): boolean {
+    return this.idEquals(this.id, otherId);
+  }
+
+  // For child entity IDs, use equals() directly
   hasItem(itemId: OrderItemId): boolean {
-    return this._props.items.some((item) => this.idEquals(item.id, itemId));
+    return this._props.items.some((item) => item.id.equals(itemId));
   }
 }
 ```

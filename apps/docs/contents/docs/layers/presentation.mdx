@@ -319,13 +319,13 @@ Use the framework-specific error handler:
 
 ```typescript
 // Hono
-app.onError((err, c) => onionErrorHandler(err, c));
+app.onError(onionErrorHandler);
 
 // Fastify
 app.setErrorHandler(onionErrorHandler);
 
 // Elysia
-app.onError(({ error }) => onionErrorHandler({ error }));
+app.onError(onionErrorHandler);
 
 // NestJS
 @UseFilters(OnionExceptionFilter)

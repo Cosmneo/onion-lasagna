@@ -142,8 +142,8 @@ type ToResponsesConfig<T extends Record<number, ResponseInput<SchemaAdapter | un
  *
  * @example Basic GET route
  * ```typescript
- * import { defineRoute } from '@cosmneo/onion-lasagna/unified';
- * import { zodSchema, z } from '@cosmneo/onion-lasagna/unified/schema/zod';
+ * import { defineRoute } from '@cosmneo/onion-lasagna/http';
+ * import { zodSchema, z } from '@cosmneo/onion-lasagna/http/schema/zod';
  *
  * const listUsers = defineRoute({
  *   method: 'GET',

@@ -28,7 +28,7 @@ type ZodAny = ZodType<any, any, any>;
  * @example Basic usage
  * ```typescript
  * import { z } from 'zod';
- * import { zodSchema } from '@cosmneo/onion-lasagna/unified/schema/zod';
+ * import { zodSchema } from '@cosmneo/onion-lasagna/http/schema/zod';
  *
  * const userSchema = zodSchema(z.object({
  *   name: z.string().min(1).max(100),

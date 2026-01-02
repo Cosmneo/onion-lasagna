@@ -33,20 +33,34 @@ Create all directories under `bounded-contexts/{bc-name}/`.
 
 ### 2. Define Domain Model
 
-Start with aggregates and value objects:
+Start with aggregates and value objects using the library base classes:
 
 ```typescript:domain/value-objects/user-id.vo.ts
-class UserId {
-  private constructor(private readonly _value: string) {}
-  static create(value: string): UserId { ... }
-  static generate(): UserId { ... }
-  get value(): string { return this._value; }
+import { BaseUuidV4Vo } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+export class UserId extends BaseUuidV4Vo {
+  static override generate(): UserId {
+    return new UserId(crypto.randomUUID());
+  }
+
+  static override create(value: string): UserId {
+    BaseUuidV4Vo.create(value); // Validates UUID format
+    return new UserId(value);
+  }
+}
+```
+
+```typescript:domain/aggregates/user.aggregate.ts
+import { BaseAggregateRoot } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+
+interface UserProps {
+  email: string;
+  name: string;
 }
 
-// domain/aggregates/user.aggregate.ts
-class UserAggregate {
+export class UserAggregate extends BaseAggregateRoot<UserId, UserProps> {
   static create(data: CreateUserData): UserAggregate { ... }
-  static reconstitute(data: UserData): UserAggregate { ... }
+  static reconstitute(data: UserData, version: number): UserAggregate { ... }
 }
 ```
 

@@ -224,14 +224,25 @@ Access context in your handler:
 Schema adapters provide full type inference:
 
 ```typescript
-import type { InferRouteBody, InferRouteResponse } from '@cosmneo/onion-lasagna/http';
+import type {
+  InferRouteBody,
+  InferRouteQuery,
+  InferRoutePathParams,
+  InferRouteSuccessResponse,
+  InferRouteResponse,
+} from '@cosmneo/onion-lasagna/http';
 
-// Infer types from route definition
+// Infer request types
 type CreateUserBody = InferRouteBody<typeof createUserRoute>;
 // { email: string; name: string; password: string }
 
+// Infer the first 2xx response type
 type CreateUserResponse = InferRouteSuccessResponse<typeof createUserRoute>;
 // { userId: string }
+
+// Infer response for a specific status code
+type NotFoundResponse = InferRouteResponse<typeof getUserRoute, 404>;
+// { message: string }
 ```
 
 ---
