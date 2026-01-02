@@ -30,14 +30,14 @@ bun run format     # Prettier
 
 ## Architecture Quick Reference
 
-| Layer | Path | Purpose |
-|-------|------|---------|
-| Domain | `onion-layers/domain/` | Entities, VOs, Events, business rules |
-| App | `onion-layers/app/` | Use cases, ports, adapters |
-| Infra | `onion-layers/infra/` | Repositories, external services |
-| Presentation | `onion-layers/presentation/` | Controllers, HTTP mapping |
-| Global | `global/` | DTOs, errors, validators |
-| Frameworks | `frameworks/` | Hono, Elysia, Fastify, NestJS |
+| Layer        | Path                         | Purpose                               |
+| ------------ | ---------------------------- | ------------------------------------- |
+| Domain       | `onion-layers/domain/`       | Entities, VOs, Events, business rules |
+| App          | `onion-layers/app/`          | Use cases, ports, adapters            |
+| Infra        | `onion-layers/infra/`        | Repositories, external services       |
+| Presentation | `onion-layers/presentation/` | Controllers, HTTP mapping             |
+| Global       | `global/`                    | DTOs, errors, validators              |
+| Frameworks   | `frameworks/`                | Hono, Elysia, Fastify, NestJS         |
 
 > **Search:** For actual exports and classes, grep `packages/onion-lasagna/src/backend/core/**/index.ts`
 
@@ -80,12 +80,12 @@ Repository throws → BaseOutboundAdapter wraps → InfraError
 
 ## Domain Layer
 
-| Class | Use When |
-|-------|----------|
-| `BaseEntity<TId, TProps>` | Identity-based, mutable state, versioning |
-| `BaseAggregateRoot` | Entity + domain event collection |
-| `BaseValueObject<T>` | Immutable, compared by value, self-validating |
-| `BaseDomainEvent<TPayload>` | Immutable event record (deep frozen) |
+| Class                       | Use When                                      |
+| --------------------------- | --------------------------------------------- |
+| `BaseEntity<TId, TProps>`   | Identity-based, mutable state, versioning     |
+| `BaseAggregateRoot`         | Entity + domain event collection              |
+| `BaseValueObject<T>`        | Immutable, compared by value, self-validating |
+| `BaseDomainEvent<TPayload>` | Immutable event record (deep frozen)          |
 
 **Built-in VOs:** `BaseUuidV4Vo`, `BaseUuidV7Vo`, `BaseEmailVo`, `BaseShortTextVo`, `BaseMediumTextVo`, `BaseLongTextVo`, `BasePaginationVo`, `BaseAuditByVo`, `BaseAuditOnVo`
 
@@ -97,10 +97,10 @@ Repository throws → BaseOutboundAdapter wraps → InfraError
 
 ## Application Layer
 
-| Class | Purpose |
-|-------|---------|
-| `BaseInboundPort<TInDto, TOutDto>` | Use case interface |
-| `BaseInboundAdapter` | Implements port, wraps `handle()` with error handling |
+| Class                              | Purpose                                               |
+| ---------------------------------- | ----------------------------------------------------- |
+| `BaseInboundPort<TInDto, TOutDto>` | Use case interface                                    |
+| `BaseInboundAdapter`               | Implements port, wraps `handle()` with error handling |
 
 **Errors:** `UseCaseError`, `NotFoundError` (404), `ConflictError` (409), `UnprocessableError` (422)
 
@@ -110,8 +110,8 @@ Repository throws → BaseOutboundAdapter wraps → InfraError
 
 ## Infrastructure Layer
 
-| Class | Purpose |
-|-------|---------|
+| Class                 | Purpose                                    |
+| --------------------- | ------------------------------------------ |
 | `BaseOutboundAdapter` | Auto-wraps ALL methods with error handling |
 
 Override `createInfraError(error, methodName)` to customize error type.
@@ -124,12 +124,13 @@ Override `createInfraError(error, methodName)` to customize error type.
 
 ## Presentation Layer
 
-| Class | Purpose |
-|-------|---------|
-| `BaseController` | Pipeline: requestMapper → useCase → responseMapper |
-| `GuardedController` | Adds accessGuard before pipeline |
+| Class               | Purpose                                            |
+| ------------------- | -------------------------------------------------- |
+| `BaseController`    | Pipeline: requestMapper → useCase → responseMapper |
+| `GuardedController` | Adds accessGuard before pipeline                   |
 
 **HTTP Types:**
+
 - `HttpRequest` - body, headers, queryParams, pathParams
 - `ContextualHttpRequest<T>` - extends HttpRequest with context
 - `HttpResponse` - statusCode, headers, body
@@ -142,15 +143,15 @@ Override `createInfraError(error, methodName)` to customize error type.
 
 ## Error → HTTP Mapping
 
-| Error | Status | Masked |
-|-------|--------|--------|
-| `ObjectValidationError`, `InvalidRequestError` | 400 | No (includes field errors) |
-| `UseCaseError` | 400 | No |
-| `AccessDeniedError` | 403 | No |
-| `NotFoundError` | 404 | No |
-| `ConflictError` | 409 | No |
-| `UnprocessableError` | 422 | No |
-| `DomainError`, `InfraError`, `ControllerError` | 500 | **Yes** (security) |
+| Error                                          | Status | Masked                     |
+| ---------------------------------------------- | ------ | -------------------------- |
+| `ObjectValidationError`, `InvalidRequestError` | 400    | No (includes field errors) |
+| `UseCaseError`                                 | 400    | No                         |
+| `AccessDeniedError`                            | 403    | No                         |
+| `NotFoundError`                                | 404    | No                         |
+| `ConflictError`                                | 409    | No                         |
+| `UnprocessableError`                           | 422    | No                         |
+| `DomainError`, `InfraError`, `ControllerError` | 500    | **Yes** (security)         |
 
 > **Search:** For mapping logic, grep `mapErrorToResponse` or `mapErrorToHttpException` in `packages/onion-lasagna/src/backend/frameworks/`
 
@@ -160,17 +161,18 @@ Override `createInfraError(error, methodName)` to customize error type.
 
 **Strategy pattern:** `ObjectValidatorPort` → `BoundValidator<T>`
 
-| Library | Factory |
-|---------|---------|
-| Zod | `createZodValidator(schema)` |
+| Library | Factory                          |
+| ------- | -------------------------------- |
+| Zod     | `createZodValidator(schema)`     |
 | ArkType | `createArktypeValidator(schema)` |
 | Valibot | `createValibotValidator(schema)` |
 | TypeBox | `createTypeboxValidator(schema)` |
 
 **DTO pattern:**
+
 ```typescript
-new SomeDto(data, validator)           // Validate external input
-new SomeDto(data, SKIP_DTO_VALIDATION) // Skip for internal/trusted data
+new SomeDto(data, validator); // Validate external input
+new SomeDto(data, SKIP_DTO_VALIDATION); // Skip for internal/trusted data
 ```
 
 > **Search:** For validator implementations, read `packages/onion-lasagna/src/backend/core/validators/*/`
@@ -180,17 +182,18 @@ new SomeDto(data, SKIP_DTO_VALIDATION) // Skip for internal/trusted data
 ## Framework Integrations
 
 All follow pattern:
+
 ```typescript
 register*Routes(app, routes, { prefix?, middlewares?, contextExtractor? })
 app.onError(onionErrorHandler) // or equivalent
 ```
 
-| Framework | Path | Key Exports |
-|-----------|------|-------------|
-| Hono | `frameworks/hono/` | `registerHonoRoutes`, `onionErrorHandler`, `mapErrorToHttpException` |
-| Elysia | `frameworks/elysia/` | `registerElysiaRoutes`, `onionErrorHandler`, `mapErrorToResponse` |
-| Fastify | `frameworks/fastify/` | `registerFastifyRoutes`, `onionErrorHandler`, `mapErrorToResponse` |
-| NestJS | `frameworks/nestjs/` | `BaseNestController`, `@OnionLasagnaRequest()`, `OnionLasagnaExceptionFilter`, `OnionLasagnaResponseInterceptor` |
+| Framework | Path                  | Key Exports                                                                                                      |
+| --------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Hono      | `frameworks/hono/`    | `registerHonoRoutes`, `onionErrorHandler`, `mapErrorToHttpException`                                             |
+| Elysia    | `frameworks/elysia/`  | `registerElysiaRoutes`, `onionErrorHandler`, `mapErrorToResponse`                                                |
+| Fastify   | `frameworks/fastify/` | `registerFastifyRoutes`, `onionErrorHandler`, `mapErrorToResponse`                                               |
+| NestJS    | `frameworks/nestjs/`  | `BaseNestController`, `@OnionLasagnaRequest()`, `OnionLasagnaExceptionFilter`, `OnionLasagnaResponseInterceptor` |
 
 > **Search:** For integration details, read `packages/onion-lasagna/src/backend/frameworks/*/index.ts` and README.md files
 
@@ -200,25 +203,27 @@ app.onError(onionErrorHandler) // or equivalent
 
 > **IMPORTANT:** Always verify actual exports by reading the index.ts files. Do not assume.
 
-| Entry Point | Search Location |
-|-------------|-----------------|
-| `@cosmneo/onion-lasagna/backend/core/onion-layers` | `src/backend/core/onion-layers/index.ts` |
-| `@cosmneo/onion-lasagna/backend/core/global` | `src/backend/core/global/index.ts` |
+| Entry Point                                        | Search Location                                       |
+| -------------------------------------------------- | ----------------------------------------------------- |
+| `@cosmneo/onion-lasagna/backend/core/onion-layers` | `src/backend/core/onion-layers/index.ts`              |
+| `@cosmneo/onion-lasagna/backend/core/global`       | `src/backend/core/global/index.ts`                    |
 | `@cosmneo/onion-lasagna/backend/core/presentation` | `src/backend/core/onion-layers/presentation/index.ts` |
-| `@cosmneo/onion-lasagna/backend/core/validators/*` | `src/backend/core/validators/*/index.ts` |
-| `@cosmneo/onion-lasagna/backend/frameworks/*` | `src/backend/frameworks/*/index.ts` |
+| `@cosmneo/onion-lasagna/backend/core/validators/*` | `src/backend/core/validators/*/index.ts`              |
+| `@cosmneo/onion-lasagna/backend/frameworks/*`      | `src/backend/frameworks/*/index.ts`                   |
 
 ---
 
 ## Decision Quick Reference
 
 **Which base class?**
+
 - Unique identity + mutable → `BaseEntity`
 - Entity + consistency boundary → `BaseAggregateRoot`
 - Immutable + value comparison → `BaseValueObject`
 - Past occurrence record → `BaseDomainEvent`
 
 **Which error?**
+
 - Business rule violation → `InvariantViolationError`
 - Resource not found → `NotFoundError`
 - Duplicate/conflict → `ConflictError`
@@ -231,6 +236,7 @@ app.onError(onionErrorHandler) // or equivalent
 - Bad request data → `InvalidRequestError`
 
 **When to validate?**
+
 - External input → Always validate
 - Internal DTO → `SKIP_DTO_VALIDATION`
 - Value Object factory → Always (in `create()`)

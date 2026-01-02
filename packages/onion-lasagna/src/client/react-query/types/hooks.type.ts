@@ -5,7 +5,12 @@ import type {
   UseQueryOptions,
   UseMutationOptions,
 } from '@tanstack/react-query';
-import type { RouteContract, RouterContractConfig, RequestDataShape, ResponseDataShape } from '../../../shared/contracts';
+import type {
+  RouteContract,
+  RouterContractConfig,
+  RequestDataShape,
+  ResponseDataShape,
+} from '../../../shared/contracts';
 import type { ExtractResponseBody } from '../../types';
 
 /**
@@ -26,10 +31,7 @@ export type TypedUseMutation<
   TRequest extends RequestDataShape,
   TResponse extends ResponseDataShape,
 > = (
-  options?: Omit<
-    UseMutationOptions<ExtractResponseBody<TResponse>, Error, TRequest>,
-    'mutationFn'
-  >,
+  options?: Omit<UseMutationOptions<ExtractResponseBody<TResponse>, Error, TRequest>, 'mutationFn'>,
 ) => UseMutationResult<ExtractResponseBody<TResponse>, Error, TRequest>;
 
 /**

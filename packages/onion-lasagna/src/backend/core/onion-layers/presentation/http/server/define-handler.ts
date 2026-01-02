@@ -8,7 +8,13 @@
  */
 
 import type { RouterConfig, RouterDefinition, GetRoute, RouterKeys } from '../route/types';
-import type { RouteHandlerConfig, ValidatedRequest, HandlerContext, HandlerResponse, UseCasePort } from './types';
+import type {
+  RouteHandlerConfig,
+  ValidatedRequest,
+  HandlerResponse,
+  UseCasePort,
+  HandlerContext,
+} from './types';
 
 /**
  * Defines a type-safe handler for a specific route.
@@ -44,19 +50,11 @@ import type { RouteHandlerConfig, ValidatedRequest, HandlerContext, HandlerRespo
  * );
  * ```
  */
-export function defineHandler<
-  T extends RouterConfig,
-  K extends RouterKeys<T>,
-  TInput,
-  TOutput,
->(
+export function defineHandler<T extends RouterConfig, K extends RouterKeys<T>, TInput, TOutput>(
   _router: T | RouterDefinition<T>,
   _key: K,
   config: {
-    readonly requestMapper: (
-      req: ValidatedRequest<GetRoute<T, K>>,
-      ctx: HandlerContext,
-    ) => TInput;
+    readonly requestMapper: (req: ValidatedRequest<GetRoute<T, K>>, ctx: HandlerContext) => TInput;
     readonly useCase: UseCasePort<TInput, TOutput>;
     readonly responseMapper: (output: TOutput) => HandlerResponse;
   },
@@ -98,9 +96,7 @@ export function defineHandler<
  * };
  * ```
  */
-export function createHandlerFactory<T extends RouterConfig>(
-  router: T | RouterDefinition<T>,
-) {
+export function createHandlerFactory<T extends RouterConfig>(router: T | RouterDefinition<T>) {
   return <K extends RouterKeys<T>, TInput, TOutput>(
     key: K,
     config: {

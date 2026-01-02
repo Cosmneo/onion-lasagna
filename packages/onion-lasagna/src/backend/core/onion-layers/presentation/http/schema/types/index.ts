@@ -3,11 +3,7 @@
  * @module unified/schema/types
  */
 
-export type {
-  JsonSchema,
-  JsonSchemaType,
-  JsonSchemaStringFormat,
-} from './json-schema.type';
+export type { JsonSchema, JsonSchemaType, JsonSchemaStringFormat } from './json-schema.type';
 
 export type {
   ValidationIssue,

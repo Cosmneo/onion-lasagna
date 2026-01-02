@@ -102,10 +102,7 @@ function buildComposables(
 function createUseQueryComposable<
   TRequest extends RequestDataShape,
   TResponse extends ResponseDataShape,
->(
-  clientMethod: (params: TRequest) => Promise<TResponse['body']>,
-  path: string[],
-) {
+>(clientMethod: (params: TRequest) => Promise<TResponse['body']>, path: string[]) {
   return (
     params: TRequest,
     options?: Omit<UseQueryOptions<TResponse['body']>, 'queryKey' | 'queryFn'>,
@@ -125,12 +122,7 @@ function createUseMutationComposable<
   TRequest extends RequestDataShape,
   TResponse extends ResponseDataShape,
 >(clientMethod: (params: TRequest) => Promise<TResponse['body']>) {
-  return (
-    options?: Omit<
-      UseMutationOptions<TResponse['body'], Error, TRequest>,
-      'mutationFn'
-    >,
-  ) => {
+  return (options?: Omit<UseMutationOptions<TResponse['body'], Error, TRequest>, 'mutationFn'>) => {
     return useMutation({
       mutationFn: clientMethod,
       ...options,

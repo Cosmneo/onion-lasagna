@@ -230,6 +230,38 @@ describe('typeboxSchema', () => {
     });
   });
 
+  describe('error handling', () => {
+    it('handles circular references in error values gracefully', () => {
+      const schema = typeboxSchema(Type.String());
+
+      // Create a circular reference
+      const circular: Record<string, unknown> = { name: 'test' };
+      circular.self = circular;
+
+      // Should not throw - should return validation error with safe stringified value
+      const result = schema.validate(circular);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        // The received value should be safely stringified
+        expect(result.issues[0]?.received).toBe('[Complex Object]');
+      }
+    });
+
+    it('handles BigInt values in error reporting', () => {
+      const schema = typeboxSchema(Type.Number());
+
+      // BigInt is not JSON-serializable
+      const result = schema.validate(BigInt(12345));
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        // The received value should be the string representation
+        expect(result.issues[0]?.received).toBe('12345');
+      }
+    });
+  });
+
   describe('type inference', () => {
     it('exposes _output type marker', () => {
       const schema = typeboxSchema(Type.Object({ name: Type.String() }));

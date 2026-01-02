@@ -272,8 +272,9 @@ describe('generateOpenAPI', () => {
         },
       );
 
-      expect((spec as { components?: { securitySchemes: unknown } }).components?.securitySchemes)
-        .toBeDefined();
+      expect(
+        (spec as { components?: { securitySchemes: unknown } }).components?.securitySchemes,
+      ).toBeDefined();
       expect((spec as { security: unknown[] }).security).toHaveLength(1);
     });
 
@@ -445,9 +446,9 @@ describe('generateOpenAPI', () => {
       );
 
       const operation = spec.paths['/users/{userId}']?.get;
-      expect(
-        (operation as { externalDocs?: { url: string } }).externalDocs?.url,
-      ).toBe('https://docs.example.com/users');
+      expect((operation as { externalDocs?: { url: string } }).externalDocs?.url).toBe(
+        'https://docs.example.com/users',
+      );
     });
   });
 
@@ -578,7 +579,9 @@ describe('generateOpenAPI', () => {
         },
       );
 
-      expect(spec.paths['/upload']?.post?.requestBody?.content?.['multipart/form-data']).toBeDefined();
+      expect(
+        spec.paths['/upload']?.post?.requestBody?.content?.['multipart/form-data'],
+      ).toBeDefined();
     });
 
     it('handles optional body', () => {

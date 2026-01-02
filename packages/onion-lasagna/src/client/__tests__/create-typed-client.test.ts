@@ -174,9 +174,9 @@ describe('createTypedClient', () => {
     it('should throw when making request without baseUrl', async () => {
       const client = createTypedClient(testRouter, { fetch: mockFetch });
 
-      await expect(
-        client.projects.list({ queryParams: {} }),
-      ).rejects.toThrow('Client not configured');
+      await expect(client.projects.list({ queryParams: {} })).rejects.toThrow(
+        'Client not configured',
+      );
     });
   });
 
@@ -379,9 +379,9 @@ describe('createTypedClient', () => {
         fetch: mockFetch,
       });
 
-      await expect(
-        client.projects.get({ pathParams: { projectId: '999' } }),
-      ).rejects.toThrow(ClientError);
+      await expect(client.projects.get({ pathParams: { projectId: '999' } })).rejects.toThrow(
+        ClientError,
+      );
 
       try {
         await client.projects.get({ pathParams: { projectId: '999' } });
@@ -401,9 +401,7 @@ describe('createTypedClient', () => {
         fetch: mockFetch,
       });
 
-      await expect(
-        client.projects.list({ queryParams: {} }),
-      ).rejects.toThrow(ClientError);
+      await expect(client.projects.list({ queryParams: {} })).rejects.toThrow(ClientError);
     });
 
     it('should call onError hook when error occurs', async () => {

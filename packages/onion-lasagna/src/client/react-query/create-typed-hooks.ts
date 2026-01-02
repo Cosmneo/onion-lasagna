@@ -98,10 +98,7 @@ function buildHooks(
 /**
  * Create a typed useQuery hook for a route.
  */
-function createUseQueryHook<
-  TRequest extends RequestDataShape,
-  TResponse extends ResponseDataShape,
->(
+function createUseQueryHook<TRequest extends RequestDataShape, TResponse extends ResponseDataShape>(
   clientMethod: (params: TRequest) => Promise<TResponse['body']>,
   path: string[],
 ) {
@@ -124,12 +121,7 @@ function createUseMutationHook<
   TRequest extends RequestDataShape,
   TResponse extends ResponseDataShape,
 >(clientMethod: (params: TRequest) => Promise<TResponse['body']>) {
-  return (
-    options?: Omit<
-      UseMutationOptions<TResponse['body'], Error, TRequest>,
-      'mutationFn'
-    >,
-  ) => {
+  return (options?: Omit<UseMutationOptions<TResponse['body'], Error, TRequest>, 'mutationFn'>) => {
     return useMutation({
       mutationFn: clientMethod,
       ...options,

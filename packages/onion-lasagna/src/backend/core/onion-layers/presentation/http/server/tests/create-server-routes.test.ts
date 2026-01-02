@@ -984,7 +984,7 @@ describe('createServerRoutes', () => {
 
   describe('normalization', () => {
     describe('query params', () => {
-      it('normalizes array values to first element', async () => {
+      it('preserves array values with multiple elements', async () => {
         let capturedQuery: unknown;
 
         const routes = createServerRoutes(
@@ -1013,6 +1013,40 @@ describe('createServerRoutes', () => {
 
         await routes[0]!.handler(rawRequest);
 
+        // Multiple values are preserved as array for schema validation
+        expect(capturedQuery).toEqual({ page: ['1', '2', '3'] });
+      });
+
+      it('unwraps single-element arrays to string', async () => {
+        let capturedQuery: unknown;
+
+        const routes = createServerRoutes(
+          { list: listUsersRoute },
+          {
+            list: {
+              requestMapper: (req) => {
+                capturedQuery = req.query;
+                return {};
+              },
+              useCase: { execute: async () => [] },
+              responseMapper: () => ({ status: 200, body: [] }),
+            },
+          },
+          { validateRequest: false },
+        );
+
+        const rawRequest: RawHttpRequest = {
+          method: 'GET',
+          url: '/users',
+          headers: {},
+          body: null,
+          query: { page: ['1'] },
+          params: {},
+        };
+
+        await routes[0]!.handler(rawRequest);
+
+        // Single-element arrays are unwrapped for convenience
         expect(capturedQuery).toEqual({ page: '1' });
       });
 

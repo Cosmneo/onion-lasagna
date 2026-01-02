@@ -15,17 +15,23 @@ export default defineConfig({
     // HTTP Presentation Layer (unified route system)
     'http/index': 'src/backend/core/onion-layers/presentation/http/index.ts',
     'http/schema/index': 'src/backend/core/onion-layers/presentation/http/schema/index.ts',
-    'http/schema/zod': 'src/backend/core/onion-layers/presentation/http/schema/adapters/zod.adapter.ts',
-    'http/schema/typebox': 'src/backend/core/onion-layers/presentation/http/schema/adapters/typebox.adapter.ts',
+    'http/schema/zod':
+      'src/backend/core/onion-layers/presentation/http/schema/adapters/zod.adapter.ts',
+    'http/schema/typebox':
+      'src/backend/core/onion-layers/presentation/http/schema/adapters/typebox.adapter.ts',
     'http/route/index': 'src/backend/core/onion-layers/presentation/http/route/index.ts',
     'http/client/index': 'src/backend/core/onion-layers/presentation/http/client/index.ts',
     'http/server/index': 'src/backend/core/onion-layers/presentation/http/server/index.ts',
     'http/openapi/index': 'src/backend/core/onion-layers/presentation/http/openapi/index.ts',
     // HTTP Framework Adapters (unified route system)
-    'http/frameworks/hono': 'src/backend/core/onion-layers/presentation/http/frameworks/hono/index.ts',
-    'http/frameworks/fastify': 'src/backend/core/onion-layers/presentation/http/frameworks/fastify/index.ts',
-    'http/frameworks/elysia': 'src/backend/core/onion-layers/presentation/http/frameworks/elysia/index.ts',
-    'http/frameworks/nestjs': 'src/backend/core/onion-layers/presentation/http/frameworks/nestjs/index.ts',
+    'http/frameworks/hono':
+      'src/backend/core/onion-layers/presentation/http/frameworks/hono/index.ts',
+    'http/frameworks/fastify':
+      'src/backend/core/onion-layers/presentation/http/frameworks/fastify/index.ts',
+    'http/frameworks/elysia':
+      'src/backend/core/onion-layers/presentation/http/frameworks/elysia/index.ts',
+    'http/frameworks/nestjs':
+      'src/backend/core/onion-layers/presentation/http/frameworks/nestjs/index.ts',
   },
   dts: true,
   format: ['esm', 'cjs'],

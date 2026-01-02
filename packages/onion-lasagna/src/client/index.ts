@@ -54,10 +54,7 @@
  */
 
 // Route contract definition
-export {
-  defineRouteContract,
-  defineRouteContractFromMetadata,
-} from '../shared/contracts';
+export { defineRouteContract, defineRouteContractFromMetadata } from '../shared/contracts';
 export type {
   RouteContractConfig,
   ServiceMetadataForContract,
@@ -70,10 +67,7 @@ export type {
 export { defineRouterContract } from '../shared/contracts';
 
 // Core types
-export type {
-  RouteContract,
-  RouterContractConfig,
-} from '../shared/contracts';
+export type { RouteContract, RouterContractConfig } from '../shared/contracts';
 export { isRouteContract } from '../shared/contracts';
 
 // Client factory

@@ -3,18 +3,10 @@
  * @module unified/route/types
  */
 
-export type {
-  HttpMethod,
-  HttpStatusCode,
-  ContentType,
-} from './http.type';
+export type { HttpMethod, HttpStatusCode, ContentType } from './http.type';
 export { DEFAULT_CONTENT_TYPE } from './http.type';
 
-export type {
-  ExtractPathParamNames,
-  PathParams,
-  HasPathParams,
-} from './path-params.type';
+export type { ExtractPathParamNames, PathParams, HasPathParams } from './path-params.type';
 export {
   pathToRegex,
   getPathParamNames,
@@ -61,8 +53,4 @@ export type {
   RouterKeys,
   GetRoute,
 } from './router-definition.type';
-export {
-  isRouteDefinition,
-  isRouterDefinition,
-  collectRoutes,
-} from './router-definition.type';
+export { isRouteDefinition, isRouterDefinition, collectRoutes } from './router-definition.type';

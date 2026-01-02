@@ -26,38 +26,29 @@ describe('buildUrl', () => {
 
   describe('path parameters', () => {
     it('should replace single path parameter', () => {
-      const url = buildUrl(
-        'http://localhost:3000',
-        '/api/projects/{projectId}',
-        { projectId: '123' },
-      );
+      const url = buildUrl('http://localhost:3000', '/api/projects/{projectId}', {
+        projectId: '123',
+      });
       expect(url).toBe('http://localhost:3000/api/projects/123');
     });
 
     it('should replace multiple path parameters', () => {
-      const url = buildUrl(
-        'http://localhost:3000',
-        '/api/projects/{projectId}/tasks/{taskId}',
-        { projectId: 'proj-1', taskId: 'task-2' },
-      );
+      const url = buildUrl('http://localhost:3000', '/api/projects/{projectId}/tasks/{taskId}', {
+        projectId: 'proj-1',
+        taskId: 'task-2',
+      });
       expect(url).toBe('http://localhost:3000/api/projects/proj-1/tasks/task-2');
     });
 
     it('should encode path parameters with special characters', () => {
-      const url = buildUrl(
-        'http://localhost:3000',
-        '/api/users/{userId}',
-        { userId: 'user@example.com' },
-      );
+      const url = buildUrl('http://localhost:3000', '/api/users/{userId}', {
+        userId: 'user@example.com',
+      });
       expect(url).toBe('http://localhost:3000/api/users/user%40example.com');
     });
 
     it('should handle path parameters with spaces', () => {
-      const url = buildUrl(
-        'http://localhost:3000',
-        '/api/search/{term}',
-        { term: 'hello world' },
-      );
+      const url = buildUrl('http://localhost:3000', '/api/search/{term}', { term: 'hello world' });
       expect(url).toBe('http://localhost:3000/api/search/hello%20world');
     });
 
@@ -69,22 +60,15 @@ describe('buildUrl', () => {
 
   describe('query parameters', () => {
     it('should append single query parameter', () => {
-      const url = buildUrl(
-        'http://localhost:3000',
-        '/api/projects',
-        undefined,
-        { page: '1' },
-      );
+      const url = buildUrl('http://localhost:3000', '/api/projects', undefined, { page: '1' });
       expect(url).toBe('http://localhost:3000/api/projects?page=1');
     });
 
     it('should append multiple query parameters', () => {
-      const url = buildUrl(
-        'http://localhost:3000',
-        '/api/projects',
-        undefined,
-        { page: '1', pageSize: '20' },
-      );
+      const url = buildUrl('http://localhost:3000', '/api/projects', undefined, {
+        page: '1',
+        pageSize: '20',
+      });
       expect(url).toContain('page=1');
       expect(url).toContain('pageSize=20');
       expect(url).toContain('?');
@@ -92,42 +76,34 @@ describe('buildUrl', () => {
     });
 
     it('should skip undefined query parameters', () => {
-      const url = buildUrl(
-        'http://localhost:3000',
-        '/api/projects',
-        undefined,
-        { page: '1', filter: undefined },
-      );
+      const url = buildUrl('http://localhost:3000', '/api/projects', undefined, {
+        page: '1',
+        filter: undefined,
+      });
       expect(url).toBe('http://localhost:3000/api/projects?page=1');
     });
 
     it('should skip null query parameters', () => {
-      const url = buildUrl(
-        'http://localhost:3000',
-        '/api/projects',
-        undefined,
-        { page: '1', filter: null as unknown as string | undefined },
-      );
+      const url = buildUrl('http://localhost:3000', '/api/projects', undefined, {
+        page: '1',
+        filter: null as unknown as string | undefined,
+      });
       expect(url).toBe('http://localhost:3000/api/projects?page=1');
     });
 
     it('should skip empty string query parameters', () => {
-      const url = buildUrl(
-        'http://localhost:3000',
-        '/api/projects',
-        undefined,
-        { page: '1', filter: '' },
-      );
+      const url = buildUrl('http://localhost:3000', '/api/projects', undefined, {
+        page: '1',
+        filter: '',
+      });
       expect(url).toBe('http://localhost:3000/api/projects?page=1');
     });
 
     it('should not append query string when all params are undefined', () => {
-      const url = buildUrl(
-        'http://localhost:3000',
-        '/api/projects',
-        undefined,
-        { filter: undefined, search: undefined },
-      );
+      const url = buildUrl('http://localhost:3000', '/api/projects', undefined, {
+        filter: undefined,
+        search: undefined,
+      });
       expect(url).toBe('http://localhost:3000/api/projects');
     });
   });

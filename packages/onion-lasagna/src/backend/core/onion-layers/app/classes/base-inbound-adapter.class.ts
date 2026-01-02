@@ -27,9 +27,10 @@ import { InfraError } from '../../infra/exceptions/infra.error';
  * }
  * ```
  */
-export abstract class BaseInboundAdapter<TInput, TOutput>
-  implements BaseInboundPort<TInput, TOutput>
-{
+export abstract class BaseInboundAdapter<TInput, TOutput> implements BaseInboundPort<
+  TInput,
+  TOutput
+> {
   /**
    * Implements the use case logic. Override this method in subclasses.
    *
