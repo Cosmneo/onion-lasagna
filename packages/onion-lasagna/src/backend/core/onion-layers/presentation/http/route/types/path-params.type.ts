@@ -73,8 +73,7 @@ export type PathParams<T extends string> =
  * type NoParams = HasPathParams<'/users'>; // false
  * ```
  */
-export type HasPathParams<T extends string> =
-  ExtractPathParamNames<T> extends never ? false : true;
+export type HasPathParams<T extends string> = ExtractPathParamNames<T> extends never ? false : true;
 
 /**
  * Converts a path template with parameters to a regex pattern.

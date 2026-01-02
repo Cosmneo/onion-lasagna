@@ -22,7 +22,7 @@ export function buildUrl(
   baseUrl: string,
   path: string,
   pathParams?: Record<string, string>,
-  queryParams?: Record<string, string | undefined>,
+  queryParams?: Record<string, string | number | undefined>,
 ): string {
   // Replace path parameters
   let resolvedPath = path;
@@ -37,12 +37,12 @@ export function buildUrl(
   const normalizedPath = resolvedPath.startsWith('/') ? resolvedPath : `/${resolvedPath}`;
   let url = `${normalizedBaseUrl}${normalizedPath}`;
 
-  // Append query parameters
+  // Append query parameters (converting numbers to strings)
   if (queryParams) {
     const searchParams = new URLSearchParams();
     for (const [key, value] of Object.entries(queryParams)) {
       if (value !== undefined && value !== null && value !== '') {
-        searchParams.append(key, value);
+        searchParams.append(key, String(value));
       }
     }
     const queryString = searchParams.toString();

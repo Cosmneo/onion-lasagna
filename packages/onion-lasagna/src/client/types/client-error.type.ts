@@ -44,11 +44,7 @@ export class ClientError extends Error {
    * Create a ClientError from a timeout.
    */
   static timeoutError(url: string, timeout: number): ClientError {
-    return new ClientError(
-      `Request to ${url} timed out after ${timeout}ms`,
-      0,
-      'TIMEOUT_ERROR',
-    );
+    return new ClientError(`Request to ${url} timed out after ${timeout}ms`, 0, 'TIMEOUT_ERROR');
   }
 
   /**

@@ -144,12 +144,8 @@ export type ClientRequestInput<TRoute extends RouteDefinition> =
   (HasPathParams<TRoute['path']> extends true
     ? { pathParams: PathParams<TRoute['path']> }
     : object) &
-    (TRoute['_types']['body'] extends undefined
-      ? object
-      : { body: TRoute['_types']['body'] }) &
-    (TRoute['_types']['query'] extends undefined
-      ? object
-      : { query: TRoute['_types']['query'] }) &
+    (TRoute['_types']['body'] extends undefined ? object : { body: TRoute['_types']['body'] }) &
+    (TRoute['_types']['query'] extends undefined ? object : { query: TRoute['_types']['query'] }) &
     (TRoute['_types']['headers'] extends undefined
       ? object
       : { headers: TRoute['_types']['headers'] });

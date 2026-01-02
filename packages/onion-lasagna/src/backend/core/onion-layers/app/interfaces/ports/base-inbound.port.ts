@@ -22,9 +22,8 @@
  * interface SeedDatabasePort extends BaseInboundPort<void, void> {}
  * ```
  */
- 
+
 export interface BaseInboundPort<TInput = void, TOutput = void> {
-   
   /**
    * Executes the use case with the provided input.
    *

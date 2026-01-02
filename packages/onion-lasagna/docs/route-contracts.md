@@ -27,9 +27,10 @@ The foundational interface that captures all static route information:
 
 ```typescript
 interface RouteContract<TPath, TMethod, TRequest, TResponse> {
-  readonly path: TPath;       // e.g., '/api/projects/{projectId}'
-  readonly method: TMethod;   // 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-  readonly _types: {          // Phantom types for compile-time inference
+  readonly path: TPath; // e.g., '/api/projects/{projectId}'
+  readonly method: TMethod; // 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  readonly _types: {
+    // Phantom types for compile-time inference
     readonly request: TRequest;
     readonly response: TResponse;
   };
@@ -257,8 +258,7 @@ import { createProjectContract } from '../client/typed-routes';
 const createProjectRoute = createRouteFromContract({
   contract: createProjectContract,
   controller: createProjectController,
-  requestDtoFactory: (req) =>
-    new CreateProjectRequestDto(req, createProjectRequestValidator),
+  requestDtoFactory: (req) => new CreateProjectRequestDto(req, createProjectRequestValidator),
 });
 ```
 
@@ -285,8 +285,7 @@ const createProjectValidator = createZodValidator(createProjectSchema);
 const route = createRouteFromContract({
   contract: createProjectContract,
   controller: createProjectController,
-  requestDtoFactory: (req) =>
-    new CreateProjectRequestDto(req, createProjectValidator), // Validation happens here!
+  requestDtoFactory: (req) => new CreateProjectRequestDto(req, createProjectValidator), // Validation happens here!
 });
 ```
 
@@ -430,7 +429,10 @@ export const routes = [
 ```typescript
 // server.ts
 import { Hono } from 'hono';
-import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+import {
+  registerHonoRoutes,
+  onionErrorHandler,
+} from '@cosmneo/onion-lasagna/backend/frameworks/hono';
 import { routes } from './routes';
 
 const app = new Hono();
@@ -473,17 +475,18 @@ The client is designed as a **core + extensions** pattern:
 ```
 
 Each extension:
+
 - Has its own entry point (`client/react-query`, `client/swr`, etc.)
 - Declares framework as peer dependency (tree-shakeable)
 - Builds on top of the core client
 
 ## Import Paths
 
-| What | Import From |
-|------|-------------|
-| `defineRouteContract`, `defineRouterContract` | `@cosmneo/onion-lasagna/client` |
-| `createTypedClient` | `@cosmneo/onion-lasagna/client` |
-| `createTypedHooks` (React Query) | `@cosmneo/onion-lasagna/client/react-query` |
-| `createTypedComposables` (Vue Query) | `@cosmneo/onion-lasagna/client/vue-query` |
-| `createRouteFromContract` | `@cosmneo/onion-lasagna/backend/core/presentation` |
-| `RouteContract`, `RouterContractConfig` (types) | `@cosmneo/onion-lasagna/shared/contracts` |
+| What                                            | Import From                                        |
+| ----------------------------------------------- | -------------------------------------------------- |
+| `defineRouteContract`, `defineRouterContract`   | `@cosmneo/onion-lasagna/client`                    |
+| `createTypedClient`                             | `@cosmneo/onion-lasagna/client`                    |
+| `createTypedHooks` (React Query)                | `@cosmneo/onion-lasagna/client/react-query`        |
+| `createTypedComposables` (Vue Query)            | `@cosmneo/onion-lasagna/client/vue-query`          |
+| `createRouteFromContract`                       | `@cosmneo/onion-lasagna/backend/core/presentation` |
+| `RouteContract`, `RouterContractConfig` (types) | `@cosmneo/onion-lasagna/shared/contracts`          |

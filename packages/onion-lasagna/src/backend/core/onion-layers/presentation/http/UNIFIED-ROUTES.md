@@ -43,18 +43,19 @@ The unified route system solves a common problem: maintaining consistency betwee
 
 ### Why Use This?
 
-| Without Unified Routes | With Unified Routes |
-|------------------------|---------------------|
-| Client types defined separately | Types inferred from schema |
-| Server validation duplicated | Validation from same schema |
-| OpenAPI written manually | Generated from schema |
-| Three sources of truth | **One source of truth** |
+| Without Unified Routes          | With Unified Routes         |
+| ------------------------------- | --------------------------- |
+| Client types defined separately | Types inferred from schema  |
+| Server validation duplicated    | Validation from same schema |
+| OpenAPI written manually        | Generated from schema       |
+| Three sources of truth          | **One source of truth**     |
 
 ---
 
 ## Schema Adapters
 
 Schema adapters wrap validation libraries (Zod, TypeBox) to provide:
+
 - **Runtime validation** via `validate(data)`
 - **JSON Schema conversion** via `toJsonSchema()`
 - **Type inference** via phantom types `_output` and `_input`
@@ -66,11 +67,13 @@ import { z } from 'zod';
 import { zodSchema } from '@cosmneo/onion-lasagna/unified/schema/zod';
 
 // Wrap a Zod schema
-const createProjectSchema = zodSchema(z.object({
-  name: z.string().min(1).max(100).describe('Project name'),
-  description: z.string().optional().describe('Project description'),
-  priority: z.enum(['low', 'medium', 'high']).default('medium'),
-}));
+const createProjectSchema = zodSchema(
+  z.object({
+    name: z.string().min(1).max(100).describe('Project name'),
+    description: z.string().optional().describe('Project description'),
+    priority: z.enum(['low', 'medium', 'high']).default('medium'),
+  }),
+);
 
 // Runtime validation
 const result = createProjectSchema.validate({
@@ -103,15 +106,15 @@ const jsonSchema = createProjectSchema.toJsonSchema();
 import { Type } from '@sinclair/typebox';
 import { typeboxSchema } from '@cosmneo/onion-lasagna/unified/schema/typebox';
 
-const createProjectSchema = typeboxSchema(Type.Object({
-  name: Type.String({ minLength: 1, maxLength: 100 }),
-  description: Type.Optional(Type.String()),
-  priority: Type.Union([
-    Type.Literal('low'),
-    Type.Literal('medium'),
-    Type.Literal('high'),
-  ], { default: 'medium' }),
-}));
+const createProjectSchema = typeboxSchema(
+  Type.Object({
+    name: Type.String({ minLength: 1, maxLength: 100 }),
+    description: Type.Optional(Type.String()),
+    priority: Type.Union([Type.Literal('low'), Type.Literal('medium'), Type.Literal('high')], {
+      default: 'medium',
+    }),
+  }),
+);
 ```
 
 ### Where Schemas Live
@@ -134,17 +137,21 @@ bounded-contexts/
 import { z } from 'zod';
 import { zodSchema } from '@cosmneo/onion-lasagna/unified/schema/zod';
 
-export const createProjectBodySchema = zodSchema(z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().optional(),
-}));
+export const createProjectBodySchema = zodSchema(
+  z.object({
+    name: z.string().min(1).max(100),
+    description: z.string().optional(),
+  }),
+);
 
-export const projectResponseSchema = zodSchema(z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  description: z.string().nullable(),
-  createdAt: z.string().datetime(),
-}));
+export const projectResponseSchema = zodSchema(
+  z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    description: z.string().nullable(),
+    createdAt: z.string().datetime(),
+  }),
+);
 
 // Infer types from schemas
 export type CreateProjectBody = typeof createProjectBodySchema._output;
@@ -210,12 +217,14 @@ Path parameters are automatically extracted from the path pattern:
 ```typescript
 const getProjectRoute = defineRoute({
   method: 'GET',
-  path: '/api/projects/:projectId',  // :projectId is extracted
+  path: '/api/projects/:projectId', // :projectId is extracted
   request: {
     // Optional: validate path params
-    params: zodSchema(z.object({
-      projectId: z.string().uuid(),
-    })),
+    params: zodSchema(
+      z.object({
+        projectId: z.string().uuid(),
+      }),
+    ),
   },
   responses: {
     200: { description: 'Project found', schema: projectResponseSchema },
@@ -238,12 +247,14 @@ const listProjectsRoute = defineRoute({
   method: 'GET',
   path: '/api/projects',
   request: {
-    query: zodSchema(z.object({
-      page: z.coerce.number().min(1).default(1),
-      limit: z.coerce.number().min(1).max(100).default(20),
-      search: z.string().optional(),
-      status: z.enum(['active', 'archived']).optional(),
-    })),
+    query: zodSchema(
+      z.object({
+        page: z.coerce.number().min(1).default(1),
+        limit: z.coerce.number().min(1).max(100).default(20),
+        search: z.string().optional(),
+        status: z.enum(['active', 'archived']).optional(),
+      }),
+    ),
   },
   responses: {
     200: {
@@ -347,8 +358,8 @@ const api = createClient(projectManagementRouter, {
 // Usage - fully typed!
 const project = await api.projects.create({
   body: {
-    name: 'My Project',        // ✓ Required, string
-    description: 'Optional',   // ✓ Optional, string
+    name: 'My Project', // ✓ Required, string
+    description: 'Optional', // ✓ Optional, string
   },
 });
 // project is typed as ProjectResponse
@@ -357,7 +368,7 @@ const projects = await api.projects.list({
   query: {
     page: 1,
     limit: 20,
-    status: 'active',  // ✓ Must be 'active' | 'archived'
+    status: 'active', // ✓ Must be 'active' | 'archived'
   },
 });
 
@@ -377,9 +388,9 @@ try {
   });
 } catch (error) {
   if (error instanceof ClientError) {
-    console.log(error.status);       // 404
-    console.log(error.statusText);   // 'Not Found'
-    console.log(error.body);         // Error response body
+    console.log(error.status); // 404
+    console.log(error.statusText); // 'Not Found'
+    console.log(error.body); // Error response body
     console.log(error.isClientError); // true (4xx)
     console.log(error.isServerError); // false (5xx)
   }
@@ -474,13 +485,15 @@ function validateRequest(route: RouteDefinition, rawRequest: RawHttpRequest) {
     const result = route.request.body.schema.validate(rawRequest.body);
 
     if (result.success) {
-      data.body = result.data;  // Transformed/coerced data
+      data.body = result.data; // Transformed/coerced data
     } else {
       // Prefix all error paths with 'body.'
-      errors.push(...result.issues.map(issue => ({
-        ...issue,
-        path: ['body', ...issue.path],
-      })));
+      errors.push(
+        ...result.issues.map((issue) => ({
+          ...issue,
+          path: ['body', ...issue.path],
+        })),
+      );
     }
   }
 
@@ -491,12 +504,14 @@ function validateRequest(route: RouteDefinition, rawRequest: RawHttpRequest) {
     const result = route.request.query.schema.validate(queryObj);
 
     if (result.success) {
-      data.query = result.data;  // Coerced numbers, defaults applied
+      data.query = result.data; // Coerced numbers, defaults applied
     } else {
-      errors.push(...result.issues.map(issue => ({
-        ...issue,
-        path: ['query', ...issue.path],
-      })));
+      errors.push(
+        ...result.issues.map((issue) => ({
+          ...issue,
+          path: ['query', ...issue.path],
+        })),
+      );
     }
   }
 
@@ -507,10 +522,12 @@ function validateRequest(route: RouteDefinition, rawRequest: RawHttpRequest) {
     if (result.success) {
       data.pathParams = result.data;
     } else {
-      errors.push(...result.issues.map(issue => ({
-        ...issue,
-        path: ['pathParams', ...issue.path],
-      })));
+      errors.push(
+        ...result.issues.map((issue) => ({
+          ...issue,
+          path: ['pathParams', ...issue.path],
+        })),
+      );
     }
   } else {
     // No schema = pass through raw params
@@ -525,10 +542,12 @@ function validateRequest(route: RouteDefinition, rawRequest: RawHttpRequest) {
     if (result.success) {
       data.headers = result.data;
     } else {
-      errors.push(...result.issues.map(issue => ({
-        ...issue,
-        path: ['headers', ...issue.path],
-      })));
+      errors.push(
+        ...result.issues.map((issue) => ({
+          ...issue,
+          path: ['headers', ...issue.path],
+        })),
+      );
     }
   }
 
@@ -547,101 +566,105 @@ function validateRequest(route: RouteDefinition, rawRequest: RawHttpRequest) {
 import { createServerRoutes } from '@cosmneo/onion-lasagna/unified/server';
 import { projectManagementRouter } from './routes';
 
-const routes = createServerRoutes(projectManagementRouter, {
-  // Handler for each route (key matches router structure)
-  'projects.create': {
-    handler: async (req, ctx) => {
-      // req.body is GUARANTEED to be valid CreateProjectBody
-      // No manual validation needed!
+const routes = createServerRoutes(
+  projectManagementRouter,
+  {
+    // Handler for each route (key matches router structure)
+    'projects.create': {
+      handler: async (req, ctx) => {
+        // req.body is GUARANTEED to be valid CreateProjectBody
+        // No manual validation needed!
 
-      const project = await projectService.create({
-        name: req.body.name,           // string (validated)
-        description: req.body.description, // string | undefined
-        priority: req.body.priority,   // 'low' | 'medium' | 'high'
-        createdBy: ctx.userId,
-      });
+        const project = await projectService.create({
+          name: req.body.name, // string (validated)
+          description: req.body.description, // string | undefined
+          priority: req.body.priority, // 'low' | 'medium' | 'high'
+          createdBy: ctx.userId,
+        });
 
-      return {
-        status: 201,
-        body: project,
-      };
-    },
-    // Optional: route-specific middleware
-    middleware: [requireAuth],
-  },
-
-  'projects.list': {
-    handler: async (req, ctx) => {
-      // req.query is validated and coerced
-      // z.coerce.number() already converted strings to numbers
-
-      const { page, limit, search, status } = req.query;
-      // page: number (default 1)
-      // limit: number (default 20)
-      // search: string | undefined
-      // status: 'active' | 'archived' | undefined
-
-      const projects = await projectService.list({
-        page,
-        limit,
-        search,
-        status,
-      });
-
-      return {
-        status: 200,
-        body: projects,
-      };
-    },
-  },
-
-  'projects.get': {
-    handler: async (req, ctx) => {
-      // req.pathParams.projectId is validated UUID
-      const project = await projectService.findById(req.pathParams.projectId);
-
-      if (!project) {
         return {
-          status: 404,
-          body: { error: 'Project not found' },
+          status: 201,
+          body: project,
         };
-      }
+      },
+      // Optional: route-specific middleware
+      middleware: [requireAuth],
+    },
 
-      return {
-        status: 200,
-        body: project,
-      };
+    'projects.list': {
+      handler: async (req, ctx) => {
+        // req.query is validated and coerced
+        // z.coerce.number() already converted strings to numbers
+
+        const { page, limit, search, status } = req.query;
+        // page: number (default 1)
+        // limit: number (default 20)
+        // search: string | undefined
+        // status: 'active' | 'archived' | undefined
+
+        const projects = await projectService.list({
+          page,
+          limit,
+          search,
+          status,
+        });
+
+        return {
+          status: 200,
+          body: projects,
+        };
+      },
+    },
+
+    'projects.get': {
+      handler: async (req, ctx) => {
+        // req.pathParams.projectId is validated UUID
+        const project = await projectService.findById(req.pathParams.projectId);
+
+        if (!project) {
+          return {
+            status: 404,
+            body: { error: 'Project not found' },
+          };
+        }
+
+        return {
+          status: 200,
+          body: project,
+        };
+      },
     },
   },
-}, {
-  // Global options
+  {
+    // Global options
 
-  // Global middleware (runs before all handlers)
-  middleware: [requestLogger, errorHandler],
+    // Global middleware (runs before all handlers)
+    middleware: [requestLogger, errorHandler],
 
-  // Custom validation error response
-  onValidationError: (errors) => ({
-    status: 400,
-    body: {
-      success: false,
-      code: 'VALIDATION_ERROR',
-      errors: errors.map(e => ({
-        field: e.path.join('.'),
-        message: e.message,
-      })),
-    },
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  }),
+    // Custom validation error response
+    onValidationError: (errors) => ({
+      status: 400,
+      body: {
+        success: false,
+        code: 'VALIDATION_ERROR',
+        errors: errors.map((e) => ({
+          field: e.path.join('.'),
+          message: e.message,
+        })),
+      },
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }),
 
-  // Custom context factory
-  createContext: (rawRequest) => ({
-    requestId: crypto.randomUUID(),
-    userId: extractUserId(rawRequest),
-    timestamp: new Date(),
-  }),
-});
+    // Custom context factory
+    createContext: (rawRequest) => ({
+      requestId: crypto.randomUUID(),
+      userId: extractUserId(rawRequest),
+      timestamp: new Date(),
+    }),
+  },
+);
 ```
 
 ### The ValidatedRequest Type
@@ -703,13 +726,13 @@ for (const route of routes) {
 
 ### Why Auto-Validation Matters
 
-| Manual Validation | Auto-Validation |
-|-------------------|-----------------|
-| Duplicate schema definitions | Single schema definition |
-| Easy to forget validation | Always validates |
+| Manual Validation                | Auto-Validation           |
+| -------------------------------- | ------------------------- |
+| Duplicate schema definitions     | Single schema definition  |
+| Easy to forget validation        | Always validates          |
 | Types might not match validation | Types guaranteed to match |
-| Error format inconsistent | Consistent error format |
-| More code to maintain | Less code |
+| Error format inconsistent        | Consistent error format   |
+| More code to maintain            | Less code                 |
 
 ### What About Custom Validation?
 
@@ -958,9 +981,7 @@ app.get('/docs', (c) => {
     }
   },
   "security": [{ "bearerAuth": [] }],
-  "tags": [
-    { "name": "Projects", "description": "Project management operations" }
-  ]
+  "tags": [{ "name": "Projects", "description": "Project management operations" }]
 }
 ```
 
@@ -977,35 +998,45 @@ import { z } from 'zod';
 import { zodSchema } from '@cosmneo/onion-lasagna/unified/schema/zod';
 
 // Request schemas
-export const createProjectBodySchema = zodSchema(z.object({
-  name: z.string().min(1).max(100).describe('Project name'),
-  description: z.string().max(1000).optional().describe('Project description'),
-}));
+export const createProjectBodySchema = zodSchema(
+  z.object({
+    name: z.string().min(1).max(100).describe('Project name'),
+    description: z.string().max(1000).optional().describe('Project description'),
+  }),
+);
 
-export const listProjectsQuerySchema = zodSchema(z.object({
-  page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(1).max(100).default(20),
-}));
+export const listProjectsQuerySchema = zodSchema(
+  z.object({
+    page: z.coerce.number().min(1).default(1),
+    limit: z.coerce.number().min(1).max(100).default(20),
+  }),
+);
 
-export const projectIdParamsSchema = zodSchema(z.object({
-  projectId: z.string().uuid(),
-}));
+export const projectIdParamsSchema = zodSchema(
+  z.object({
+    projectId: z.string().uuid(),
+  }),
+);
 
 // Response schemas
-export const projectResponseSchema = zodSchema(z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  description: z.string().nullable(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
-}));
+export const projectResponseSchema = zodSchema(
+  z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    description: z.string().nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  }),
+);
 
-export const projectListResponseSchema = zodSchema(z.object({
-  items: z.array(projectResponseSchema._schema), // Reuse inner schema
-  total: z.number(),
-  page: z.number(),
-  limit: z.number(),
-}));
+export const projectListResponseSchema = zodSchema(
+  z.object({
+    items: z.array(projectResponseSchema._schema), // Reuse inner schema
+    total: z.number(),
+    page: z.number(),
+    limit: z.number(),
+  }),
+);
 
 // Export types
 export type CreateProjectBody = typeof createProjectBodySchema._output;
@@ -1135,9 +1166,7 @@ export const openApiSpec = generateOpenAPI(projectRouter, {
     title: 'Project API',
     version: '1.0.0',
   },
-  servers: [
-    { url: 'http://localhost:3000', description: 'Dev' },
-  ],
+  servers: [{ url: 'http://localhost:3000', description: 'Dev' }],
 });
 ```
 
@@ -1185,6 +1214,7 @@ The unified route system provides:
 5. **Schema-agnostic** - Works with Zod, TypeBox, or custom adapters
 
 The auto-validation specifically ensures:
+
 - All incoming data is validated against schemas
 - Handlers receive typed, guaranteed-valid data
 - Validation errors are returned consistently

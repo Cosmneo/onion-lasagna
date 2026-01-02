@@ -21,7 +21,16 @@ import type { HttpMethod } from './http.type';
  * Uses permissive types to allow any valid route definition.
  */
 export type RouterEntry =
-  | RouteDefinition<HttpMethod, string, unknown, unknown, unknown, unknown, unknown, ResponsesConfig>
+  | RouteDefinition<
+      HttpMethod,
+      string,
+      unknown,
+      unknown,
+      unknown,
+      unknown,
+      unknown,
+      ResponsesConfig
+    >
   | RouterConfig;
 
 /**
@@ -126,8 +135,8 @@ export type FlattenRouter<
           ? FlattenRouter<T[K], `${Prefix}${K & string}.`>
           : never;
     }[keyof T] extends infer U
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? U extends Record<string, RouteDefinition<any, any, any, any, any, any, any, any>>
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      U extends Record<string, RouteDefinition<any, any, any, any, any, any, any, any>>
       ? U
       : never
     : never
@@ -162,15 +171,18 @@ export type RouterKeys<T extends RouterConfig, Prefix extends string = ''> = T e
  * // typeof getUserRoute
  * ```
  */
-export type GetRoute<T extends RouterConfig, K extends string> = K extends `${infer Head}.${infer Tail}`
+export type GetRoute<
+  T extends RouterConfig,
+  K extends string,
+> = K extends `${infer Head}.${infer Tail}`
   ? Head extends keyof T
     ? T[Head] extends RouterConfig
       ? GetRoute<T[Head], Tail>
       : never
     : never
   : K extends keyof T
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? T[K] extends RouteDefinition<any, any, any, any, any, any, any, any>
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      T[K] extends RouteDefinition<any, any, any, any, any, any, any, any>
       ? T[K]
       : never
     : never;

@@ -15,6 +15,25 @@ import type { JsonSchemaOptions, SchemaAdapter } from '../types/schema-adapter.t
 import type { ValidationResult } from '../types/validation.type';
 
 /**
+ * Safely stringifies a value for error reporting.
+ * Returns undefined if stringification fails (e.g., circular references, BigInt).
+ */
+function safeStringify(value: unknown): string | undefined {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    // Handle circular references, BigInt, or other non-serializable values
+    if (typeof value === 'object' && value !== null) {
+      return '[Complex Object]';
+    }
+    if (typeof value === 'bigint') {
+      return String(value);
+    }
+    return String(value);
+  }
+}
+
+/**
  * Creates a SchemaAdapter from a TypeBox schema.
  *
  * TypeBox schemas are JSON Schema, so `toJsonSchema()` simply returns
@@ -70,9 +89,7 @@ import type { ValidationResult } from '../types/validation.type';
  * }));
  * ```
  */
-export function typeboxSchema<T extends TSchema>(
-  schema: T,
-): SchemaAdapter<Static<T>, Static<T>> {
+export function typeboxSchema<T extends TSchema>(schema: T): SchemaAdapter<Static<T>, Static<T>> {
   return {
     validate(data: unknown): ValidationResult<Static<T>> {
       // Check if data matches the schema
@@ -93,8 +110,9 @@ export function typeboxSchema<T extends TSchema>(
           path: error.path.split('/').filter(Boolean),
           message: error.message,
           code: error.type ? String(error.type) : undefined,
-          expected: error.schema ? JSON.stringify(error.schema) : undefined,
-          received: error.value !== undefined ? JSON.stringify(error.value) : undefined,
+          // Use safeStringify to handle circular references and non-serializable values
+          expected: error.schema ? safeStringify(error.schema) : undefined,
+          received: error.value !== undefined ? safeStringify(error.value) : undefined,
         })),
       };
     },

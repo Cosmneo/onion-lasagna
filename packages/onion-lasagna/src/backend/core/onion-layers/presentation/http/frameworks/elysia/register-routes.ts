@@ -54,11 +54,7 @@ function composeMiddleware(
 /**
  * Extracts a RawHttpRequest from Elysia context.
  */
-function extractRequest(
-  context: ElysiaContext,
-  method: string,
-  path: string,
-): RawHttpRequest {
+function extractRequest(context: ElysiaContext, method: string, path: string): RawHttpRequest {
   // Convert headers to proper format
   const headers: Record<string, string | string[] | undefined> = {};
   for (const [key, value] of Object.entries(context.headers)) {

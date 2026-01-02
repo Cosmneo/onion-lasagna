@@ -13,6 +13,7 @@ Route Definition ──┬──► Type-Safe Client (frontend)
 ```
 
 **Core Benefits:**
+
 - Single schema definition used for validation, types, and documentation
 - Full TypeScript inference — no manual type annotations
 - Automatic request/response validation
@@ -198,12 +199,12 @@ defineRoute({
   // ...
   responses: {
     200: {
-      description: 'Success',           // Required for OpenAPI
-      schema: zodSchema(resultSchema),  // Response body schema
-      contentType: 'application/json',  // Optional
+      description: 'Success', // Required for OpenAPI
+      schema: zodSchema(resultSchema), // Response body schema
+      contentType: 'application/json', // Optional
     },
     204: {
-      description: 'No content',        // No schema for empty responses
+      description: 'No content', // No schema for empty responses
     },
     404: {
       description: 'Not found',
@@ -264,10 +265,10 @@ Each handler follows the pattern: `requestMapper → useCase → responseMapper`
 
 ```typescript
 interface ValidatedRequest<TRoute> {
-  body: TRoute['_types']['body'];           // Typed from route schema
-  query: TRoute['_types']['query'];         // Typed from route schema
+  body: TRoute['_types']['body']; // Typed from route schema
+  query: TRoute['_types']['query']; // Typed from route schema
   pathParams: TRoute['_types']['pathParams']; // Typed from route schema
-  headers: TRoute['_types']['headers'];     // Typed from route schema
+  headers: TRoute['_types']['headers']; // Typed from route schema
   raw: {
     method: string;
     url: string;
@@ -331,8 +332,9 @@ import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/ht
 const app = new Hono();
 
 registerHonoRoutes(app, routes, {
-  middlewares: [authMiddleware],     // Applied to all routes
-  contextExtractor: (c) => ({        // Extract context from Hono context
+  middlewares: [authMiddleware], // Applied to all routes
+  contextExtractor: (c) => ({
+    // Extract context from Hono context
     userId: c.get('jwtPayload')?.sub,
     requestId: c.get('requestId'),
   }),
@@ -345,7 +347,10 @@ app.onError(onionErrorHandler);
 
 ```typescript
 import Fastify from 'fastify';
-import { registerFastifyRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/fastify';
+import {
+  registerFastifyRoutes,
+  onionErrorHandler,
+} from '@cosmneo/onion-lasagna/http/frameworks/fastify';
 
 const app = Fastify();
 
@@ -363,7 +368,10 @@ app.setErrorHandler(onionErrorHandler);
 
 ```typescript
 import { Elysia } from 'elysia';
-import { registerElysiaRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/elysia';
+import {
+  registerElysiaRoutes,
+  onionErrorHandler,
+} from '@cosmneo/onion-lasagna/http/frameworks/elysia';
 
 const app = new Elysia();
 
@@ -386,7 +394,7 @@ app.onError(onionErrorHandler);
 const api = createClient(projectRouter, {
   baseUrl: 'https://api.example.com',
   headers: {
-    'Authorization': `Bearer ${token}`,
+    Authorization: `Bearer ${token}`,
   },
   timeout: 30000,
 
@@ -504,7 +512,7 @@ const schema = zodSchema(
     email: z.string().email(),
     age: z.number().int().positive().optional(),
     tags: z.array(z.string()),
-  })
+  }),
 );
 ```
 
@@ -519,7 +527,7 @@ const schema = typeboxSchema(
     email: Type.String({ format: 'email' }),
     age: Type.Optional(Type.Integer({ minimum: 1 })),
     tags: Type.Array(Type.String()),
-  })
+  }),
 );
 ```
 
@@ -572,110 +580,110 @@ Context validation failure returns `500 Internal Server Error` (since auth middl
 
 ### Error Mapping
 
-| Error Type | HTTP Status |
-|------------|-------------|
-| `InvalidRequestError` | 400 |
-| `NotFoundError` | 404 |
-| `AccessDeniedError` | 403 |
-| `ConflictError` | 409 |
-| `UnprocessableError` | 422 |
+| Error Type                  | HTTP Status  |
+| --------------------------- | ------------ |
+| `InvalidRequestError`       | 400          |
+| `NotFoundError`             | 404          |
+| `AccessDeniedError`         | 403          |
+| `ConflictError`             | 409          |
+| `UnprocessableError`        | 422          |
 | `DomainError`, `InfraError` | 500 (masked) |
+
+---
+
+## Type Inference
+
+The `serverRoutes()` builder pattern provides **100% type inference** for all handler parameters:
+
+```typescript
+import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
+
+// ✅ Full type inference - NO manual annotations needed!
+serverRoutes(projectManagementRouter)
+  .handle('projects.create', {
+    requestMapper: (req, ctx) => ({
+      name: req.body.name, // ✅ Inferred from route's body schema
+      createdBy: ctx.userId, // ✅ Inferred from route's context schema
+    }),
+    useCase: createProjectUseCase,
+    responseMapper: (output) => ({
+      // ✅ Inferred from useCase output type
+      status: 201 as const,
+      body: { projectId: output.projectId },
+    }),
+  })
+  .build();
+```
+
+**What gets inferred:**
+
+- `req.body` - from route's body schema
+- `req.query` - from route's query schema
+- `req.pathParams` - from route's params schema
+- `ctx` - from route's context schema
+- `output` - from the use case's return type
+
+### Best Practices
+
+For routers with many routes, split handlers into smaller groups to avoid TypeScript instantiation depth limits:
+
+```typescript
+// Split by domain area
+function createProjectHandlers(useCases: UseCases) {
+  return serverRoutes(router)
+    .handle('projects.create', { ... })
+    .handle('projects.list', { ... })
+    .buildPartial();
+}
+
+function createTaskHandlers(useCases: UseCases) {
+  return serverRoutes(router)
+    .handle('projects.tasks.add', { ... })
+    .handle('projects.tasks.list', { ... })
+    .buildPartial();
+}
+
+// Combine
+export function createAllRoutes(useCases: UseCases) {
+  return [
+    ...createProjectHandlers(useCases),
+    ...createTaskHandlers(useCases),
+  ];
+}
+```
+
+### Legacy API (Deprecated)
+
+The older `createServerRoutes()` object-based API has type inference limitations:
+
+```typescript
+// ⚠️ Legacy API - type inference incomplete
+createServerRoutes(router, {
+  'projects.create': {
+    requestMapper: (req, ctx) => ({ ... }), // req may be 'unknown'
+  },
+});
+```
+
+Use `serverRoutes()` builder pattern instead for full type inference.
 
 ---
 
 ## Limitations
 
-### Type Inference
-
-The library has known type inference limitations when using `createServerRoutes`:
-
-```typescript
-// ❌ Request type inference is incomplete through router types
-// The `req` parameter may show as `unknown` or lose specific typing
-'projects.create': {
-  requestMapper: (req, ctx) => ({ ... }), // req type not fully inferred
-}
-
-// ✅ Workaround: Use explicit type annotations
-type Req = any; // Escape hatch - runtime validation still works
-
-interface AuthContext {
-  userId: string;
-}
-
-'projects.create': {
-  requestMapper: (req: Req, ctx: AuthContext) => ({
-    name: req.body.name,        // Works at runtime
-    createdBy: ctx.userId,      // Typed via explicit interface
-  }),
-}
-```
-
-**Why this happens:**
-- TypeScript struggles with complex mapped types through `GetRoute<Router, Key>`
-- The `ServerRoutesConfig` type uses `any` for input/output to allow heterogeneous handler configs
-- Context type flows through conditional types that can resolve to `unknown`
-
-**Workarounds:**
-
-| Issue | Workaround |
-|-------|------------|
-| `req` typed as `unknown` | Use `type Req = any` escape hatch |
-| `ctx` typed as `unknown` | Define explicit interface matching route's context schema |
-| `output` in responseMapper | Import and annotate with use case output type |
-
-```typescript
-// Full workaround example
-import type { CreateProjectOutput } from './ports';
-
-type Req = any;
-interface AuthContext { userId: string; }
-
-'projects.create': {
-  requestMapper: (req: Req, ctx: AuthContext) => ({
-    name: req.body.name,
-    createdBy: ctx.userId,
-  }),
-  useCase: createProjectUseCase,
-  responseMapper: (output: CreateProjectOutput) => ({
-    status: 201 as const,
-    body: { projectId: output.projectId },
-  }),
-}
-```
-
-> **Note:** Runtime validation still works correctly regardless of TypeScript inference issues. Schemas validate all data before handlers execute.
-
 ### Runtime Limitations
 
-| Area | Limitation |
-|------|------------|
-| **Frameworks** | Hono, Fastify, Elysia, NestJS only. Express/Koa need manual integration. |
-| **File Uploads** | No built-in multipart/form-data. Handle in middleware. |
-| **Streaming** | HTTP request/response only. No SSE or WebSocket. |
-| **Schema Transforms** | Complex Zod transforms may simplify in JSON Schema. |
-| **Response Validation** | Failures return 500, not 422. |
+| Area                    | Limitation                                                               |
+| ----------------------- | ------------------------------------------------------------------------ |
+| **Frameworks**          | Hono, Fastify, Elysia, NestJS only. Express/Koa need manual integration. |
+| **File Uploads**        | No built-in multipart/form-data. Handle in middleware.                   |
+| **Streaming**           | HTTP request/response only. No SSE or WebSocket.                         |
+| **Schema Transforms**   | Complex Zod transforms may simplify in JSON Schema.                      |
+| **Response Validation** | Failures return 500, not 422.                                            |
 
 ---
 
 ## Improvement Opportunities
-
-### Full Type Inference in Handlers
-
-```typescript
-// Desired: No manual type annotations needed
-'projects.create': {
-  requestMapper: (req, ctx) => ({
-    name: req.body.name,      // Inferred from route's body schema
-    createdBy: ctx.userId,    // Inferred from route's context schema
-  }),
-  useCase: createProjectUseCase,
-  responseMapper: (output) => ({  // Inferred from useCase output type
-    status: 201 as const,
-    body: { projectId: output.projectId },
-  }),
-}
-```
 
 ### Per-Route Middleware
 

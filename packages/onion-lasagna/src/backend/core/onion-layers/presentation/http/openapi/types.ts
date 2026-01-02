@@ -99,7 +99,17 @@ export type OpenAPISecurityScheme =
     }
   | {
       readonly type: 'http';
-      readonly scheme: 'basic' | 'bearer' | 'digest' | 'hoba' | 'mutual' | 'negotiate' | 'oauth' | 'scram-sha-1' | 'scram-sha-256' | 'vapid';
+      readonly scheme:
+        | 'basic'
+        | 'bearer'
+        | 'digest'
+        | 'hoba'
+        | 'mutual'
+        | 'negotiate'
+        | 'oauth'
+        | 'scram-sha-1'
+        | 'scram-sha-256'
+        | 'vapid';
       readonly bearerFormat?: string;
       readonly description?: string;
     }
@@ -270,7 +280,10 @@ export type OpenAPIResponses = Record<string, OpenAPIResponse>;
  */
 export interface OpenAPIResponse {
   readonly description: string;
-  readonly headers?: Record<string, { readonly schema?: JsonSchema; readonly description?: string }>;
+  readonly headers?: Record<
+    string,
+    { readonly schema?: JsonSchema; readonly description?: string }
+  >;
   readonly content?: Record<string, OpenAPIMediaType>;
 }
 
@@ -282,6 +295,9 @@ export interface OpenAPIComponents {
   readonly responses?: Record<string, OpenAPIResponse>;
   readonly parameters?: Record<string, OpenAPIParameter>;
   readonly requestBodies?: Record<string, OpenAPIRequestBody>;
-  readonly headers?: Record<string, { readonly schema?: JsonSchema; readonly description?: string }>;
+  readonly headers?: Record<
+    string,
+    { readonly schema?: JsonSchema; readonly description?: string }
+  >;
   readonly securitySchemes?: Record<string, OpenAPISecurityScheme>;
 }

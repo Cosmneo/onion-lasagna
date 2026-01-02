@@ -57,9 +57,7 @@ export interface ValidatedRequest<TRoute extends RouteDefinition> {
  * Otherwise, it falls back to the generic HandlerContext.
  */
 export type TypedContext<TRoute extends RouteDefinition> =
-  TRoute['_types']['context'] extends undefined
-    ? HandlerContext
-    : TRoute['_types']['context'];
+  TRoute['_types']['context'] extends undefined ? HandlerContext : TRoute['_types']['context'];
 
 // ============================================================================
 // Handler Types
@@ -101,7 +99,6 @@ export interface HandlerResponse<TData = unknown> {
   readonly headers?: Record<string, string>;
 }
 
-
 // ============================================================================
 // Use Case Port
 // ============================================================================
@@ -137,11 +134,10 @@ export interface HandlerResponse<TData = unknown> {
  * }
  * ```
  */
- 
+
 export interface UseCasePort<TInput = void, TOutput = void> {
   execute(input?: TInput): Promise<TOutput>;
 }
- 
 
 // ============================================================================
 // Server Configuration
@@ -174,13 +170,8 @@ export interface UseCasePort<TInput = void, TOutput = void> {
  * };
  * ```
  */
- 
-export interface RouteHandlerConfig<
-  TRoute extends RouteDefinition,
-  TInput = void,
-  TOutput = void,
-> {
 
+export interface RouteHandlerConfig<TRoute extends RouteDefinition, TInput = void, TOutput = void> {
   /**
    * Maps the validated HTTP request to use case input.
    * The request has already been validated by the route's schemas.
@@ -259,6 +250,15 @@ export interface CreateServerRoutesOptions {
    * Context factory to create handler context.
    */
   readonly createContext?: (rawRequest: unknown) => HandlerContext;
+
+  /**
+   * Allow partial handler configuration (not all routes need handlers).
+   * When true, missing handlers are silently skipped.
+   * When false (default), missing handlers throw an error.
+   * @default false
+   * @internal Used by builder pattern's buildPartial()
+   */
+  readonly allowPartial?: boolean;
 }
 
 // ============================================================================

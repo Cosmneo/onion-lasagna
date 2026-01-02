@@ -78,7 +78,10 @@ interface DefineRouteInput<
   TParams extends SchemaAdapter | undefined = undefined,
   THeaders extends SchemaAdapter | undefined = undefined,
   TContext extends SchemaAdapter | undefined = undefined,
-  TResponses extends Record<number, ResponseInput<SchemaAdapter | undefined>> = Record<number, never>,
+  TResponses extends Record<number, ResponseInput<SchemaAdapter | undefined>> = Record<
+    number,
+    never
+  >,
 > {
   readonly method: TMethod;
   readonly path: TPath;
@@ -218,7 +221,10 @@ export function defineRoute<
   TParams extends SchemaAdapter | undefined = undefined,
   THeaders extends SchemaAdapter | undefined = undefined,
   TContext extends SchemaAdapter | undefined = undefined,
-  TResponses extends Record<number, ResponseInput<SchemaAdapter | undefined>> = Record<number, never>,
+  TResponses extends Record<number, ResponseInput<SchemaAdapter | undefined>> = Record<
+    number,
+    never
+  >,
 >(
   input: DefineRouteInput<TMethod, TPath, TBody, TQuery, TParams, THeaders, TContext, TResponses>,
 ): RouteDefinition<

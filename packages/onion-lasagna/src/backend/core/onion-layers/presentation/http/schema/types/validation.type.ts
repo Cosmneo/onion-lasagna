@@ -96,8 +96,6 @@ export function isValidationSuccess<T>(
 /**
  * Type guard to check if a validation result is a failure.
  */
-export function isValidationFailure<T>(
-  result: ValidationResult<T>,
-): result is ValidationFailure {
+export function isValidationFailure<T>(result: ValidationResult<T>): result is ValidationFailure {
   return result.success === false;
 }

@@ -75,9 +75,7 @@ type ZodAny = ZodType<any, any, any>;
  * // JSON Schema will include descriptions for OpenAPI documentation
  * ```
  */
-export function zodSchema<T extends ZodAny>(
-  schema: T,
-): SchemaAdapter<T['_output'], T['_input']> {
+export function zodSchema<T extends ZodAny>(schema: T): SchemaAdapter<T['_output'], T['_input']> {
   type TOutput = T['_output'];
   type TInput = T['_input'];
 

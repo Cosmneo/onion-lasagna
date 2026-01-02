@@ -227,9 +227,7 @@ export function createPassthroughAdapter<T = unknown>(): SchemaAdapter<T, T> {
  * const noBodySchema = createRejectingAdapter('This endpoint does not accept a request body');
  * ```
  */
-export function createRejectingAdapter<T = never>(
-  message: string,
-): SchemaAdapter<T, T> {
+export function createRejectingAdapter<T = never>(message: string): SchemaAdapter<T, T> {
   return {
     validate: () => ({
       success: false,

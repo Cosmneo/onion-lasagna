@@ -100,10 +100,7 @@ export function createClient<T extends RouterConfig>(
 /**
  * Recursively builds a client proxy from router config.
  */
-function buildClientProxy<T extends RouterConfig>(
-  routes: T,
-  config: ClientConfig,
-): InferClient<T> {
+function buildClientProxy<T extends RouterConfig>(routes: T, config: ClientConfig): InferClient<T> {
   const client: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(routes)) {
@@ -280,8 +277,7 @@ function createRouteMethod(
 
         // Determine error type: timeout, abort, or network error
         const isAbortError =
-          error instanceof Error &&
-          (error.name === 'AbortError' || error.name === 'TimeoutError');
+          error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
 
         let errorMessage: string;
         let errorStatus: string;
@@ -297,13 +293,7 @@ function createRouteMethod(
           errorStatus = 'Network Error';
         }
 
-        const clientError = new ClientError(
-          errorMessage,
-          0,
-          errorStatus,
-          undefined,
-          undefined,
-        );
+        const clientError = new ClientError(errorMessage, 0, errorStatus, undefined, undefined);
 
         // Don't retry timeouts or user-initiated aborts
         if (attempt < retryAttempts && !isAbortError) {

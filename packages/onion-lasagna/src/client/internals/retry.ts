@@ -64,10 +64,7 @@ export function wait(ms: number): Promise<void> {
  * @returns The result of the function
  * @throws The last error if all retries fail
  */
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  config?: RetryConfig,
-): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, config?: RetryConfig): Promise<T> {
   const mergedConfig: Required<RetryConfig> = {
     ...DEFAULT_RETRY_CONFIG,
     ...config,

@@ -371,152 +371,161 @@ export interface RouteDefinition<
 /**
  * Infers the request body type from a route definition.
  */
-export type InferRouteBody<T> = T extends RouteDefinition<
-  HttpMethod,
-  string,
-  infer TBody,
-  unknown,
-  unknown,
-  unknown,
-  ResponsesConfig
->
-  ? TBody
-  : never;
+export type InferRouteBody<T> =
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    infer TBody,
+    unknown,
+    unknown,
+    unknown,
+    ResponsesConfig
+  >
+    ? TBody
+    : never;
 
 /**
  * Infers the query params type from a route definition.
  */
-export type InferRouteQuery<T> = T extends RouteDefinition<
-  HttpMethod,
-  string,
-  unknown,
-  infer TQuery,
-  unknown,
-  unknown,
-  ResponsesConfig
->
-  ? TQuery
-  : never;
+export type InferRouteQuery<T> =
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    unknown,
+    infer TQuery,
+    unknown,
+    unknown,
+    ResponsesConfig
+  >
+    ? TQuery
+    : never;
 
 /**
  * Infers the path params type from a route definition.
  */
-export type InferRoutePathParams<T> = T extends RouteDefinition<
-  HttpMethod,
-  string,
-  unknown,
-  unknown,
-  infer TPathParams,
-  unknown,
-  ResponsesConfig
->
-  ? TPathParams
-  : never;
+export type InferRoutePathParams<T> =
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    unknown,
+    unknown,
+    infer TPathParams,
+    unknown,
+    ResponsesConfig
+  >
+    ? TPathParams
+    : never;
 
 /**
  * Infers the headers type from a route definition.
  */
-export type InferRouteHeaders<T> = T extends RouteDefinition<
-  HttpMethod,
-  string,
-  unknown,
-  unknown,
-  unknown,
-  infer THeaders,
-  unknown,
-  ResponsesConfig
->
-  ? THeaders
-  : never;
+export type InferRouteHeaders<T> =
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    unknown,
+    unknown,
+    unknown,
+    infer THeaders,
+    unknown,
+    ResponsesConfig
+  >
+    ? THeaders
+    : never;
 
 /**
  * Infers the context type from a route definition.
  */
-export type InferRouteContext<T> = T extends RouteDefinition<
-  HttpMethod,
-  string,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  infer TContext,
-  ResponsesConfig
->
-  ? TContext
-  : never;
+export type InferRouteContext<T> =
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    infer TContext,
+    ResponsesConfig
+  >
+    ? TContext
+    : never;
 
 /**
  * Infers the response type for a specific status code.
  */
-export type InferRouteResponse<T, TStatus extends HttpStatusCode> = T extends RouteDefinition<
-  HttpMethod,
-  string,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  infer TResponses
->
-  ? TStatus extends keyof TResponses
-    ? TResponses[TStatus] extends ResponseConfig<infer TData>
-      ? TData
+export type InferRouteResponse<T, TStatus extends HttpStatusCode> =
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    infer TResponses
+  >
+    ? TStatus extends keyof TResponses
+      ? TResponses[TStatus] extends ResponseConfig<infer TData>
+        ? TData
+        : never
       : never
-    : never
-  : never;
+    : never;
 
 /**
  * Infers the successful response type (first 2xx response).
  */
-export type InferRouteSuccessResponse<T> = T extends RouteDefinition<
-  HttpMethod,
-  string,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  infer TResponses
->
-  ? TResponses extends { 200: ResponseConfig<infer T200> }
-    ? T200
-    : TResponses extends { 201: ResponseConfig<infer T201> }
-      ? T201
-      : TResponses extends { 202: ResponseConfig<infer T202> }
-        ? T202
-        : TResponses extends { 204: ResponseConfig }
-          ? void // eslint-disable-line @typescript-eslint/no-invalid-void-type -- void is semantically correct for 204 No Content
-          : unknown
-  : never;
+export type InferRouteSuccessResponse<T> =
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    infer TResponses
+  >
+    ? TResponses extends { 200: ResponseConfig<infer T200> }
+      ? T200
+      : TResponses extends { 201: ResponseConfig<infer T201> }
+        ? T201
+        : TResponses extends { 202: ResponseConfig<infer T202> }
+          ? T202
+          : TResponses extends { 204: ResponseConfig }
+            ? void // eslint-disable-line @typescript-eslint/no-invalid-void-type -- void is semantically correct for 204 No Content
+            : unknown
+    : never;
 
 /**
  * Extracts the method from a route definition.
  */
-export type InferRouteMethod<T> = T extends RouteDefinition<
-  infer TMethod,
-  string,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  ResponsesConfig
->
-  ? TMethod
-  : never;
+export type InferRouteMethod<T> =
+  T extends RouteDefinition<
+    infer TMethod,
+    string,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    ResponsesConfig
+  >
+    ? TMethod
+    : never;
 
 /**
  * Extracts the path from a route definition.
  */
-export type InferRoutePath<T> = T extends RouteDefinition<
-  HttpMethod,
-  infer TPath,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  ResponsesConfig
->
-  ? TPath
-  : never;
+export type InferRoutePath<T> =
+  T extends RouteDefinition<
+    HttpMethod,
+    infer TPath,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    ResponsesConfig
+  >
+    ? TPath
+    : never;

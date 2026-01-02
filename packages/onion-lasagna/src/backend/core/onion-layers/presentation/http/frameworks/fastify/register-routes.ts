@@ -96,10 +96,7 @@ export function registerFastifyRoutes(
 ): void {
   const prefix = options.prefix ?? '';
   // Merge preHandlers and middlewares (middlewares is an alias for cross-framework consistency)
-  const allPreHandlers = [
-    ...(options.preHandlers ?? []),
-    ...(options.middlewares ?? []),
-  ];
+  const allPreHandlers = [...(options.preHandlers ?? []), ...(options.middlewares ?? [])];
   const contextExtractor = options.contextExtractor;
 
   for (const route of routes) {

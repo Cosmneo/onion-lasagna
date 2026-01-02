@@ -235,7 +235,8 @@ function buildOperation(route: RouteDefinition): OpenAPIOperation {
   }
 
   if (route.docs.externalDocs) {
-    (operation as { externalDocs: typeof route.docs.externalDocs }).externalDocs = route.docs.externalDocs;
+    (operation as { externalDocs: typeof route.docs.externalDocs }).externalDocs =
+      route.docs.externalDocs;
   }
 
   // Add parameters
@@ -382,12 +383,14 @@ function buildResponses(route: RouteDefinition): OpenAPIResponses {
     if (!responseConfig || typeof responseConfig !== 'object') continue;
 
     const response: OpenAPIResponse = {
-      description: (responseConfig as { description?: string }).description ?? `Response ${statusCode}`,
+      description:
+        (responseConfig as { description?: string }).description ?? `Response ${statusCode}`,
     };
 
     const schema = (responseConfig as { schema?: SchemaAdapter }).schema;
     if (schema) {
-      const contentType = (responseConfig as { contentType?: string }).contentType ?? 'application/json';
+      const contentType =
+        (responseConfig as { contentType?: string }).contentType ?? 'application/json';
       (response as { content: Record<string, { schema: object }> }).content = {
         [contentType]: {
           schema: schema.toJsonSchema(),

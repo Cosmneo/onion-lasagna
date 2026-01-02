@@ -51,7 +51,7 @@ export type NoBodyMethod = 'GET' | 'DELETE';
  */
 export interface RequestDataShape {
   pathParams?: Record<string, string>;
-  queryParams?: Record<string, string | undefined>;
+  queryParams?: Record<string, string | number | undefined>;
   body?: unknown;
 }
 

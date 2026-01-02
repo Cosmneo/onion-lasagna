@@ -50,4 +50,9 @@ export {
   type ContextualRawHttpRequest,
 } from './request-extractor';
 export { mapErrorToResponse } from './error-handler';
-export type { NestContextExtractor, ErrorResponseBody, ErrorItem, MappedErrorResponse } from './types';
+export type {
+  NestContextExtractor,
+  ErrorResponseBody,
+  ErrorItem,
+  MappedErrorResponse,
+} from './types';

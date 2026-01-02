@@ -97,22 +97,47 @@ export function createServerRoutes<T extends RouterConfig>(
   handlers: Partial<ServerRoutesConfig<T>>,
   options?: CreateServerRoutesOptions,
 ): UnifiedRouteInput[] {
+  return createServerRoutesInternal(
+    router,
+    handlers as Record<string, RouteHandlerConfig<RouteDefinition, unknown, unknown>>,
+    options,
+  );
+}
+
+/**
+ * Internal implementation for creating server routes.
+ * Used by both createServerRoutes and the builder pattern.
+ *
+ * @internal
+ */
+export function createServerRoutesInternal<T extends RouterConfig>(
+  router: T | RouterDefinition<T>,
+  handlers: Record<string, RouteHandlerConfig<RouteDefinition, unknown, unknown>>,
+  options?: CreateServerRoutesOptions,
+): UnifiedRouteInput[] {
   const routes = isRouterDefinition(router) ? router.routes : router;
   const collectedRoutes = collectRoutes(routes);
   const result: UnifiedRouteInput[] = [];
 
-  // Default both validation options to true
+  // Default validation options to true, allowPartial to false
   const resolvedOptions: CreateServerRoutesOptions = {
     ...options,
     validateRequest: options?.validateRequest ?? true,
     validateResponse: options?.validateResponse ?? true,
+    allowPartial: options?.allowPartial ?? false,
   };
 
   for (const { key, route } of collectedRoutes) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handlerConfig = (handlers as Record<string, RouteHandlerConfig<RouteDefinition, any, any>>)[key];
+    const handlerConfig = handlers[key] as
+      | RouteHandlerConfig<RouteDefinition, any, any>
+      | undefined;
 
     if (!handlerConfig) {
+      if (resolvedOptions.allowPartial) {
+        // Skip routes without handlers when allowPartial is true
+        continue;
+      }
       throw new Error(
         `Missing handler for route "${key}". All routes must have a handler configuration.`,
       );
@@ -158,7 +183,7 @@ function createRouteHandler(
       // Create context
       const rawContext: HandlerContext = options?.createContext
         ? options.createContext(rawRequest)
-        : ctx ?? { requestId: generateRequestId() };
+        : (ctx ?? { requestId: generateRequestId() });
 
       // Validate context (if schema defined)
       let validatedContext: unknown = rawContext;
@@ -169,9 +194,7 @@ function createRouteHandler(
           throw new ControllerError({
             message: 'Context validation failed',
             code: 'CONTEXT_VALIDATION_ERROR',
-            cause: new Error(
-              errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; '),
-            ),
+            cause: new Error(errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ')),
           });
         }
         validatedContext = contextValidationResult.data;
@@ -275,9 +298,7 @@ function createRouteHandler(
           throw new ControllerError({
             message: 'Response validation failed',
             code: 'RESPONSE_VALIDATION_ERROR',
-            cause: new Error(
-              errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; '),
-            ),
+            cause: new Error(errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ')),
           });
         }
       }
@@ -492,26 +513,35 @@ function validateStatusCode(status: number): void {
 }
 
 /**
- * Normalizes query parameters to a flat object.
+ * Normalizes query parameters, preserving arrays for duplicate keys.
  *
- * For array values, takes the first non-empty element.
- * Empty strings are allowed in query params (e.g., `?flag=`).
+ * When a query parameter appears multiple times (e.g., `?tag=a&tag=b`),
+ * the framework provides an array. This function preserves that array
+ * so schema validation can properly validate array vs single-value params.
+ *
+ * Empty strings are allowed (e.g., `?flag=` results in `{ flag: '' }`).
+ * Undefined values are filtered out from arrays.
  */
 function normalizeQuery(
   query?: Record<string, string | string[] | undefined>,
-): Record<string, string> {
+): Record<string, string | string[]> {
   if (!query) return {};
 
-  const result: Record<string, string> = {};
+  const result: Record<string, string | string[]> = {};
   for (const [key, value] of Object.entries(query)) {
     if (value === undefined) continue;
 
     if (Array.isArray(value)) {
-      // Find first defined element (empty string is valid for query params)
-      const firstValue = value.find((v) => v !== undefined);
-      if (firstValue !== undefined) {
-        result[key] = firstValue;
+      // Filter out undefined values but preserve the array structure
+      const definedValues = value.filter((v): v is string => v !== undefined);
+      if (definedValues.length === 1) {
+        // Single value in array - unwrap for convenience
+        result[key] = definedValues[0];
+      } else if (definedValues.length > 1) {
+        // Multiple values - preserve as array for schema validation
+        result[key] = definedValues;
       }
+      // Empty array (all undefined) - skip this key
     } else {
       result[key] = value;
     }
@@ -524,9 +554,7 @@ function normalizeQuery(
  *
  * @throws {InvalidRequestError} If any path parameter is empty
  */
-function normalizePathParams(
-  params?: Record<string, string>,
-): Record<string, string> {
+function normalizePathParams(params?: Record<string, string>): Record<string, string> {
   if (!params) return {};
 
   const result: Record<string, string> = {};
