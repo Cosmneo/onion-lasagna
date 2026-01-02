@@ -9,120 +9,69 @@ Enterprise-grade TypeScript library for building backend applications with hexag
 ## Features
 
 - **Hexagonal Architecture** - Clean separation between domain, application, infrastructure, and presentation layers
-- **Framework Agnostic** - Works with Hono, NestJS, Elysia, and Fastify
-- **Validator Agnostic** - Choose between Zod, ArkType, Valibot, or TypeBox
-- **Type Safe** - Full TypeScript with strict mode, generics throughout
+- **Framework Agnostic** - Works with Hono, Elysia, Fastify, and NestJS
+- **Unified HTTP Layer** - Route contracts as single source of truth for server, client, and OpenAPI
+- **Type-Safe Client** - Auto-generated type-safe HTTP clients with React Query and Vue Query support
+- **Schema Adapters** - Choose between Zod or TypeBox for validation
 - **Zero Dependencies** - Everything is peer dependencies, install only what you use
 - **DDD Building Blocks** - Entity, Value Object, Aggregate Root, Domain Event base classes
-- **Error Handling** - Layered error hierarchy with automatic wrapping and mapping
+- **Error Handling** - Layered error hierarchy with automatic wrapping and HTTP mapping
 
 ---
 
 ## Architecture
 
 ```mermaid
-graph TB
-    subgraph External["External World"]
-        HTTP[HTTP Request]
-        DB[(Database)]
-        EXT[External APIs]
+graph TD
+    subgraph Presentation
+        HTTP[HTTP Handlers / Routes]
     end
 
-    subgraph Presentation["Presentation Layer"]
-        CTRL[Controllers]
-        ROUTE[Routing]
+    subgraph Infrastructure
+        DB[Persistence / Database]
+        External[External APIs]
     end
 
-    subgraph Application["Application Layer"]
-        UC[Use Cases]
-        DTO[DTOs]
+    subgraph Orchestrations
+        Workflow[Workflows]
+        Composition[Compositions]
+        Projection[Projections]
     end
 
-    subgraph Domain["Domain Layer"]
-        ENT[Entities]
-        VO[Value Objects]
-        AGG[Aggregates]
-        EVT[Domain Events]
+    subgraph BC[Bounded Contexts]
+        Domain[Domain Logic / Use Cases]
     end
 
-    subgraph Infrastructure["Infrastructure Layer"]
-        REPO[Repositories]
-        SVC[External Services]
-    end
-
-    HTTP --> CTRL
-    CTRL --> UC
-    UC --> ENT
-    UC --> REPO
-    REPO --> DB
-    SVC --> EXT
-
-    style Domain fill:#e1f5fe
-    style Application fill:#fff3e0
-    style Presentation fill:#f3e5f5
-    style Infrastructure fill:#e8f5e9
+    Presentation --> Infrastructure
+    Presentation --> Orchestrations
+    Presentation --> BC
+    Infrastructure --> BC
+    Orchestrations --> BC
 ```
 
-### Layer Responsibilities
-
-```mermaid
-graph LR
-    subgraph P["Presentation"]
-        P1[BaseController]
-        P2[GuardedController]
-        P3[HttpRequest/Response]
-    end
-
-    subgraph A["Application"]
-        A1[BaseInboundAdapter]
-        A2[Use Case Errors]
-    end
-
-    subgraph D["Domain"]
-        D1[BaseEntity]
-        D2[BaseValueObject]
-        D3[BaseAggregateRoot]
-    end
-
-    subgraph I["Infrastructure"]
-        I1[BaseOutboundAdapter]
-        I2[Auto Error Wrapping]
-    end
-
-    P1 --> A1
-    A1 --> D1
-    A1 --> I1
-
-    style P fill:#f3e5f5
-    style A fill:#fff3e0
-    style D fill:#e1f5fe
-    style I fill:#e8f5e9
-```
-
----
-
-## Request Flow
+### Request Flow
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Framework as Hono/NestJS/Elysia/Fastify
-    participant Controller as BaseController
+    participant Framework as Hono/Elysia/Fastify/NestJS
+    participant Handler as Route Handler
     participant UseCase as Use Case
     participant Repository as Repository
     participant DB as Database
 
     Client->>Framework: HTTP Request
-    Framework->>Controller: execute(HttpRequest)
-    Controller->>Controller: requestMapper()
-    Controller->>UseCase: execute(Input)
+    Framework->>Handler: RawHttpRequest
+    Handler->>Handler: Schema validation
+    Handler->>Handler: requestMapper()
+    Handler->>UseCase: execute(Input)
     UseCase->>Repository: findById()
     Repository->>DB: Query
     DB-->>Repository: Data
     Repository-->>UseCase: Entity
-    UseCase-->>Controller: Output
-    Controller->>Controller: responseMapper()
-    Controller-->>Framework: HttpResponse
+    UseCase-->>Handler: Output
+    Handler->>Handler: responseMapper()
+    Handler-->>Framework: HandlerResponse
     Framework-->>Client: HTTP Response
 ```
 
@@ -163,45 +112,6 @@ graph TD
 
 ---
 
-## Pick Your Stack
-
-```mermaid
-graph LR
-    subgraph Validators["Validators (pick one)"]
-        ZOD[Zod]
-        ARK[ArkType]
-        VAL[Valibot]
-        TBX[TypeBox]
-    end
-
-    subgraph Core["Onion Lasagna Core"]
-        OL[Base Classes<br/>Error Handling<br/>Value Objects]
-    end
-
-    subgraph Frameworks["Frameworks (pick one)"]
-        HONO[Hono]
-        NEST[NestJS]
-        ELIA[Elysia]
-        FAST[Fastify]
-    end
-
-    ZOD --> OL
-    ARK --> OL
-    VAL --> OL
-    TBX --> OL
-
-    OL --> HONO
-    OL --> NEST
-    OL --> ELIA
-    OL --> FAST
-
-    style Core fill:#e3f2fd
-    style Validators fill:#fff8e1
-    style Frameworks fill:#fce4ec
-```
-
----
-
 ## Installation
 
 ```bash
@@ -211,14 +121,14 @@ bun add @cosmneo/onion-lasagna
 Install peer dependencies based on your choices:
 
 ```bash
-# Validator (pick one)
-bun add zod           # or arktype, valibot, @sinclair/typebox
+# Schema validation (pick one)
+bun add zod           # or @sinclair/typebox
 
 # Framework (pick one)
-bun add hono          # or @nestjs/common @nestjs/core, elysia, fastify
+bun add hono          # or elysia, fastify, @nestjs/common @nestjs/core
 
 # Required utilities
-bun add uuid http-status-codes
+bun add uuid
 ```
 
 ---
@@ -228,51 +138,42 @@ bun add uuid http-status-codes
 ### 1. Define a Value Object
 
 ```typescript
-import {
-  BaseUUIDv7,
-  SKIP_VALUE_OBJECT_VALIDATION,
-} from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-import { createZodValidator } from '@cosmneo/onion-lasagna/backend/core/validators/zod';
-import { z } from 'zod';
-import { v7 as uuidv7 } from 'uuid';
+import { BaseUuidV7Vo } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+import { v7 } from 'uuid';
 
-const userIdSchema = z.string().uuid();
-
-export class UserId extends BaseUUIDv7 {
-  static generate(): UserId {
-    return new UserId(uuidv7(), SKIP_VALUE_OBJECT_VALIDATION);
+export class ProjectId extends BaseUuidV7Vo {
+  static override generate(): ProjectId {
+    return new ProjectId(v7());
   }
 
-  static create(value: string): UserId {
-    return new UserId(value, createZodValidator(userIdSchema));
+  static override create(value: string): ProjectId {
+    const validated = BaseUuidV7Vo.create(value);
+    return new ProjectId(validated.value);
   }
 }
 ```
 
-### 2. Define an Entity
+### 2. Define an Aggregate
 
 ```typescript
-import { BaseEntity } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+import { BaseAggregateRoot } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+import { ProjectId, ProjectName } from './value-objects';
 
-interface UserProps {
-  email: string;
-  name: string;
+interface ProjectProps {
+  name: ProjectName;
+  description?: string;
 }
 
-export class User extends BaseEntity<UserId, UserProps> {
-  static create(id: UserId, email: string, name: string): User {
-    return new User(id, { email, name });
-  }
-
-  get email(): string {
-    return this.props.email;
+export class Project extends BaseAggregateRoot<ProjectId, ProjectProps> {
+  static create(name: ProjectName, description?: string): Project {
+    return new Project(ProjectId.generate(), { name, description });
   }
 
   get name(): string {
-    return this.props.name;
+    return this._props.name.value;
   }
 
-  changeName(newName: string): void {
+  rename(newName: ProjectName): void {
     this._props.name = newName;
   }
 }
@@ -286,122 +187,237 @@ import {
   NotFoundError,
 } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
 
-interface GetUserInput {
-  userId: string;
+interface CreateProjectInput {
+  name: string;
+  description?: string;
 }
 
-interface GetUserOutput {
-  user: User;
+interface CreateProjectOutput {
+  projectId: string;
 }
 
-export class GetUserUseCase extends BaseInboundAdapter<GetUserInput, GetUserOutput> {
-  constructor(private userRepository: UserRepository) {
+export class CreateProjectUseCase extends BaseInboundAdapter<
+  CreateProjectInput,
+  CreateProjectOutput
+> {
+  constructor(private projectRepository: ProjectRepositoryPort) {
     super();
   }
 
-  protected async handle(input: GetUserInput): Promise<GetUserOutput> {
-    const user = await this.userRepository.findById(UserId.create(input.userId));
+  protected async handle(input: CreateProjectInput): Promise<CreateProjectOutput> {
+    const name = ProjectName.create(input.name);
+    const project = Project.create(name, input.description);
 
-    if (!user) {
-      throw new NotFoundError({ message: 'User not found' });
-    }
+    await this.projectRepository.save(project);
 
-    return { user };
+    return { projectId: project.id.value };
   }
 }
 ```
 
-### 4. Define a Controller
+### 4. Define Routes (Contract)
 
 ```typescript
-import { BaseController, HttpResponse } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-import type { HttpRequest } from '@cosmneo/onion-lasagna/backend/core/presentation';
+import { defineRoute } from '@cosmneo/onion-lasagna/http/route';
+import { zodSchema, z } from '@cosmneo/onion-lasagna/http/schema/zod';
 
-export class GetUserController extends BaseController<GetUserInput, GetUserOutput, UserDto> {
-  constructor(private getUserUseCase: GetUserUseCase) {
-    super();
-  }
+export const createProjectRoute = defineRoute({
+  method: 'POST',
+  path: '/api/projects',
+  request: {
+    body: {
+      schema: zodSchema(
+        z.object({
+          name: z.string().min(1),
+          description: z.string().optional(),
+        }),
+      ),
+    },
+  },
+  responses: {
+    201: {
+      description: 'Project created',
+      schema: zodSchema(z.object({ projectId: z.string() })),
+    },
+  },
+});
+```
 
-  protected requestMapper(req: HttpRequest): GetUserInput {
-    return { userId: req.pathParams.id };
-  }
+### 5. Define Router
 
-  protected get useCase() {
-    return this.getUserUseCase;
-  }
+```typescript
+import { defineRouter } from '@cosmneo/onion-lasagna/http/route';
+import { createProjectRoute, listProjectsRoute, getProjectRoute } from './routes';
 
-  protected responseMapper(output: GetUserOutput): HttpResponse<UserDto> {
-    return HttpResponse.ok({
-      id: output.user.id.value,
-      email: output.user.email,
-      name: output.user.name,
-    });
-  }
+export const projectRouter = defineRouter({
+  projects: {
+    create: createProjectRoute,
+    list: listProjectsRoute,
+    get: getProjectRoute,
+  },
+});
+```
+
+### 6. Create Handlers
+
+```typescript
+import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
+import { projectRouter } from './router';
+
+export function createProjectHandlers(useCases: UseCases) {
+  return serverRoutes(projectRouter)
+    .handle('projects.create', {
+      requestMapper: (req, ctx) => ({
+        name: req.body.name,
+        description: req.body.description,
+      }),
+      useCase: useCases.createProjectUseCase,
+      responseMapper: (output) => ({
+        status: 201 as const,
+        body: { projectId: output.projectId },
+      }),
+    })
+    .handle('projects.list', {
+      requestMapper: (req) => ({
+        page: req.query?.page ?? 1,
+        pageSize: req.query?.pageSize ?? 20,
+      }),
+      useCase: useCases.listProjectsUseCase,
+      responseMapper: (output) => ({
+        status: 200 as const,
+        body: output,
+      }),
+    })
+    .build();
 }
 ```
 
-### 5. Wire Up with Your Framework
+### 7. Wire Up with Framework
 
 **Hono:**
 
 ```typescript
 import { Hono } from 'hono';
-import {
-  registerHonoRoutes,
-  onionErrorHandler,
-} from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna/http/frameworks/hono';
 
 const app = new Hono();
 app.onError(onionErrorHandler);
 
-registerHonoRoutes(app, [
-  {
-    method: 'GET',
-    path: '/users/{id}',
-    controller: new GetUserController(getUserUseCase),
-  },
-]);
+const routes = createProjectHandlers(useCases);
+registerHonoRoutes(app, routes);
+
+export default app;
 ```
 
-**NestJS:**
+**Elysia:**
 
 ```typescript
-import { Controller, Get } from '@nestjs/common';
+import { Elysia } from 'elysia';
 import {
-  BaseNestController,
-  OnionLasagnaRequest,
-} from '@cosmneo/onion-lasagna/backend/frameworks/nestjs';
+  registerElysiaRoutes,
+  onionErrorHandler,
+} from '@cosmneo/onion-lasagna/http/frameworks/elysia';
 
-@Controller('users')
-export class UserController extends BaseNestController {
-  constructor(private getUserController: GetUserController) {
-    super();
-  }
+const app = new Elysia();
+app.onError(onionErrorHandler);
 
-  @Get(':id')
-  getUser(@OnionLasagnaRequest() req: HttpRequest) {
-    return this.getUserController.execute(req);
-  }
-}
+const routes = createProjectHandlers(useCases);
+registerElysiaRoutes(app, routes);
+
+export default app;
+```
+
+**Fastify:**
+
+```typescript
+import Fastify from 'fastify';
+import {
+  registerFastifyRoutes,
+  onionErrorHandler,
+} from '@cosmneo/onion-lasagna/http/frameworks/fastify';
+
+const app = Fastify();
+app.setErrorHandler(onionErrorHandler);
+
+const routes = createProjectHandlers(useCases);
+registerFastifyRoutes(app, routes);
+
+export default app;
+```
+
+---
+
+## Type-Safe Client
+
+Generate type-safe HTTP clients from your route contracts:
+
+```typescript
+import { createTypedClient, defineRouterContract } from '@cosmneo/onion-lasagna/client';
+
+// Create client from router contract
+const client = createTypedClient(projectRouter, {
+  baseUrl: 'http://localhost:3000',
+});
+
+// Fully typed API calls!
+const result = await client.projects.create({
+  body: { name: 'My Project' },
+});
+```
+
+### React Query Integration
+
+```typescript
+import { createTypedHooks } from '@cosmneo/onion-lasagna/client/react-query';
+
+const hooks = createTypedHooks(projectRouter, {
+  baseUrl: 'http://localhost:3000',
+});
+
+// In your component
+const { data, isLoading } = hooks.projects.list.useQuery({
+  query: { page: 1 },
+});
+```
+
+### Vue Query Integration
+
+```typescript
+import { createTypedComposables } from '@cosmneo/onion-lasagna/client/vue-query';
+
+const api = createTypedComposables(projectRouter, {
+  baseUrl: 'http://localhost:3000',
+});
+
+// In your component
+const { data, isLoading } = api.projects.list.useQuery({
+  query: { page: 1 },
+});
 ```
 
 ---
 
 ## Package Exports
 
-| Path                               | Purpose                                       |
-| ---------------------------------- | --------------------------------------------- |
-| `/backend/core/onion-layers`       | Domain, App, Infra, Presentation base classes |
-| `/backend/core/global`             | BaseDto, CodedError, utilities                |
-| `/backend/core/presentation`       | HTTP types, routing                           |
-| `/backend/core/validators/zod`     | Zod validation                                |
-| `/backend/core/validators/arktype` | ArkType validation                            |
-| `/backend/core/validators/valibot` | Valibot validation                            |
-| `/backend/core/validators/typebox` | TypeBox validation                            |
-| `/backend/frameworks/hono`         | Hono integration                              |
-| `/backend/frameworks/nestjs`       | NestJS integration                            |
-| `/backend/frameworks/elysia`       | Elysia integration                            |
-| `/backend/frameworks/fastify`      | Fastify integration                           |
+| Path                         | Purpose                               |
+| ---------------------------- | ------------------------------------- |
+| `/backend/core/onion-layers` | Domain, App, Infra layer base classes |
+| `/backend/core/global`       | CodedError, ObjectValidationError     |
+| `/backend/core/presentation` | Presentation layer errors             |
+| `/http`                      | HTTP types and utilities              |
+| `/http/route`                | `defineRoute`, `defineRouter`         |
+| `/http/server`               | `serverRoutes`, route handlers        |
+| `/http/schema/zod`           | Zod schema adapter                    |
+| `/http/schema/typebox`       | TypeBox schema adapter                |
+| `/http/openapi`              | OpenAPI spec generation               |
+| `/http/frameworks/hono`      | Hono integration                      |
+| `/http/frameworks/elysia`    | Elysia integration                    |
+| `/http/frameworks/fastify`   | Fastify integration                   |
+| `/http/frameworks/nestjs`    | NestJS integration                    |
+| `/client`                    | Type-safe HTTP client                 |
+| `/client/react-query`        | React Query hooks                     |
+| `/client/vue-query`          | Vue Query composables                 |
+| `/shared/contracts`          | Route contract definitions            |
 
 ---
 
@@ -409,14 +425,32 @@ export class UserController extends BaseNestController {
 
 Layered error hierarchy with automatic HTTP status mapping:
 
-| Error Type            | HTTP Status | Use Case                 |
-| --------------------- | ----------- | ------------------------ |
-| `InvalidRequestError` | 400         | Validation failures      |
-| `AccessDeniedError`   | 403         | Authorization failures   |
-| `NotFoundError`       | 404         | Resource not found       |
-| `ConflictError`       | 409         | Duplicate resources      |
-| `UnprocessableError`  | 422         | Business rule violations |
-| `InfraError`          | 500         | Infrastructure failures  |
+| Error Type              | HTTP Status | Use Case                         |
+| ----------------------- | ----------- | -------------------------------- |
+| `ObjectValidationError` | 400         | Schema validation                |
+| `InvalidRequestError`   | 400         | Bad request data                 |
+| `AccessDeniedError`     | 403         | Authorization failures           |
+| `NotFoundError`         | 404         | Resource not found               |
+| `ConflictError`         | 409         | Duplicate resources              |
+| `UnprocessableError`    | 422         | Business rule violations         |
+| `DomainError`           | 500         | Domain invariants (masked)       |
+| `InfraError`            | 500         | Infrastructure failures (masked) |
+
+---
+
+## Built-in Value Objects
+
+| Class              | Purpose                       |
+| ------------------ | ----------------------------- |
+| `BaseUuidV4Vo`     | UUID v4 value object          |
+| `BaseUuidV7Vo`     | UUID v7 value object          |
+| `BaseEmailVo`      | Email validation              |
+| `BaseShortTextVo`  | Short text (1-100 chars)      |
+| `BaseMediumTextVo` | Medium text (1-500 chars)     |
+| `BaseLongTextVo`   | Long text (1-5000 chars)      |
+| `BasePaginationVo` | Pagination (page, pageSize)   |
+| `BaseAuditByVo`    | Audit trail (createdBy, etc.) |
+| `BaseAuditOnVo`    | Timestamps (createdAt, etc.)  |
 
 ---
 
