@@ -534,7 +534,7 @@ function normalizeQuery(
     if (Array.isArray(value)) {
       // Filter out undefined values but preserve the array structure
       const definedValues = value.filter((v): v is string => v !== undefined);
-      if (definedValues.length === 1) {
+      if (definedValues.length === 1 && definedValues[0] !== undefined) {
         // Single value in array - unwrap for convenience
         result[key] = definedValues[0];
       } else if (definedValues.length > 1) {
