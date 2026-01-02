@@ -83,13 +83,13 @@ Inner layers never import from outer layers.
 ## Orchestration Types
 
 **Composition**
-: Read-only query that fans out to multiple BCs and aggregates results.
+: Combines multiple use cases from different BCs into a single operation. Runs synchronously within a single request.
 
 **Workflow**
-: Command with side effects that may span multiple BCs. May include compensation logic.
+: Long-running process that coordinates multiple steps across BCs. May span multiple requests and handle failures.
 
 **Projection**
-: Denormalized read store. Can read from shared database, writes only to its own storage.
+: Read-only view that aggregates data from multiple BCs. Optimized for querying across boundaries.
 
 ---
 
@@ -141,8 +141,8 @@ Inner layers never import from outer layers.
 
 ## Presentation
 
-**Access Guard**
-: Stateless gate-keeper at controller level. Receives use cases via DI, cannot implement custom logic.
+**Access Control**
+: Authorization checks performed before executing use cases. Throw `AccessDeniedError` to deny access.
 
 **Mapper**
 : Pure function that transforms data between HTTP and use case shapes.
@@ -598,13 +598,13 @@ Use the framework-specific error handler:
 
 ```typescript
 // Hono
-app.onError((err, c) => onionErrorHandler(err, c));
+app.onError(onionErrorHandler);
 
 // Fastify
 app.setErrorHandler(onionErrorHandler);
 
 // Elysia
-app.onError(({ error }) => onionErrorHandler({ error }));
+app.onError(onionErrorHandler);
 
 // NestJS
 @UseFilters(OnionExceptionFilter)
@@ -1444,13 +1444,24 @@ Schema adapters provide full type inference:
 
 ```typescript
 
+  InferRouteBody,
+  InferRouteQuery,
+  InferRoutePathParams,
+  InferRouteSuccessResponse,
+  InferRouteResponse,
+} from '@cosmneo/onion-lasagna/http';
 
-// Infer types from route definition
+// Infer request types
 type CreateUserBody = InferRouteBody;
 // { email: string; name: string; password: string }
 
+// Infer the first 2xx response type
 type CreateUserResponse = InferRouteSuccessResponse;
 // { userId: string }
+
+// Infer response for a specific status code
+type NotFoundResponse = InferRouteResponse;
+// { message: string }
 ```
 
 ---
@@ -1582,7 +1593,7 @@ page.pageSize;  // 20
 page.offset;    // 0 (calculated: (page - 1) * pageSize)
 
 // Custom max page size
-class AdminPagination extends BasePaginationVo {
+class AdminPaginationVo extends BasePaginationVo {
   static override get maxPageSize(): number {
     return 500;
   }
@@ -2045,13 +2056,18 @@ The `version` property is public for reading. The `nextVersion()` method is prot
 
 ### idEquals
 
-Compares two IDs for equality using the Value Object's `equals` method:
+Compares two IDs of the same type using the Value Object's `equals` method:
 
 ```typescript
 class OrderAggregate extends BaseAggregateRoot {
-  // Use idEquals when comparing entity IDs
+  // Use idEquals for comparing aggregate IDs (same TId type)
+  isSameOrder(otherId: OrderId): boolean {
+    return this.idEquals(this.id, otherId);
+  }
+
+  // For child entity IDs, use equals() directly
   hasItem(itemId: OrderItemId): boolean {
-    return this._props.items.some((item) => this.idEquals(item.id, itemId));
+    return this._props.items.some((item) => item.id.equals(itemId));
   }
 }
 ```
@@ -3893,6 +3909,7 @@ NestJS integration differs from other frameworks because NestJS uses decorators 
   type ContextualRawHttpRequest,
 } from '@cosmneo/onion-lasagna/http/frameworks/nestjs';
 
+
 @Controller('api/users')
 @UseFilters(OnionExceptionFilter)
 
@@ -3915,13 +3932,14 @@ Extracts an `HttpRequest` object from the NestJS request:
 ```typescript
 
 
+
 @Get(':id')
 async getItem(@OnionRequest() request: RawHttpRequest) {
   // request contains: pathParams, query, body, headers
 }
 ```
 
-The `RawHttpRequest` structure:
+The `RawHttpRequest` structure (from `@cosmneo/onion-lasagna/http/server`):
 
 ```typescript
 interface RawHttpRequest {
@@ -4594,20 +4612,34 @@ Create all directories under `bounded-contexts/{bc-name}/`.
 
 ### 2. Define Domain Model
 
-Start with aggregates and value objects:
+Start with aggregates and value objects using the library base classes:
 
 ```typescript:domain/value-objects/user-id.vo.ts
-class UserId {
-  private constructor(private readonly _value: string) {}
-  static create(value: string): UserId { ... }
-  static generate(): UserId { ... }
-  get value(): string { return this._value; }
+
+
+
+  static override generate(): UserId {
+    return new UserId(crypto.randomUUID());
+  }
+
+  static override create(value: string): UserId {
+    BaseUuidV4Vo.create(value); // Validates UUID format
+    return new UserId(value);
+  }
+}
+```
+
+```typescript:domain/aggregates/user.aggregate.ts
+
+
+interface UserProps {
+  email: string;
+  name: string;
 }
 
-// domain/aggregates/user.aggregate.ts
-class UserAggregate {
+
   static create(data: CreateUserData): UserAggregate { ... }
-  static reconstitute(data: UserData): UserAggregate { ... }
+  static reconstitute(data: UserData, version: number): UserAggregate { ... }
 }
 ```
 
@@ -4698,6 +4730,9 @@ class UserRepository implements
 # CLI Overview
 > Planned tooling to automate common tasks
 
+**Coming Soon** - The features described in this section are planned for future releases and are not yet available.
+
+
 ## Current State vs Future
 
 | Task | Current | Future |
@@ -4732,6 +4767,9 @@ These features are planned for future releases:
 
 # Endpoint Scaffolding
 > CLI command to generate all files for a new endpoint
+
+**Coming Soon** - This feature is planned for a future release and is not yet available.
+
 
 ## Command
 
@@ -4774,6 +4812,9 @@ app/use-cases/queries/get-user.query.ts
 
 # Controller Wiring
 > Auto-generate controllers that wire all endpoint components
+
+**Coming Soon** - This feature is planned for a future release and is not yet available.
+
 
 ## Current Manual Approach
 
@@ -4825,6 +4866,9 @@ Generates a controller that:
 # HTTP Client Generation
 > Generate TypeScript-safe HTTP clients from schemas
 
+**Coming Soon** - This feature is planned for a future release and is not yet available.
+
+
 ## Goal
 
 Frontend developers get auto-completed, type-safe API calls.
@@ -4873,6 +4917,9 @@ const user = await userClient.getUser('123');  // Fully typed!
 
 # Linter Rules
 > ESLint rules to enforce architecture constraints
+
+**Coming Soon** - This feature is planned for a future release and is not yet available.
+
 
 ## Rules
 
