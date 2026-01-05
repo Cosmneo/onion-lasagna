@@ -117,6 +117,11 @@ export function createServerRoutesInternal<T extends RouterConfig>(
 ): UnifiedRouteInput[] {
   const routes = isRouterDefinition(router) ? router.routes : router;
   const collectedRoutes = collectRoutes(routes);
+
+  // Sort routes by specificity: static segments before parameterized
+  // This ensures /api/users/me is registered before /api/users/:userId
+  const sortedRoutes = sortRoutesBySpecificity(collectedRoutes);
+
   const result: UnifiedRouteInput[] = [];
 
   // Default validation options to true, allowPartial to false
@@ -127,7 +132,7 @@ export function createServerRoutesInternal<T extends RouterConfig>(
     allowPartial: options?.allowPartial ?? false,
   };
 
-  for (const { key, route } of collectedRoutes) {
+  for (const { key, route } of sortedRoutes) {
     const handlerConfig = handlers[key] as
       | RouteHandlerConfig<RouteDefinition, any, any>
       | undefined;
@@ -146,6 +151,55 @@ export function createServerRoutesInternal<T extends RouterConfig>(
   }
 
   return result;
+}
+
+/**
+ * Sorts routes by path specificity to ensure correct route matching.
+ *
+ * Static path segments are sorted before parameterized segments at each position.
+ * This ensures that `/api/users/me` is registered before `/api/users/:userId`,
+ * preventing the parameterized route from incorrectly matching the static path.
+ *
+ * @example
+ * Given routes:
+ *   - /api/users/:userId  (parameterized)
+ *   - /api/users/me       (static)
+ *
+ * After sorting:
+ *   - /api/users/me       (registered first - matches exactly)
+ *   - /api/users/:userId  (registered second - catches remaining)
+ */
+function sortRoutesBySpecificity<T extends { route: { path: string } }>(routes: T[]): T[] {
+  return [...routes].sort((a, b) => {
+    const aSegments = a.route.path.split('/').filter(Boolean);
+    const bSegments = b.route.path.split('/').filter(Boolean);
+
+    const maxLen = Math.max(aSegments.length, bSegments.length);
+
+    for (let i = 0; i < maxLen; i++) {
+      const aSeg = aSegments[i];
+      const bSeg = bSegments[i];
+
+      // Missing segment (shorter path) - shorter paths first for same prefix
+      if (aSeg === undefined && bSeg !== undefined) return -1;
+      if (aSeg !== undefined && bSeg === undefined) return 1;
+      if (aSeg === undefined || bSeg === undefined) return 0;
+
+      // Check if segment is parameterized (supports both :param and {param} formats)
+      const aIsParam = aSeg.startsWith(':') || (aSeg.startsWith('{') && aSeg.endsWith('}'));
+      const bIsParam = bSeg.startsWith(':') || (bSeg.startsWith('{') && bSeg.endsWith('}'));
+
+      // Static segments come before parameterized segments
+      if (!aIsParam && bIsParam) return -1;
+      if (aIsParam && !bIsParam) return 1;
+
+      // Both static or both parameterized - compare alphabetically for stable sorting
+      const cmp = aSeg.localeCompare(bSeg);
+      if (cmp !== 0) return cmp;
+    }
+
+    return 0;
+  });
 }
 
 /**
