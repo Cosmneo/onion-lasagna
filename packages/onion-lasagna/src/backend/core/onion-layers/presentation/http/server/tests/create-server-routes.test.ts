@@ -1251,4 +1251,289 @@ describe('createServerRoutes', () => {
       });
     });
   });
+
+  describe('route sorting by specificity', () => {
+    it('sorts static routes before parameterized routes at same depth', () => {
+      // Define routes where parameterized comes first in object definition
+      const getUserByIdRoute = defineRoute({
+        method: 'GET',
+        path: '/users/:userId',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const getMeRoute = defineRoute({
+        method: 'GET',
+        path: '/users/me',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      // Object property order: parameterized first, then static
+      const router = defineRouter({
+        users: {
+          getById: getUserByIdRoute,
+          me: getMeRoute,
+        },
+      });
+
+      const routes = createServerRoutes(router, {
+        'users.getById': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+        'users.me': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+      });
+
+      // After sorting, /users/me should come before /users/:userId
+      expect(routes[0]!.path).toBe('/users/me');
+      expect(routes[1]!.path).toBe('/users/:userId');
+    });
+
+    it('sorts static routes before parameterized routes with nested paths', () => {
+      const getUserOrgsRoute = defineRoute({
+        method: 'GET',
+        path: '/users/:userId/organizations',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const getMyOrgsRoute = defineRoute({
+        method: 'GET',
+        path: '/users/me/organizations',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const router = defineRouter({
+        users: {
+          orgs: getUserOrgsRoute,
+          myOrgs: getMyOrgsRoute,
+        },
+      });
+
+      const routes = createServerRoutes(router, {
+        'users.orgs': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+        'users.myOrgs': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+      });
+
+      // /users/me/organizations should come before /users/:userId/organizations
+      expect(routes[0]!.path).toBe('/users/me/organizations');
+      expect(routes[1]!.path).toBe('/users/:userId/organizations');
+    });
+
+    it('sorts multiple static routes alphabetically for stability', () => {
+      const countRoute = defineRoute({
+        method: 'GET',
+        path: '/users/count',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const meRoute = defineRoute({
+        method: 'GET',
+        path: '/users/me',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const getUserRoute = defineRoute({
+        method: 'GET',
+        path: '/users/:userId',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      // Intentionally unordered
+      const router = defineRouter({
+        users: {
+          getById: getUserRoute,
+          me: meRoute,
+          count: countRoute,
+        },
+      });
+
+      const routes = createServerRoutes(router, {
+        'users.getById': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+        'users.me': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+        'users.count': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+      });
+
+      // Static routes first (alphabetically), then parameterized
+      expect(routes[0]!.path).toBe('/users/count');
+      expect(routes[1]!.path).toBe('/users/me');
+      expect(routes[2]!.path).toBe('/users/:userId');
+    });
+
+    it('handles {param} format alongside :param format', () => {
+      const getUserRoute = defineRoute({
+        method: 'GET',
+        path: '/users/{userId}',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const getMeRoute = defineRoute({
+        method: 'GET',
+        path: '/users/me',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const router = defineRouter({
+        users: {
+          getById: getUserRoute,
+          me: getMeRoute,
+        },
+      });
+
+      const routes = createServerRoutes(router, {
+        'users.getById': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+        'users.me': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+      });
+
+      // /users/me should come before /users/:userId (normalized from {userId})
+      expect(routes[0]!.path).toBe('/users/me');
+      expect(routes[1]!.path).toBe('/users/:userId');
+    });
+
+    it('sorts shorter paths before longer paths with same prefix', () => {
+      const listUsersRoute = defineRoute({
+        method: 'GET',
+        path: '/users',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const getUserRoute = defineRoute({
+        method: 'GET',
+        path: '/users/:userId',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const router = defineRouter({
+        users: {
+          getById: getUserRoute,
+          list: listUsersRoute,
+        },
+      });
+
+      const routes = createServerRoutes(router, {
+        'users.getById': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+        'users.list': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+      });
+
+      // /users should come before /users/:userId
+      expect(routes[0]!.path).toBe('/users');
+      expect(routes[1]!.path).toBe('/users/:userId');
+    });
+
+    it('preserves order for routes with identical paths but different methods', () => {
+      const listRoute = defineRoute({
+        method: 'GET',
+        path: '/users',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const createRoute = defineRoute({
+        method: 'POST',
+        path: '/users',
+        responses: { 201: { description: 'Created' } },
+      });
+
+      const router = defineRouter({
+        users: {
+          list: listRoute,
+          create: createRoute,
+        },
+      });
+
+      const routes = createServerRoutes(router, {
+        'users.list': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => [] },
+          responseMapper: () => ({ status: 200, body: [] }),
+        },
+        'users.create': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 201, body: {} }),
+        },
+      });
+
+      // Both have same path, order is preserved by alphabetical comparison
+      expect(routes).toHaveLength(2);
+      expect(routes[0]!.path).toBe('/users');
+      expect(routes[1]!.path).toBe('/users');
+    });
+
+    it('handles deeply nested parameterized routes correctly', () => {
+      const getMemberRoute = defineRoute({
+        method: 'GET',
+        path: '/orgs/:orgId/members/:memberId',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const getMeMemberRoute = defineRoute({
+        method: 'GET',
+        path: '/orgs/:orgId/members/me',
+        responses: { 200: { description: 'Success' } },
+      });
+
+      const router = defineRouter({
+        orgs: {
+          getMember: getMemberRoute,
+          getMe: getMeMemberRoute,
+        },
+      });
+
+      const routes = createServerRoutes(router, {
+        'orgs.getMember': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+        'orgs.getMe': {
+          requestMapper: () => ({}),
+          useCase: { execute: async () => ({}) },
+          responseMapper: () => ({ status: 200, body: {} }),
+        },
+      });
+
+      // /orgs/:orgId/members/me should come before /orgs/:orgId/members/:memberId
+      expect(routes[0]!.path).toBe('/orgs/:orgId/members/me');
+      expect(routes[1]!.path).toBe('/orgs/:orgId/members/:memberId');
+    });
+  });
 });
