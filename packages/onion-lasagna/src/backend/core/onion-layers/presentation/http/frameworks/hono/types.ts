@@ -11,6 +11,29 @@ import type { HandlerContext } from '../../server/types';
 export type { ErrorItem, ErrorResponseBody, MappedErrorResponse } from '../../shared/types';
 
 /**
+ * Structural interface for Hono app compatibility.
+ *
+ * This interface enables type-safe usage of Hono across package boundaries
+ * without requiring the exact same Hono class instance. TypeScript treats
+ * classes with private members nominally, which causes issues when different
+ * packages have their own Hono installation.
+ *
+ * By using this structural interface, we allow any object that implements
+ * the `on` method (which is what we use for route registration) to be accepted.
+ */
+export interface HonoLike {
+  /**
+   * Register a route handler for a specific HTTP method and path.
+   */
+  on: (
+    method: string | string[],
+    path: string | string[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...handlers: any[]
+  ) => unknown;
+}
+
+/**
  * Context extractor function for Hono.
  * Receives the Hono Context and returns the handler context.
  *

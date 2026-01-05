@@ -6,10 +6,10 @@
  * @module http/frameworks/hono/register-routes
  */
 
-import type { Hono, Context } from 'hono';
+import type { Context } from 'hono';
 import type { ContentfulStatusCode, StatusCode } from 'hono/utils/http-status';
 import type { UnifiedRouteInput, RawHttpRequest, HandlerResponse } from '../../server/types';
-import type { RegisterHonoRoutesOptions } from './types';
+import type { RegisterHonoRoutesOptions, HonoLike } from './types';
 import { InvalidRequestError } from '../../../exceptions/invalid-request.error';
 
 /**
@@ -155,8 +155,7 @@ function sendResponse(c: Context, response: HandlerResponse): Response {
  * ```
  */
 export function registerHonoRoutes(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  app: Hono<any, any, any>,
+  app: HonoLike,
   routes: readonly UnifiedRouteInput[],
   options: RegisterHonoRoutesOptions = {},
 ): void {
@@ -176,13 +175,10 @@ export function registerHonoRoutes(
     };
 
     // Use app.on() for flexible method routing with middlewares
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const honoApp = app as any;
-
     if (middlewares.length > 0) {
-      honoApp.on(method, path, ...middlewares, handler);
+      app.on(method, path, ...middlewares, handler);
     } else {
-      honoApp.on(method, path, handler);
+      app.on(method, path, handler);
     }
   }
 }
