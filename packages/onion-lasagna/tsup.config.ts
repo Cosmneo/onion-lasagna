@@ -15,6 +15,7 @@ export default defineConfig({
     // HTTP Presentation Layer (unified route system)
     'http/index': 'src/backend/core/onion-layers/presentation/http/index.ts',
     'http/schema/index': 'src/backend/core/onion-layers/presentation/http/schema/index.ts',
+    'http/schema/types': 'src/backend/core/onion-layers/presentation/http/schema/types/index.ts',
     'http/schema/zod':
       'src/backend/core/onion-layers/presentation/http/schema/adapters/zod.adapter.ts',
     'http/schema/typebox':

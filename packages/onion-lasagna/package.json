@@ -1,6 +1,6 @@
 {
   "name": "@cosmneo/onion-lasagna",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Enterprise-grade TypeScript library for building backend applications with hexagonal/onion architecture",
   "type": "module",
   "license": "UNLICENSED",
@@ -48,9 +48,12 @@
   ],
   "sideEffects": false,
   "devDependencies": {
+    "@microsoft/api-extractor": "^7.55.2",
     "@nestjs/common": "^11.1.10",
     "@nestjs/core": "^11.1.10",
     "@sinclair/typebox": "^0.34.41",
+    "@tanstack/react-query": "^5.69.0",
+    "@tanstack/vue-query": "^5.69.0",
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.3",
     "@vitest/coverage-v8": "^4.0.16",
@@ -64,9 +67,7 @@
     "uuid": "^13.0.0",
     "valibot": "^1.2.0",
     "vitest": "^4.0.16",
-    "zod": "^4.2.1",
-    "@tanstack/react-query": "^5.69.0",
-    "@tanstack/vue-query": "^5.69.0"
+    "zod": "4.3.5"
   },
   "peerDependencies": {
     "@nestjs/common": "^11.1.10",
@@ -181,6 +182,12 @@
       "import": "./dist/http/schema/index.js",
       "require": "./dist/http/schema/index.cjs",
       "default": "./dist/http/schema/index.js"
+    },
+    "./http/schema/types": {
+      "types": "./dist/http/schema/types.d.ts",
+      "import": "./dist/http/schema/types.js",
+      "require": "./dist/http/schema/types.cjs",
+      "default": "./dist/http/schema/types.js"
     },
     "./http/schema/zod": {
       "types": "./dist/http/schema/zod.d.ts",
