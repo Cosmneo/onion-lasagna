@@ -22,6 +22,7 @@
 export { registerHonoRoutes } from './register-routes';
 export { onionErrorHandler, mapErrorToHttpException } from './error-handler';
 export type {
+  HonoLike,
   RegisterHonoRoutesOptions,
   HonoContextExtractor,
   ErrorResponseBody,
