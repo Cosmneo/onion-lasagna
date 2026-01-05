@@ -4,7 +4,6 @@
  * @module unified/client/types
  */
 
-import type { InferOutput, SchemaAdapter } from '../schema/types';
 import type {
   RouteDefinition,
   RouterConfig,
@@ -160,21 +159,18 @@ export type ClientResponse<TRoute extends RouteDefinition> = ExtractSuccessRespo
 
 /**
  * Extracts the success response type from responses config.
+ *
+ * Uses structural matching on the schema's _output phantom property to avoid
+ * type identity issues when SchemaAdapter is imported from different paths.
  */
 type ExtractSuccessResponse<T extends ResponsesConfig> = T extends {
-  200: ResponseConfig<infer TBody>;
+  200: { schema: { _output: infer TBody } };
 }
-  ? TBody extends SchemaAdapter
-    ? InferOutput<TBody>
-    : unknown
-  : T extends { 201: ResponseConfig<infer TBody> }
-    ? TBody extends SchemaAdapter
-      ? InferOutput<TBody>
-      : unknown
-    : T extends { 202: ResponseConfig<infer TBody> }
-      ? TBody extends SchemaAdapter
-        ? InferOutput<TBody>
-        : unknown
+  ? TBody
+  : T extends { 201: { schema: { _output: infer TBody } } }
+    ? TBody
+    : T extends { 202: { schema: { _output: infer TBody } } }
+      ? TBody
       : T extends { 204: ResponseConfig }
         ? void // eslint-disable-line @typescript-eslint/no-invalid-void-type -- void is semantically correct for 204 No Content
         : unknown;
@@ -204,9 +200,15 @@ type RequiresInput<TRoute extends RouteDefinition> =
 
 /**
  * Recursively builds the client type from a router config.
+ *
+ * Note: We use `RouteDefinition<any, any, any, any, any, any, any, any>` instead of
+ * just `RouteDefinition` because TypeScript's extends check on generic interfaces
+ * requires explicit type parameters for proper variance handling.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for proper extends check on generic interface
 export type InferClient<T extends RouterConfig> = {
-  [K in keyof T]: T[K] extends RouteDefinition
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for proper extends check on generic interface
+  [K in keyof T]: T[K] extends RouteDefinition<any, any, any, any, any, any, any, any>
     ? ClientMethod<T[K]>
     : T[K] extends RouterConfig
       ? InferClient<T[K]>
