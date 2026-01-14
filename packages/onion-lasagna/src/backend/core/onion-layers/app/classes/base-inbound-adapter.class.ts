@@ -70,9 +70,11 @@ import { InfraError } from '../../infra/exceptions/infra.error';
  * }
  * ```
  */
-export abstract class BaseInboundAdapter<TInput, TOutput, TAuthContext = void>
-  implements BaseInboundPort<TInput, TOutput>
-{
+export abstract class BaseInboundAdapter<
+  TInput,
+  TOutput,
+  TAuthContext = void,
+> implements BaseInboundPort<TInput, TOutput> {
   /**
    * Authorization check that runs before handle().
    *

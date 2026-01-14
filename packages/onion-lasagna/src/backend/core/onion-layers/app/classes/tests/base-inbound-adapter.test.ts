@@ -353,7 +353,10 @@ describe('BaseInboundAdapter', () => {
           private mockEntity: Entity = { id: 'entity-1', name: 'Test Entity', ownerId: 'user-123' };
           public loadCount = 0;
 
-          protected async authorize(input: { entityId: string; userId: string }): Promise<EntityAuthContext> {
+          protected async authorize(input: {
+            entityId: string;
+            userId: string;
+          }): Promise<EntityAuthContext> {
             // Simulate loading entity from database
             this.loadCount++;
             const entity = this.mockEntity;
@@ -367,7 +370,7 @@ describe('BaseInboundAdapter', () => {
 
           protected async handle(
             _input: { entityId: string; userId: string },
-            { entity }: EntityAuthContext
+            { entity }: EntityAuthContext,
           ): Promise<{ updated: boolean }> {
             // Use the cached entity without reloading
             return { updated: entity.name === 'Test Entity' };
@@ -448,7 +451,9 @@ describe('BaseInboundAdapter', () => {
 
           // Check organization match
           if (user.organizationId !== activity.organizationId) {
-            throw new ForbiddenError({ message: 'Cannot access activities from other organizations' });
+            throw new ForbiddenError({
+              message: 'Cannot access activities from other organizations',
+            });
           }
 
           // Check user belongs to the requested organization
@@ -461,7 +466,7 @@ describe('BaseInboundAdapter', () => {
 
         protected async handle(
           input: UpdateActivityInput,
-          { activity }: UpdateActivityContext
+          { activity }: UpdateActivityContext,
         ): Promise<{ success: boolean }> {
           // Update activity (in real world, would persist)
           activity.name = input.newName;
@@ -490,7 +495,7 @@ describe('BaseInboundAdapter', () => {
             userId: 'user-1', // belongs to org-1
             organizationId: 'org-1',
             newName: 'Hacked',
-          })
+          }),
         ).rejects.toThrow(ForbiddenError);
       });
 
@@ -503,7 +508,7 @@ describe('BaseInboundAdapter', () => {
             userId: 'user-1',
             organizationId: 'org-1',
             newName: 'Test',
-          })
+          }),
         ).rejects.toThrow(NotFoundError);
       });
     });
