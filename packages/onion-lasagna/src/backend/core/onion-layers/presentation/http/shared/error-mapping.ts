@@ -14,6 +14,8 @@ import { UseCaseError } from '../../../app/exceptions/use-case.error';
 import { NotFoundError } from '../../../app/exceptions/not-found.error';
 import { ConflictError } from '../../../app/exceptions/conflict.error';
 import { UnprocessableError } from '../../../app/exceptions/unprocessable.error';
+import { ForbiddenError } from '../../../app/exceptions/forbidden.error';
+import { UnauthorizedError } from '../../../app/exceptions/unauthorized.error';
 import { InfraError } from '../../../infra/exceptions/infra.error';
 import { ControllerError } from '../../exceptions/controller.error';
 import { AccessDeniedError } from '../../exceptions/access-denied.error';
@@ -175,6 +177,8 @@ export function getHttpStatusCode(error: unknown): number {
   // Try instanceof first (faster)
   if (error instanceof ObjectValidationError) return 400;
   if (error instanceof InvalidRequestError) return 400;
+  if (error instanceof UnauthorizedError) return 401;
+  if (error instanceof ForbiddenError) return 403;
   if (error instanceof AccessDeniedError) return 403;
   if (error instanceof NotFoundError) return 404;
   if (error instanceof ConflictError) return 409;
@@ -184,6 +188,8 @@ export function getHttpStatusCode(error: unknown): number {
   // Fall back to name-based checking for bundled code (e.g., _NotFoundError)
   if (isErrorType(error, 'ObjectValidationError')) return 400;
   if (isErrorType(error, 'InvalidRequestError')) return 400;
+  if (isErrorType(error, 'UnauthorizedError')) return 401;
+  if (isErrorType(error, 'ForbiddenError')) return 403;
   if (isErrorType(error, 'AccessDeniedError')) return 403;
   if (isErrorType(error, 'NotFoundError')) return 404;
   if (isErrorType(error, 'ConflictError')) return 409;
@@ -285,7 +291,9 @@ export function createErrorResponseBody(error: unknown): ErrorResponseBody {
  * - `ObjectValidationError` → 400 Bad Request (with field errors)
  * - `InvalidRequestError` → 400 Bad Request (with field errors)
  * - `UseCaseError` → 400 Bad Request
- * - `AccessDeniedError` → 403 Forbidden
+ * - `UnauthorizedError` → 401 Unauthorized (authentication required/invalid)
+ * - `ForbiddenError` → 403 Forbidden (authorization denied in use case)
+ * - `AccessDeniedError` → 403 Forbidden (access denied at controller/guard level)
  * - `NotFoundError` → 404 Not Found
  * - `ConflictError` → 409 Conflict
  * - `UnprocessableError` → 422 Unprocessable Entity
@@ -333,7 +341,22 @@ export function mapErrorToHttpResponseByName(error: unknown): MappedErrorRespons
     };
   }
 
+  // Authentication → 401 Unauthorized
+  if (isErrorType(error, 'UnauthorizedError')) {
+    return {
+      status: 401,
+      body: buildSimpleErrorBody(error.message, error.code),
+    };
+  }
+
   // Access control → 403 Forbidden
+  if (isErrorType(error, 'ForbiddenError')) {
+    return {
+      status: 403,
+      body: buildSimpleErrorBody(error.message, error.code),
+    };
+  }
+
   if (isErrorType(error, 'AccessDeniedError')) {
     return {
       status: 403,
