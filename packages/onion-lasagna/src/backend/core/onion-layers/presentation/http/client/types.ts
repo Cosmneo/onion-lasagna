@@ -205,7 +205,7 @@ type RequiresInput<TRoute extends RouteDefinition> =
  * just `RouteDefinition` because TypeScript's extends check on generic interfaces
  * requires explicit type parameters for proper variance handling.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for proper extends check on generic interface
+ 
 export type InferClient<T extends RouterConfig> = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for proper extends check on generic interface
   [K in keyof T]: T[K] extends RouteDefinition<any, any, any, any, any, any, any, any>
