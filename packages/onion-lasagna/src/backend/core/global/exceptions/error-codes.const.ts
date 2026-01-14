@@ -48,6 +48,10 @@ export const ErrorCodes = {
     CONFLICT: 'CONFLICT',
     /** Request is valid but cannot be processed due to business rules */
     UNPROCESSABLE: 'UNPROCESSABLE',
+    /** Authorization denied - user lacks permission for this operation */
+    FORBIDDEN: 'FORBIDDEN',
+    /** Authentication required or invalid - user is not authenticated */
+    UNAUTHORIZED: 'UNAUTHORIZED',
   },
 
   /**
