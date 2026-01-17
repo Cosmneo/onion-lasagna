@@ -12,15 +12,16 @@ import type { SchemaAdapter, ValidationIssue } from '../schema/types';
 import type { RouterConfig, RouterDefinition, RouteDefinition } from '../route/types';
 import { isRouterDefinition, collectRoutes, normalizePath } from '../route/types';
 import type {
+  AnyHandlerConfig,
   CreateServerRoutesOptions,
   HandlerContext,
   HandlerResponse,
   RawHttpRequest,
-  RouteHandlerConfig,
   ServerRoutesConfig,
   UnifiedRouteInput,
   ValidatedRequest,
 } from './types';
+import { isSimpleHandlerConfig } from './types';
 import { InvalidRequestError } from '../../exceptions/invalid-request.error';
 import { ControllerError } from '../../exceptions/controller.error';
 
@@ -99,7 +100,7 @@ export function createServerRoutes<T extends RouterConfig>(
 ): UnifiedRouteInput[] {
   return createServerRoutesInternal(
     router,
-    handlers as Record<string, RouteHandlerConfig<RouteDefinition, unknown, unknown>>,
+    handlers as Record<string, AnyHandlerConfig<RouteDefinition, unknown, unknown>>,
     options,
   );
 }
@@ -112,7 +113,7 @@ export function createServerRoutes<T extends RouterConfig>(
  */
 export function createServerRoutesInternal<T extends RouterConfig>(
   router: T | RouterDefinition<T>,
-  handlers: Record<string, RouteHandlerConfig<RouteDefinition, unknown, unknown>>,
+  handlers: Record<string, AnyHandlerConfig<RouteDefinition, unknown, unknown>>,
   options?: CreateServerRoutesOptions,
 ): UnifiedRouteInput[] {
   const routes = isRouterDefinition(router) ? router.routes : router;
@@ -134,7 +135,7 @@ export function createServerRoutesInternal<T extends RouterConfig>(
 
   for (const { key, route } of sortedRoutes) {
     const handlerConfig = handlers[key] as
-      | RouteHandlerConfig<RouteDefinition, any, any>
+      | AnyHandlerConfig<RouteDefinition, any, any>
       | undefined;
 
     if (!handlerConfig) {
@@ -205,17 +206,18 @@ function sortRoutesBySpecificity<T extends { route: { path: string } }>(routes: 
 /**
  * Creates a single route handler with validation.
  *
- * Follows the BaseController pattern:
- * requestMapper → useCase.execute → responseMapper
+ * Supports two handler patterns:
+ * - Simple handler: handler(req, ctx) → response
+ * - Use case pattern: requestMapper → useCase.execute → responseMapper
  */
 function createRouteHandler(
   route: RouteDefinition,
   // TInput/TOutput are user-defined and erased at this level - any is required for type compatibility
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  config: RouteHandlerConfig<RouteDefinition, any, any>,
+  config: AnyHandlerConfig<RouteDefinition, any, any>,
   options: CreateServerRoutesOptions,
 ): UnifiedRouteInput {
-  const { requestMapper, useCase, responseMapper, middleware = [] } = config;
+  const middleware = config.middleware ?? [];
   const globalMiddleware = options?.middleware ?? [];
   const allMiddleware = [...globalMiddleware, ...middleware];
 
@@ -300,23 +302,34 @@ function createRouteHandler(
         };
       }
 
-      // Execute the pipeline: requestMapper → useCase → responseMapper
-      // Errors from the use case propagate to the framework's error handler
+      // Execute the pipeline based on handler type
+      // Errors from the use case/handler propagate to the framework's error handler
       const executePipeline = async (): Promise<HandlerResponse> => {
-        // Map request to use case input
-        // Cast is safe: ValidatedRequestInternal has same shape as ValidatedRequest<TRoute>
-        // Type erasure in this function requires the cast for TypeScript
-        // validatedContext is typed correctly based on route's context schema
-        const input = requestMapper(
-          validatedRequest as unknown as ValidatedRequest<RouteDefinition>,
-          validatedContext as HandlerContext,
-        );
+        if (isSimpleHandlerConfig(config)) {
+          // Simple handler: direct call
+          return config.handler(
+            validatedRequest as unknown as ValidatedRequest<RouteDefinition>,
+            validatedContext as HandlerContext,
+          );
+        } else {
+          // Use case handler: requestMapper → useCase → responseMapper
+          const { requestMapper, useCase, responseMapper } = config;
 
-        // Execute use case
-        const output = await useCase.execute(input);
+          // Map request to use case input
+          // Cast is safe: ValidatedRequestInternal has same shape as ValidatedRequest<TRoute>
+          // Type erasure in this function requires the cast for TypeScript
+          // validatedContext is typed correctly based on route's context schema
+          const input = requestMapper(
+            validatedRequest as unknown as ValidatedRequest<RouteDefinition>,
+            validatedContext as HandlerContext,
+          );
 
-        // Map output to HTTP response
-        return responseMapper(output);
+          // Execute use case
+          const output = await useCase.execute(input);
+
+          // Map output to HTTP response
+          return responseMapper(output);
+        }
       };
 
       let response: HandlerResponse;
