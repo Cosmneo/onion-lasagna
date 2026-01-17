@@ -103,24 +103,12 @@ export interface ServerRoutesBuilder<T extends RouterConfig, THandled extends st
    * The handler receives validated request and context, returns response directly.
    *
    * @param key - The route key (e.g., 'projects.get')
-   * @param handler - Simple handler function
+   * @param handlerOrConfig - Simple handler function or configuration with handler and optional middleware
    * @returns A new builder with the route key added to handled routes
    */
   handle<K extends Exclude<RouterKeys<T>, THandled>>(
     key: K,
-    handler: SimpleHandlerFn<GetRoute<T, K>>,
-  ): ServerRoutesBuilder<T, THandled | K>;
-
-  /**
-   * Register a simple handler with middleware.
-   *
-   * @param key - The route key (e.g., 'projects.get')
-   * @param config - Simple handler configuration with handler and optional middleware
-   * @returns A new builder with the route key added to handled routes
-   */
-  handle<K extends Exclude<RouterKeys<T>, THandled>>(
-    key: K,
-    config: SimpleHandlerConfig<GetRoute<T, K>>,
+    handlerOrConfig: SimpleHandlerFn<GetRoute<T, K>> | SimpleHandlerConfig<GetRoute<T, K>>,
   ): ServerRoutesBuilder<T, THandled | K>;
 
   /**
