@@ -206,6 +206,44 @@ export type MiddlewareFunction = (
   next: () => Promise<HandlerResponse>,
 ) => Promise<HandlerResponse>;
 
+// ============================================================================
+// Simple Handler Types
+// ============================================================================
+
+/**
+ * Simple handler function that directly returns a response.
+ * Use this for simple routes that don't need the use case pattern.
+ */
+export type SimpleHandlerFn<TRoute extends RouteDefinition> = (
+  req: ValidatedRequest<TRoute>,
+  ctx: TypedContext<TRoute>,
+) => Promise<HandlerResponse> | HandlerResponse;
+
+/**
+ * Configuration for a simple handler (no use case).
+ */
+export interface SimpleHandlerConfig<TRoute extends RouteDefinition> {
+  readonly handler: SimpleHandlerFn<TRoute>;
+  readonly middleware?: readonly MiddlewareFunction[];
+}
+
+/**
+ * Union of all handler config types.
+ * Used internally to store handlers in the builder.
+ */
+export type AnyHandlerConfig<TRoute extends RouteDefinition, TInput = unknown, TOutput = unknown> =
+  | RouteHandlerConfig<TRoute, TInput, TOutput>
+  | SimpleHandlerConfig<TRoute>;
+
+/**
+ * Type guard to check if config is a simple handler.
+ */
+export function isSimpleHandlerConfig(
+  config: AnyHandlerConfig<RouteDefinition, unknown, unknown>,
+): config is SimpleHandlerConfig<RouteDefinition> {
+  return 'handler' in config && typeof config.handler === 'function';
+}
+
 /**
  * Configuration mapping route keys to handlers.
  *

@@ -9,10 +9,13 @@
 
 import type { RouterConfig, RouterDefinition, GetRoute, RouterKeys } from '../route/types';
 import type {
+  AnyHandlerConfig,
   CreateServerRoutesOptions,
   HandlerResponse,
   MiddlewareFunction,
   RouteHandlerConfig,
+  SimpleHandlerConfig,
+  SimpleHandlerFn,
   TypedContext,
   UnifiedRouteInput,
   UseCasePort,
@@ -96,16 +99,39 @@ export interface BuilderHandlerConfig<TRoute extends RouteDefinition, TInput, TO
  */
 export interface ServerRoutesBuilder<T extends RouterConfig, THandled extends string = never> {
   /**
-   * Register a handler for a specific route.
+   * Register a simple handler for a route.
+   * The handler receives validated request and context, returns response directly.
    *
-   * The key must be a valid route key that hasn't been handled yet.
-   * All parameters (req, ctx, output) are fully typed based on the route definition.
+   * @param key - The route key (e.g., 'projects.get')
+   * @param handler - Simple handler function
+   * @returns A new builder with the route key added to handled routes
+   */
+  handle<K extends Exclude<RouterKeys<T>, THandled>>(
+    key: K,
+    handler: SimpleHandlerFn<GetRoute<T, K>>,
+  ): ServerRoutesBuilder<T, THandled | K>;
+
+  /**
+   * Register a simple handler with middleware.
+   *
+   * @param key - The route key (e.g., 'projects.get')
+   * @param config - Simple handler configuration with handler and optional middleware
+   * @returns A new builder with the route key added to handled routes
+   */
+  handle<K extends Exclude<RouterKeys<T>, THandled>>(
+    key: K,
+    config: SimpleHandlerConfig<GetRoute<T, K>>,
+  ): ServerRoutesBuilder<T, THandled | K>;
+
+  /**
+   * Register a handler using the use case pattern.
+   * Follows: requestMapper → useCase.execute() → responseMapper
    *
    * @param key - The route key (e.g., 'projects.create')
    * @param config - Handler configuration with requestMapper, useCase, responseMapper
    * @returns A new builder with the route key added to handled routes
    */
-  handle<K extends Exclude<RouterKeys<T>, THandled>, TInput, TOutput>(
+  handleWithUseCase<K extends Exclude<RouterKeys<T>, THandled>, TInput, TOutput>(
     key: K,
     config: BuilderHandlerConfig<GetRoute<T, K>, TInput, TOutput>,
   ): ServerRoutesBuilder<T, THandled | K>;
@@ -149,17 +175,36 @@ export interface ServerRoutesBuilder<T extends RouterConfig, THandled extends st
  */
 class ServerRoutesBuilderImpl<T extends RouterConfig, THandled extends string = never> {
   private readonly router: T | RouterDefinition<T>;
-  private readonly handlers: Map<string, RouteHandlerConfig<RouteDefinition, unknown, unknown>>;
+  private readonly handlers: Map<string, AnyHandlerConfig<RouteDefinition, unknown, unknown>>;
 
   constructor(
     router: T | RouterDefinition<T>,
-    handlers?: Map<string, RouteHandlerConfig<RouteDefinition, unknown, unknown>>,
+    handlers?: Map<string, AnyHandlerConfig<RouteDefinition, unknown, unknown>>,
   ) {
     this.router = router;
     this.handlers = handlers ?? new Map();
   }
 
-  handle<K extends Exclude<RouterKeys<T>, THandled>, TInput, TOutput>(
+  handle<K extends Exclude<RouterKeys<T>, THandled>>(
+    key: K,
+    handlerOrConfig: SimpleHandlerFn<GetRoute<T, K>> | SimpleHandlerConfig<GetRoute<T, K>>,
+  ): ServerRoutesBuilder<T, THandled | K> {
+    // Normalize function to config object
+    const config: SimpleHandlerConfig<RouteDefinition> =
+      typeof handlerOrConfig === 'function'
+        ? { handler: handlerOrConfig as SimpleHandlerFn<RouteDefinition> }
+        : (handlerOrConfig as SimpleHandlerConfig<RouteDefinition>);
+
+    const newHandlers = new Map(this.handlers);
+    newHandlers.set(key as string, config);
+
+    return new ServerRoutesBuilderImpl<T, THandled | K>(
+      this.router,
+      newHandlers,
+    ) as unknown as ServerRoutesBuilder<T, THandled | K>;
+  }
+
+  handleWithUseCase<K extends Exclude<RouterKeys<T>, THandled>, TInput, TOutput>(
     key: K,
     config: BuilderHandlerConfig<GetRoute<T, K>, TInput, TOutput>,
   ): ServerRoutesBuilder<T, THandled | K> {
