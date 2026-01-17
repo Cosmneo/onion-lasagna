@@ -134,9 +134,7 @@ export function createServerRoutesInternal<T extends RouterConfig>(
   };
 
   for (const { key, route } of sortedRoutes) {
-    const handlerConfig = handlers[key] as
-      | AnyHandlerConfig<RouteDefinition, any, any>
-      | undefined;
+    const handlerConfig = handlers[key] as AnyHandlerConfig<RouteDefinition, any, any> | undefined;
 
     if (!handlerConfig) {
       if (resolvedOptions.allowPartial) {
