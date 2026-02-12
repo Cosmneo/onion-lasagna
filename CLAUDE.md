@@ -224,8 +224,8 @@ app.onError(onionErrorHandler) // or equivalent
 | `@cosmneo/onion-lasagna/http/schema/zod`           | Zod schema adapter               |
 | `@cosmneo/onion-lasagna/http/schema/typebox`       | TypeBox schema adapter           |
 | `@cosmneo/onion-lasagna/http/frameworks/*`         | Framework adapters (hono, etc.)  |
+| `@cosmneo/onion-lasagna/http/react-query`          | React Query hooks (`createReactQueryHooks`) |
 | `@cosmneo/onion-lasagna/http/openapi`              | OpenAPI generation               |
-| `@cosmneo/onion-lasagna/client`                    | API client utilities             |
 
 ---
 
