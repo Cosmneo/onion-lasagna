@@ -52,8 +52,6 @@
     "@nestjs/common": "^11.1.10",
     "@nestjs/core": "^11.1.10",
     "@sinclair/typebox": "^0.34.41",
-    "@tanstack/react-query": "^5.69.0",
-    "@tanstack/vue-query": "^5.69.0",
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.3",
     "@vitest/coverage-v8": "^4.0.16",
@@ -67,7 +65,10 @@
     "uuid": "^13.0.0",
     "valibot": "^1.2.0",
     "vitest": "^4.0.16",
-    "zod": "4.3.5"
+    "zod": "4.3.6",
+    "@tanstack/react-query": "^5",
+    "react": "^19",
+    "@types/react": "^19"
   },
   "peerDependencies": {
     "@nestjs/common": "^11.1.10",
@@ -82,7 +83,7 @@
     "valibot": "^1.2.0",
     "zod": "^4.2.1",
     "@tanstack/react-query": "^5",
-    "@tanstack/vue-query": "^5"
+    "react": "^18 || ^19"
   },
   "peerDependenciesMeta": {
     "@nestjs/common": {
@@ -115,7 +116,7 @@
     "@tanstack/react-query": {
       "optional": true
     },
-    "@tanstack/vue-query": {
+    "react": {
       "optional": true
     }
   },
@@ -129,12 +130,6 @@
     "prepublishOnly": "bun run build"
   },
   "exports": {
-    "./shared/contracts": {
-      "types": "./dist/shared/contracts.d.ts",
-      "import": "./dist/shared/contracts.js",
-      "require": "./dist/shared/contracts.cjs",
-      "default": "./dist/shared/contracts.js"
-    },
     "./backend/core/onion-layers": {
       "types": "./dist/backend/core/onion-layers.d.ts",
       "import": "./dist/backend/core/onion-layers.js",
@@ -152,24 +147,6 @@
       "import": "./dist/backend/core/presentation.js",
       "require": "./dist/backend/core/presentation.cjs",
       "default": "./dist/backend/core/presentation.js"
-    },
-    "./client": {
-      "types": "./dist/client/index.d.ts",
-      "import": "./dist/client/index.js",
-      "require": "./dist/client/index.cjs",
-      "default": "./dist/client/index.js"
-    },
-    "./client/react-query": {
-      "types": "./dist/client/react-query/index.d.ts",
-      "import": "./dist/client/react-query/index.js",
-      "require": "./dist/client/react-query/index.cjs",
-      "default": "./dist/client/react-query/index.js"
-    },
-    "./client/vue-query": {
-      "types": "./dist/client/vue-query/index.d.ts",
-      "import": "./dist/client/vue-query/index.js",
-      "require": "./dist/client/vue-query/index.cjs",
-      "default": "./dist/client/vue-query/index.js"
     },
     "./http": {
       "types": "./dist/http/index.d.ts",
@@ -212,6 +189,12 @@
       "import": "./dist/http/client/index.js",
       "require": "./dist/http/client/index.cjs",
       "default": "./dist/http/client/index.js"
+    },
+    "./http/react-query": {
+      "types": "./dist/http/react-query/index.d.ts",
+      "import": "./dist/http/react-query/index.js",
+      "require": "./dist/http/react-query/index.cjs",
+      "default": "./dist/http/react-query/index.js"
     },
     "./http/server": {
       "types": "./dist/http/server/index.d.ts",

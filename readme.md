@@ -10,8 +10,7 @@ Enterprise-grade TypeScript library for building backend applications with hexag
 
 - **Hexagonal Architecture** - Clean separation between domain, application, infrastructure, and presentation layers
 - **Framework Agnostic** - Works with Hono, Elysia, Fastify, and NestJS
-- **Unified HTTP Layer** - Route contracts as single source of truth for server, client, and OpenAPI
-- **Type-Safe Client** - Auto-generated type-safe HTTP clients with React Query and Vue Query support
+- **Unified HTTP Layer** - Route definitions as single source of truth for server, client, and OpenAPI
 - **Schema Adapters** - Choose between Zod or TypeBox for validation
 - **Zero Dependencies** - Everything is peer dependencies, install only what you use
 - **DDD Building Blocks** - Entity, Value Object, Aggregate Root, Domain Event base classes
@@ -347,56 +346,6 @@ export default app;
 
 ---
 
-## Type-Safe Client
-
-Generate type-safe HTTP clients from your route contracts:
-
-```typescript
-import { createTypedClient, defineRouterContract } from '@cosmneo/onion-lasagna/client';
-
-// Create client from router contract
-const client = createTypedClient(projectRouter, {
-  baseUrl: 'http://localhost:3000',
-});
-
-// Fully typed API calls!
-const result = await client.projects.create({
-  body: { name: 'My Project' },
-});
-```
-
-### React Query Integration
-
-```typescript
-import { createTypedHooks } from '@cosmneo/onion-lasagna/client/react-query';
-
-const hooks = createTypedHooks(projectRouter, {
-  baseUrl: 'http://localhost:3000',
-});
-
-// In your component
-const { data, isLoading } = hooks.projects.list.useQuery({
-  query: { page: 1 },
-});
-```
-
-### Vue Query Integration
-
-```typescript
-import { createTypedComposables } from '@cosmneo/onion-lasagna/client/vue-query';
-
-const api = createTypedComposables(projectRouter, {
-  baseUrl: 'http://localhost:3000',
-});
-
-// In your component
-const { data, isLoading } = api.projects.list.useQuery({
-  query: { page: 1 },
-});
-```
-
----
-
 ## Package Exports
 
 | Path                         | Purpose                               |
@@ -414,10 +363,6 @@ const { data, isLoading } = api.projects.list.useQuery({
 | `/http/frameworks/elysia`    | Elysia integration                    |
 | `/http/frameworks/fastify`   | Fastify integration                   |
 | `/http/frameworks/nestjs`    | NestJS integration                    |
-| `/client`                    | Type-safe HTTP client                 |
-| `/client/react-query`        | React Query hooks                     |
-| `/client/vue-query`          | Vue Query composables                 |
-| `/shared/contracts`          | Route contract definitions            |
 
 ---
 
