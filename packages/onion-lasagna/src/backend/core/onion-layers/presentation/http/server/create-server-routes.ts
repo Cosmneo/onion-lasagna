@@ -9,7 +9,7 @@
  */
 
 import type { SchemaAdapter, ValidationIssue } from '../schema/types';
-import type { RouterConfig, RouterDefinition, RouteDefinition } from '../route/types';
+import type { RouterConfig, RouterDefinition, RouteDefinition, PrettifyDeep } from '../route/types';
 import { isRouterDefinition, collectRoutes, normalizePath } from '../route/types';
 import type {
   AnyHandlerConfig,
@@ -95,7 +95,7 @@ import { ControllerError } from '../../exceptions/controller.error';
  */
 export function createServerRoutes<T extends RouterConfig>(
   router: T | RouterDefinition<T>,
-  handlers: Partial<ServerRoutesConfig<T>>,
+  handlers: PrettifyDeep<Partial<ServerRoutesConfig<T>>>,
   options?: CreateServerRoutesOptions,
 ): UnifiedRouteInput[] {
   return createServerRoutesInternal(

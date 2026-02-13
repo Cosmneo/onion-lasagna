@@ -8,7 +8,14 @@
  * @module unified/route/define-router
  */
 
-import type { RouterConfig, RouterDefinition } from './types';
+import type {
+  RouterConfig,
+  RouterDefinition,
+  DeepMergeTwo,
+  DeepMergeAll,
+  PrettifyDeep,
+} from './types';
+import { isRouteDefinition, isRouterDefinition } from './types';
 
 /**
  * Options for router definition.
@@ -146,26 +153,161 @@ function deepFreeze<T extends object>(obj: T): T {
   return Object.freeze(obj);
 }
 
+// ============================================================================
+// mergeRouters — variadic deep merge
+// ============================================================================
+
+type RouterInput<T extends RouterConfig> = T | RouterDefinition<T>;
+
+/** Extracts the raw RouterConfig from either a plain config or a RouterDefinition. */
+function extractRoutes<T extends RouterConfig>(input: RouterInput<T>): T {
+  return isRouterDefinition(input) ? input.routes : input;
+}
+
+/** Returns true if `value` is a plain sub-router object (not a RouteDefinition, not a RouterDefinition). */
+function isSubRouter(value: unknown): value is RouterConfig {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !isRouteDefinition(value) &&
+    !isRouterDefinition(value)
+  );
+}
+
+/** Recursively deep-merges two router configs. Sub-routers are merged; leaves are overwritten. */
+function deepMergeConfigs(a: RouterConfig, b: RouterConfig): RouterConfig {
+  const result: Record<string, unknown> = { ...a };
+
+  for (const key of Object.keys(b)) {
+    const aVal = result[key];
+    const bVal = b[key];
+
+    if (isSubRouter(aVal) && isSubRouter(bVal)) {
+      result[key] = deepMergeConfigs(aVal, bVal);
+    } else {
+      result[key] = bVal;
+    }
+  }
+
+  return result as RouterConfig;
+}
+
+// Overloads for 2–8 routers (clean IDE experience)
+
 /**
- * Merges two routers into a new router.
+ * Merges multiple routers into a single router with deep merge.
+ *
+ * Overlapping sub-router keys are recursively merged instead of overwritten.
+ * Leaf routes (RouteDefinition) use last-one-wins semantics.
  *
  * @example
  * ```typescript
- * const combinedApi = mergeRouters(
- *   { users: userRouter },
- *   { posts: postRouter },
+ * const api = mergeRouters(
+ *   userRouter,
+ *   organizationRouter,
+ *   feedbackRouter,
  * );
+ * // If all three define `users`, their sub-routes are deep-merged.
  * ```
  */
 export function mergeRouters<T1 extends RouterConfig, T2 extends RouterConfig>(
-  router1: T1 | RouterDefinition<T1>,
-  router2: T2 | RouterDefinition<T2>,
-): RouterDefinition<T1 & T2> {
-  const routes1 = 'routes' in router1 ? router1.routes : router1;
-  const routes2 = 'routes' in router2 ? router2.routes : router2;
+  r1: RouterInput<T1>,
+  r2: RouterInput<T2>,
+): RouterDefinition<PrettifyDeep<DeepMergeTwo<T1, T2>>>;
+export function mergeRouters<
+  T1 extends RouterConfig,
+  T2 extends RouterConfig,
+  T3 extends RouterConfig,
+>(
+  r1: RouterInput<T1>,
+  r2: RouterInput<T2>,
+  r3: RouterInput<T3>,
+): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3]>>>;
+export function mergeRouters<
+  T1 extends RouterConfig,
+  T2 extends RouterConfig,
+  T3 extends RouterConfig,
+  T4 extends RouterConfig,
+>(
+  r1: RouterInput<T1>,
+  r2: RouterInput<T2>,
+  r3: RouterInput<T3>,
+  r4: RouterInput<T4>,
+): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3, T4]>>>;
+export function mergeRouters<
+  T1 extends RouterConfig,
+  T2 extends RouterConfig,
+  T3 extends RouterConfig,
+  T4 extends RouterConfig,
+  T5 extends RouterConfig,
+>(
+  r1: RouterInput<T1>,
+  r2: RouterInput<T2>,
+  r3: RouterInput<T3>,
+  r4: RouterInput<T4>,
+  r5: RouterInput<T5>,
+): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3, T4, T5]>>>;
+export function mergeRouters<
+  T1 extends RouterConfig,
+  T2 extends RouterConfig,
+  T3 extends RouterConfig,
+  T4 extends RouterConfig,
+  T5 extends RouterConfig,
+  T6 extends RouterConfig,
+>(
+  r1: RouterInput<T1>,
+  r2: RouterInput<T2>,
+  r3: RouterInput<T3>,
+  r4: RouterInput<T4>,
+  r5: RouterInput<T5>,
+  r6: RouterInput<T6>,
+): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3, T4, T5, T6]>>>;
+export function mergeRouters<
+  T1 extends RouterConfig,
+  T2 extends RouterConfig,
+  T3 extends RouterConfig,
+  T4 extends RouterConfig,
+  T5 extends RouterConfig,
+  T6 extends RouterConfig,
+  T7 extends RouterConfig,
+>(
+  r1: RouterInput<T1>,
+  r2: RouterInput<T2>,
+  r3: RouterInput<T3>,
+  r4: RouterInput<T4>,
+  r5: RouterInput<T5>,
+  r6: RouterInput<T6>,
+  r7: RouterInput<T7>,
+): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3, T4, T5, T6, T7]>>>;
+export function mergeRouters<
+  T1 extends RouterConfig,
+  T2 extends RouterConfig,
+  T3 extends RouterConfig,
+  T4 extends RouterConfig,
+  T5 extends RouterConfig,
+  T6 extends RouterConfig,
+  T7 extends RouterConfig,
+  T8 extends RouterConfig,
+>(
+  r1: RouterInput<T1>,
+  r2: RouterInput<T2>,
+  r3: RouterInput<T3>,
+  r4: RouterInput<T4>,
+  r5: RouterInput<T5>,
+  r6: RouterInput<T6>,
+  r7: RouterInput<T7>,
+  r8: RouterInput<T8>,
+): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3, T4, T5, T6, T7, T8]>>>;
 
-  return defineRouter({
-    ...routes1,
-    ...routes2,
-  } as T1 & T2);
+// Variadic fallback for 9+
+export function mergeRouters(
+  ...routers: RouterInput<RouterConfig>[]
+): RouterDefinition<RouterConfig>;
+
+// Implementation
+export function mergeRouters(
+  ...routers: RouterInput<RouterConfig>[]
+): RouterDefinition<RouterConfig> {
+  const merged = routers.map(extractRoutes).reduce(deepMergeConfigs);
+  return defineRouter(merged);
 }

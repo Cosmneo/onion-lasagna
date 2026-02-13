@@ -182,8 +182,12 @@ export interface ResponseConfig<T = unknown> {
 
 /**
  * Map of status codes to response configurations.
+ * Defined as an interface so IDE hovers show "ResponsesConfig"
+ * instead of expanding all ~60 HTTP status code keys.
  */
-export type ResponsesConfig = Readonly<Partial<Record<HttpStatusCode, ResponseConfig>>>;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Interface extends the mapped type to control IDE display
+export interface ResponsesConfig
+  extends Readonly<Partial<Record<HttpStatusCode, ResponseConfig>>> {}
 
 // ============================================================================
 // Documentation Types

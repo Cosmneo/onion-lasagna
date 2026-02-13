@@ -19,6 +19,7 @@ import type {
   ResponsesConfig,
   HasPathParams,
   PathParams,
+  PrettifyDeep,
 } from '../route/types';
 import type { ClientConfig } from '../client/types';
 import { ClientError } from '../client/types';
@@ -34,7 +35,7 @@ export { ClientError };
  * Input for a hook request method.
  * Mirrors ClientRequestInput but defined locally to avoid coupling.
  */
-export type HookRequestInput<TRoute extends RouteDefinition> =
+export type HookRequestInput<TRoute extends RouteDefinition> = PrettifyDeep<
   (HasPathParams<TRoute['path']> extends true
     ? { pathParams: PathParams<TRoute['path']> }
     : object) &
@@ -42,7 +43,8 @@ export type HookRequestInput<TRoute extends RouteDefinition> =
     (TRoute['_types']['query'] extends undefined ? object : { query: TRoute['_types']['query'] }) &
     (TRoute['_types']['headers'] extends undefined
       ? object
-      : { headers: TRoute['_types']['headers'] });
+      : { headers: TRoute['_types']['headers'] })
+>;
 
 /**
  * Response type extraction (first 2xx response).
@@ -162,7 +164,7 @@ export type QueryKeyFn<TRoute extends RouteDefinition> =
  */
 export type QueryKeyNamespace<T extends RouterConfig> = {
   (): readonly unknown[];
-} & InferQueryKeys<T>;
+} & PrettifyDeep<InferQueryKeys<T>>;
 
 /**
  * Recursively maps a router config to query key functions.
@@ -188,13 +190,13 @@ export interface ReactQueryHooksResult<T extends RouterConfig> {
    * Hook objects mirroring the router structure.
    * GET/HEAD → `{ useQuery }`, POST/PUT/PATCH/DELETE → `{ useMutation }`.
    */
-  readonly hooks: InferHooks<T>;
+  readonly hooks: PrettifyDeep<InferHooks<T>>;
 
   /**
    * Query key functions for cache invalidation.
    * Each key is callable and returns an array for use with `queryClient.invalidateQueries()`.
    */
-  readonly queryKeys: InferQueryKeys<T>;
+  readonly queryKeys: PrettifyDeep<InferQueryKeys<T>>;
 }
 
 /**

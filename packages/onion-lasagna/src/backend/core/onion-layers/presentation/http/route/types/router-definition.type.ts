@@ -187,6 +187,61 @@ export type GetRoute<
       : never
     : never;
 
+// ============================================================================
+// Deep Merge Types
+// ============================================================================
+
+/**
+ * Deep-merges two router configs at the type level.
+ *
+ * - If both sides are sub-routers (extend RouterConfig), recurse.
+ * - Otherwise last-one-wins (B overrides A).
+ * - RouteDefinition does NOT extend RouterConfig (it has `method`, `path`, etc.)
+ *   so the conditional correctly distinguishes leaves from sub-routers.
+ */
+export type DeepMergeTwo<A extends RouterConfig, B extends RouterConfig> = {
+  readonly [K in keyof A | keyof B]: K extends keyof A
+    ? K extends keyof B
+      ? A[K] extends RouterConfig
+        ? B[K] extends RouterConfig
+          ? DeepMergeTwo<A[K], B[K]>
+          : B[K]
+        : B[K]
+      : A[K]
+    : K extends keyof B
+      ? B[K]
+      : never;
+};
+
+/**
+ * Recursively deep-merges N router configs left-to-right.
+ */
+export type DeepMergeAll<T extends readonly RouterConfig[]> =
+  T extends readonly [infer Only extends RouterConfig]
+    ? Only
+    : T extends readonly [
+          infer First extends RouterConfig,
+          infer Second extends RouterConfig,
+          ...infer Rest extends readonly RouterConfig[],
+        ]
+      ? DeepMergeAll<[DeepMergeTwo<First, Second>, ...Rest]>
+      : RouterConfig;
+
+/**
+ * Recursively flattens complex types for clean IDE hover display.
+ * Applied at return sites (not inside recursion) so DTS emit stays fast —
+ * TypeScript only resolves when concrete types are provided.
+ *
+ * Works with any recursive object type: router configs, client types,
+ * React Query hooks, etc. Functions and primitives pass through unchanged.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type PrettifyDeep<T> = T extends (...args: any[]) => any
+  ? T
+  : T extends object
+    ? { readonly [K in keyof T]: PrettifyDeep<T[K]> }
+    : T;
+
 /**
  * Collects all routes from a router into an array.
  */
