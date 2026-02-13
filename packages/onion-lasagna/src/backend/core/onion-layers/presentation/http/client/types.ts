@@ -11,6 +11,7 @@ import type {
   ResponseConfig,
   PathParams,
   HasPathParams,
+  PrettifyDeep,
 } from '../route/types';
 
 // ============================================================================
@@ -138,7 +139,7 @@ export class ClientError extends Error {
  * Input for a client request method.
  * Only includes properties that are actually needed based on the route.
  */
-export type ClientRequestInput<TRoute extends RouteDefinition> =
+export type ClientRequestInput<TRoute extends RouteDefinition> = PrettifyDeep<
   // Build the input type based on what the route needs
   (HasPathParams<TRoute['path']> extends true
     ? { pathParams: PathParams<TRoute['path']> }
@@ -147,7 +148,8 @@ export type ClientRequestInput<TRoute extends RouteDefinition> =
     (TRoute['_types']['query'] extends undefined ? object : { query: TRoute['_types']['query'] }) &
     (TRoute['_types']['headers'] extends undefined
       ? object
-      : { headers: TRoute['_types']['headers'] });
+      : { headers: TRoute['_types']['headers'] })
+>;
 
 /**
  * Response from a client request.

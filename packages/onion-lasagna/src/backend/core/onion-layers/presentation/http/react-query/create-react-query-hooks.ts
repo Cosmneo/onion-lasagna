@@ -8,7 +8,7 @@
  */
 
 import { useQuery, useMutation } from '@tanstack/react-query';
-import type { RouterConfig, RouterDefinition } from '../route/types';
+import type { RouterConfig, RouterDefinition, PrettifyDeep } from '../route/types';
 import { isRouteDefinition, isRouterDefinition } from '../route/types';
 import { createClient } from '../client/create-client';
 import type { ClientConfig } from '../client/types';
@@ -58,8 +58,8 @@ export function createReactQueryHooks<T extends RouterConfig>(
   const client = createClient(router, config);
 
   // Build hooks proxy and query keys
-  const hooks = buildHooksProxy(routes, client, []) as InferHooks<T>;
-  const queryKeys = buildQueryKeys(routes) as InferQueryKeys<T>;
+  const hooks = buildHooksProxy(routes, client, []) as PrettifyDeep<InferHooks<T>>;
+  const queryKeys = buildQueryKeys(routes) as PrettifyDeep<InferQueryKeys<T>>;
 
   return { hooks, queryKeys };
 }

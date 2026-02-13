@@ -8,7 +8,7 @@
  * @module unified/client/create-client
  */
 
-import type { RouterConfig, RouterDefinition } from '../route/types';
+import type { RouterConfig, RouterDefinition, PrettifyDeep } from '../route/types';
 import { isRouteDefinition, isRouterDefinition, buildPath, hasPathParams } from '../route/types';
 import type { ClientConfig, InferClient } from './types';
 import { ClientError } from './types';
@@ -92,9 +92,9 @@ const DEFAULT_RETRY_STATUS_CODES = [408, 429, 500, 502, 503, 504];
 export function createClient<T extends RouterConfig>(
   router: T | RouterDefinition<T>,
   config: ClientConfig,
-): InferClient<T> {
+): PrettifyDeep<InferClient<T>> {
   const routes = isRouterDefinition(router) ? router.routes : router;
-  return buildClientProxy(routes, config);
+  return buildClientProxy(routes, config) as PrettifyDeep<InferClient<T>>;
 }
 
 /**

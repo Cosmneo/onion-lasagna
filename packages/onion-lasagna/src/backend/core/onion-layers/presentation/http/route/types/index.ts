@@ -52,5 +52,8 @@ export type {
   FlattenRouter,
   RouterKeys,
   GetRoute,
+  DeepMergeTwo,
+  DeepMergeAll,
+  PrettifyDeep,
 } from './router-definition.type';
 export { isRouteDefinition, isRouterDefinition, collectRoutes } from './router-definition.type';
