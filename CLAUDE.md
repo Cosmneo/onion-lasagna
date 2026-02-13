@@ -213,19 +213,19 @@ app.onError(onionErrorHandler) // or equivalent
 
 > **IMPORTANT:** Always verify actual exports by reading the index.ts files. Do not assume.
 
-| Entry Point                                        | Purpose                          |
-| -------------------------------------------------- | -------------------------------- |
-| `@cosmneo/onion-lasagna/backend/core/onion-layers` | Domain, App, Infra layer classes |
-| `@cosmneo/onion-lasagna/backend/core/global`       | DTOs, errors, validators         |
-| `@cosmneo/onion-lasagna/backend/core/presentation` | Presentation layer utilities     |
-| `@cosmneo/onion-lasagna/http`                      | HTTP types and utilities         |
-| `@cosmneo/onion-lasagna/http/route`                | `defineRoute`, `defineRouter`    |
-| `@cosmneo/onion-lasagna/http/server`               | `serverRoutes`, route handlers   |
-| `@cosmneo/onion-lasagna/http/schema/zod`           | Zod schema adapter               |
-| `@cosmneo/onion-lasagna/http/schema/typebox`       | TypeBox schema adapter           |
-| `@cosmneo/onion-lasagna/http/frameworks/*`         | Framework adapters (hono, etc.)  |
+| Entry Point                                        | Purpose                                     |
+| -------------------------------------------------- | ------------------------------------------- |
+| `@cosmneo/onion-lasagna/backend/core/onion-layers` | Domain, App, Infra layer classes            |
+| `@cosmneo/onion-lasagna/backend/core/global`       | DTOs, errors, validators                    |
+| `@cosmneo/onion-lasagna/backend/core/presentation` | Presentation layer utilities                |
+| `@cosmneo/onion-lasagna/http`                      | HTTP types and utilities                    |
+| `@cosmneo/onion-lasagna/http/route`                | `defineRoute`, `defineRouter`               |
+| `@cosmneo/onion-lasagna/http/server`               | `serverRoutes`, route handlers              |
+| `@cosmneo/onion-lasagna/http/schema/zod`           | Zod schema adapter                          |
+| `@cosmneo/onion-lasagna/http/schema/typebox`       | TypeBox schema adapter                      |
+| `@cosmneo/onion-lasagna/http/frameworks/*`         | Framework adapters (hono, etc.)             |
 | `@cosmneo/onion-lasagna/http/react-query`          | React Query hooks (`createReactQueryHooks`) |
-| `@cosmneo/onion-lasagna/http/openapi`              | OpenAPI generation               |
+| `@cosmneo/onion-lasagna/http/openapi`              | OpenAPI generation                          |
 
 ---
 

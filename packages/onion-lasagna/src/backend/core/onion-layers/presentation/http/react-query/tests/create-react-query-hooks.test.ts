@@ -85,20 +85,14 @@ describe('createReactQueryHooks', () => {
 
   describe('hook structure', () => {
     it('returns hooks and queryKeys', () => {
-      const result = createReactQueryHooks(
-        { list: listUsersRoute },
-        config,
-      );
+      const result = createReactQueryHooks({ list: listUsersRoute }, config);
 
       expect(result).toHaveProperty('hooks');
       expect(result).toHaveProperty('queryKeys');
     });
 
     it('creates useQuery for GET routes', () => {
-      const { hooks } = createReactQueryHooks(
-        { list: listUsersRoute, get: getUserRoute },
-        config,
-      );
+      const { hooks } = createReactQueryHooks({ list: listUsersRoute, get: getUserRoute }, config);
 
       expect(hooks).toHaveProperty('list');
       expect(hooks['list']).toHaveProperty('useQuery');
@@ -106,29 +100,20 @@ describe('createReactQueryHooks', () => {
     });
 
     it('creates useQuery for HEAD routes', () => {
-      const { hooks } = createReactQueryHooks(
-        { head: headUsersRoute },
-        config,
-      );
+      const { hooks } = createReactQueryHooks({ head: headUsersRoute }, config);
 
       expect(hooks['head']).toHaveProperty('useQuery');
     });
 
     it('creates useMutation for POST routes', () => {
-      const { hooks } = createReactQueryHooks(
-        { create: createUserRoute },
-        config,
-      );
+      const { hooks } = createReactQueryHooks({ create: createUserRoute }, config);
 
       expect(hooks['create']).toHaveProperty('useMutation');
       expect(typeof (hooks['create'] as Record<string, unknown>)['useMutation']).toBe('function');
     });
 
     it('creates useMutation for DELETE routes', () => {
-      const { hooks } = createReactQueryHooks(
-        { remove: deleteUserRoute },
-        config,
-      );
+      const { hooks } = createReactQueryHooks({ remove: deleteUserRoute }, config);
 
       expect(hooks['remove']).toHaveProperty('useMutation');
     });
@@ -176,10 +161,7 @@ describe('createReactQueryHooks', () => {
 
   describe('useQuery behavior', () => {
     it('calls useQuery with correct queryKey for route without input', () => {
-      const { hooks } = createReactQueryHooks(
-        { list: listUsersRoute },
-        config,
-      );
+      const { hooks } = createReactQueryHooks({ list: listUsersRoute }, config);
 
       const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
       hook.useQuery();
@@ -191,10 +173,7 @@ describe('createReactQueryHooks', () => {
     });
 
     it('appends input to queryKey', () => {
-      const { hooks } = createReactQueryHooks(
-        { get: getUserRoute },
-        config,
-      );
+      const { hooks } = createReactQueryHooks({ get: getUserRoute }, config);
 
       const hook = hooks['get'] as { useQuery: (...args: unknown[]) => unknown };
       const input = { pathParams: { userId: '123' } };
@@ -206,10 +185,7 @@ describe('createReactQueryHooks', () => {
     });
 
     it('passes additional options through', () => {
-      const { hooks } = createReactQueryHooks(
-        { list: listUsersRoute },
-        config,
-      );
+      const { hooks } = createReactQueryHooks({ list: listUsersRoute }, config);
 
       const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
       hook.useQuery(undefined, { staleTime: 5000, enabled: false });
@@ -238,20 +214,13 @@ describe('createReactQueryHooks', () => {
       expect(listCallArgs['queryKey']).toEqual(['users', 'list']);
 
       const getCallArgs = mockUseQuery.mock.calls[1]![0] as Record<string, unknown>;
-      expect(getCallArgs['queryKey']).toEqual([
-        'users',
-        'get',
-        { pathParams: { userId: '456' } },
-      ]);
+      expect(getCallArgs['queryKey']).toEqual(['users', 'get', { pathParams: { userId: '456' } }]);
     });
   });
 
   describe('useMutation behavior', () => {
     it('calls useMutation with mutationFn', () => {
-      const { hooks } = createReactQueryHooks(
-        { create: createUserRoute },
-        config,
-      );
+      const { hooks } = createReactQueryHooks({ create: createUserRoute }, config);
 
       const hook = hooks['create'] as { useMutation: (...args: unknown[]) => unknown };
       hook.useMutation();
@@ -264,10 +233,7 @@ describe('createReactQueryHooks', () => {
     it('passes additional mutation options through', () => {
       const onSuccess = vi.fn();
 
-      const { hooks } = createReactQueryHooks(
-        { create: createUserRoute },
-        config,
-      );
+      const { hooks } = createReactQueryHooks({ create: createUserRoute }, config);
 
       const hook = hooks['create'] as { useMutation: (...args: unknown[]) => unknown };
       hook.useMutation({ onSuccess });

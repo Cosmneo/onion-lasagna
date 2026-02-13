@@ -90,17 +90,11 @@ export interface QueryRouteHooks<TRoute extends RouteDefinition> {
   useQuery: RequiresInput<TRoute> extends true
     ? (
         input: HookRequestInput<TRoute>,
-        options?: Omit<
-          UseQueryOptions<HookResponse<TRoute>, ClientError>,
-          'queryKey' | 'queryFn'
-        >,
+        options?: Omit<UseQueryOptions<HookResponse<TRoute>, ClientError>, 'queryKey' | 'queryFn'>,
       ) => UseQueryResult<HookResponse<TRoute>, ClientError>
     : (
         input?: HookRequestInput<TRoute>,
-        options?: Omit<
-          UseQueryOptions<HookResponse<TRoute>, ClientError>,
-          'queryKey' | 'queryFn'
-        >,
+        options?: Omit<UseQueryOptions<HookResponse<TRoute>, ClientError>, 'queryKey' | 'queryFn'>,
       ) => UseQueryResult<HookResponse<TRoute>, ClientError>;
 }
 
@@ -124,8 +118,9 @@ type QueryMethods = 'GET' | 'HEAD';
 /**
  * Maps a single route to its hook type based on HTTP method.
  */
-type RouteToHooks<TRoute extends RouteDefinition> =
-  TRoute['method'] extends QueryMethods ? QueryRouteHooks<TRoute> : MutationRouteHooks<TRoute>;
+type RouteToHooks<TRoute extends RouteDefinition> = TRoute['method'] extends QueryMethods
+  ? QueryRouteHooks<TRoute>
+  : MutationRouteHooks<TRoute>;
 
 /**
  * Recursively maps a router config to hook objects.

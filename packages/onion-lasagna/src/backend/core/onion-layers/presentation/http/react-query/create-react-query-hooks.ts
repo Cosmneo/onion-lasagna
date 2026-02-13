@@ -81,7 +81,10 @@ function buildHooksProxy(
     if (isRouteDefinition(value)) {
       // Leaf route → create hook object
       if (QUERY_METHODS.has(value.method)) {
-        hooks[key] = createQueryHook(clientEntry as (...args: unknown[]) => Promise<unknown>, currentKeyPath);
+        hooks[key] = createQueryHook(
+          clientEntry as (...args: unknown[]) => Promise<unknown>,
+          currentKeyPath,
+        );
       } else {
         hooks[key] = createMutationHook(clientEntry as (...args: unknown[]) => Promise<unknown>);
       }
