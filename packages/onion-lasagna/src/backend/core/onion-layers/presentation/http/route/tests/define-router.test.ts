@@ -256,12 +256,6 @@ describe('mergeRouters', () => {
 // ============================================================================
 
 describe('mergeRouters (variadic)', () => {
-  const getPostRoute = defineRoute({
-    method: 'GET',
-    path: '/posts/:id',
-    responses: { 200: { description: 'Success' } },
-  });
-
   const listCommentsRoute = defineRoute({
     method: 'GET',
     path: '/comments',

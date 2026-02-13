@@ -144,22 +144,16 @@ export type InferHooks<T extends RouterConfig> = {
  */
 export type QueryKeyFn<TRoute extends RouteDefinition> =
   RequiresInput<TRoute> extends true
-    ? {
-        (input: HookRequestInput<TRoute>): readonly unknown[];
-        (): readonly unknown[];
-      }
-    : {
-        (input?: HookRequestInput<TRoute>): readonly unknown[];
-        (): readonly unknown[];
-      };
+    ? (input?: HookRequestInput<TRoute>) => readonly unknown[]
+    : (input?: HookRequestInput<TRoute>) => readonly unknown[];
 
 /**
  * A namespace key function that is callable and has child properties.
  * Enables both `queryKeys.users()` and `queryKeys.users.list()`.
  */
-export type QueryKeyNamespace<T extends RouterConfig> = {
-  (): readonly unknown[];
-} & PrettifyDeep<InferQueryKeys<T>>;
+export type QueryKeyNamespace<T extends RouterConfig> =
+  // eslint-disable-next-line @typescript-eslint/prefer-function-type -- Callable + properties intersection requires type literal
+  { (): readonly unknown[] } & PrettifyDeep<InferQueryKeys<T>>;
 
 /**
  * Recursively maps a router config to query key functions.
