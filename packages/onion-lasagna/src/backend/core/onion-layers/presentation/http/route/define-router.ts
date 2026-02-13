@@ -8,13 +8,7 @@
  * @module unified/route/define-router
  */
 
-import type {
-  RouterConfig,
-  RouterDefinition,
-  DeepMergeTwo,
-  DeepMergeAll,
-  PrettifyDeep,
-} from './types';
+import type { RouterConfig, RouterDefinition, DeepMergeTwo, DeepMergeAll } from './types';
 import { isRouteDefinition, isRouterDefinition } from './types';
 
 /**
@@ -213,7 +207,7 @@ function deepMergeConfigs(a: RouterConfig, b: RouterConfig): RouterConfig {
 export function mergeRouters<T1 extends RouterConfig, T2 extends RouterConfig>(
   r1: RouterInput<T1>,
   r2: RouterInput<T2>,
-): RouterDefinition<PrettifyDeep<DeepMergeTwo<T1, T2>>>;
+): RouterDefinition<DeepMergeTwo<T1, T2>>;
 export function mergeRouters<
   T1 extends RouterConfig,
   T2 extends RouterConfig,
@@ -222,7 +216,7 @@ export function mergeRouters<
   r1: RouterInput<T1>,
   r2: RouterInput<T2>,
   r3: RouterInput<T3>,
-): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3]>>>;
+): RouterDefinition<DeepMergeAll<[T1, T2, T3]>>;
 export function mergeRouters<
   T1 extends RouterConfig,
   T2 extends RouterConfig,
@@ -233,7 +227,7 @@ export function mergeRouters<
   r2: RouterInput<T2>,
   r3: RouterInput<T3>,
   r4: RouterInput<T4>,
-): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3, T4]>>>;
+): RouterDefinition<DeepMergeAll<[T1, T2, T3, T4]>>;
 export function mergeRouters<
   T1 extends RouterConfig,
   T2 extends RouterConfig,
@@ -246,7 +240,7 @@ export function mergeRouters<
   r3: RouterInput<T3>,
   r4: RouterInput<T4>,
   r5: RouterInput<T5>,
-): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3, T4, T5]>>>;
+): RouterDefinition<DeepMergeAll<[T1, T2, T3, T4, T5]>>;
 export function mergeRouters<
   T1 extends RouterConfig,
   T2 extends RouterConfig,
@@ -261,7 +255,7 @@ export function mergeRouters<
   r4: RouterInput<T4>,
   r5: RouterInput<T5>,
   r6: RouterInput<T6>,
-): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3, T4, T5, T6]>>>;
+): RouterDefinition<DeepMergeAll<[T1, T2, T3, T4, T5, T6]>>;
 export function mergeRouters<
   T1 extends RouterConfig,
   T2 extends RouterConfig,
@@ -278,7 +272,7 @@ export function mergeRouters<
   r5: RouterInput<T5>,
   r6: RouterInput<T6>,
   r7: RouterInput<T7>,
-): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3, T4, T5, T6, T7]>>>;
+): RouterDefinition<DeepMergeAll<[T1, T2, T3, T4, T5, T6, T7]>>;
 export function mergeRouters<
   T1 extends RouterConfig,
   T2 extends RouterConfig,
@@ -297,7 +291,7 @@ export function mergeRouters<
   r6: RouterInput<T6>,
   r7: RouterInput<T7>,
   r8: RouterInput<T8>,
-): RouterDefinition<PrettifyDeep<DeepMergeAll<[T1, T2, T3, T4, T5, T6, T7, T8]>>>;
+): RouterDefinition<DeepMergeAll<[T1, T2, T3, T4, T5, T6, T7, T8]>>;
 
 // Variadic fallback for 9+
 export function mergeRouters(
