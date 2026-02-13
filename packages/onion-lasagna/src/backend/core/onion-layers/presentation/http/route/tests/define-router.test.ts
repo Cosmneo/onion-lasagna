@@ -388,10 +388,7 @@ describe('mergeRouters (deep merge)', () => {
       responses: { 200: { description: 'V2' } },
     });
 
-    const merged = mergeRouters(
-      { users: { list: routeV1 } },
-      { users: { list: routeV2 } },
-    );
+    const merged = mergeRouters({ users: { list: routeV1 } }, { users: { list: routeV2 } });
 
     expect(merged.routes.users.list.path).toBe('/v2/users');
   });

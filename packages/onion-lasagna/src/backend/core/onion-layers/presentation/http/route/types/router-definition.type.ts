@@ -216,16 +216,17 @@ export type DeepMergeTwo<A extends RouterConfig, B extends RouterConfig> = {
 /**
  * Recursively deep-merges N router configs left-to-right.
  */
-export type DeepMergeAll<T extends readonly RouterConfig[]> =
-  T extends readonly [infer Only extends RouterConfig]
-    ? Only
-    : T extends readonly [
-          infer First extends RouterConfig,
-          infer Second extends RouterConfig,
-          ...infer Rest extends readonly RouterConfig[],
-        ]
-      ? DeepMergeAll<[DeepMergeTwo<First, Second>, ...Rest]>
-      : RouterConfig;
+export type DeepMergeAll<T extends readonly RouterConfig[]> = T extends readonly [
+  infer Only extends RouterConfig,
+]
+  ? Only
+  : T extends readonly [
+        infer First extends RouterConfig,
+        infer Second extends RouterConfig,
+        ...infer Rest extends readonly RouterConfig[],
+      ]
+    ? DeepMergeAll<[DeepMergeTwo<First, Second>, ...Rest]>
+    : RouterConfig;
 
 /**
  * Recursively flattens complex types for clean IDE hover display.
