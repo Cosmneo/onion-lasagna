@@ -1,0 +1,62 @@
+{
+  "name": "@cosmneo/onion-lasagna-saga",
+  "version": "0.1.0",
+  "description": "Saga pattern implementation with retry, compensation, timeout, and abort support for onion-lasagna",
+  "type": "module",
+  "license": "UNLICENSED",
+  "author": "Cosmneo",
+  "homepage": "https://onion-lasagna.cosmneo.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cosmneo/onion-lasagna.git",
+    "directory": "packages/onion-lasagna-saga"
+  },
+  "bugs": {
+    "url": "https://github.com/Cosmneo/onion-lasagna/issues"
+  },
+  "keywords": [
+    "saga",
+    "saga-pattern",
+    "compensation",
+    "distributed-transactions",
+    "orchestration",
+    "retry",
+    "onion-lasagna",
+    "hexagonal-architecture",
+    "ddd",
+    "typescript"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "bun run build"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
