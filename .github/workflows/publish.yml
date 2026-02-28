@@ -1,4 +1,4 @@
-name: Publish Package
+name: Publish All Packages
 
 on:
   push:
@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g., 0.1.0)'
+        description: 'Version to publish (e.g., 0.3.0). Overrides tag version.'
         required: false
         type: string
       dry_run:
-        description: 'Dry run (do not publish)'
+        description: 'Dry run (validate and check registry, but do not publish)'
         required: false
         type: boolean
         default: false
@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build (as a test)
+      - name: Build all packages
         run: bun run build
         env:
           NODE_OPTIONS: '--max-old-space-size=4096'
@@ -43,9 +43,8 @@ jobs:
       - name: Check format
         run: bun run format:check
 
-      - name: Run lint
-        working-directory: packages/onion-lasagna
-        run: bun run lint
+      - name: Run tests
+        run: bun run test:run
 
   publish:
     runs-on: ubuntu-latest
@@ -67,7 +66,7 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Setup Node.js (for npm publish)
+      - name: Setup Node.js (for npm publish with provenance)
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -75,11 +74,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install
-
-      - name: Build package
-        run: bun run build
-        env:
-          NODE_OPTIONS: '--max-old-space-size=4096'
 
       - name: Extract version from tag
         if: startsWith(github.ref, 'refs/tags/')
@@ -92,40 +86,80 @@ jobs:
         run: |
           echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
 
-      - name: Update package version
+      - name: Bump all packages to target version
         if: env.VERSION
-        working-directory: packages/onion-lasagna
-        run: |
-          CURRENT=$(node -p "require('./package.json').version")
-          if [ "$CURRENT" != "${{ env.VERSION }}" ]; then
-            npm version ${{ env.VERSION }} --no-git-tag-version
-          fi
+        run: bun scripts/bump-version.ts ${{ env.VERSION }}
 
-      - name: Publish to npm
-        working-directory: packages/onion-lasagna
-        run: npm publish --provenance --access public
+      - name: Build all packages
+        run: bun run build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+
+      - name: Publish all packages
+        run: bun scripts/publish-all.ts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CI: 'true'
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          name: onion-lasagna v${{ env.VERSION }}
+          name: v${{ env.VERSION }}
           body: |
-            ## @cosmneo/onion-lasagna v${{ env.VERSION }}
+            ## @cosmneo/* v${{ env.VERSION }}
 
-            ### Installation
+            All 14 packages published at version `${{ env.VERSION }}`:
 
-            ```bash
-            bun add @cosmneo/onion-lasagna
-            npm install @cosmneo/onion-lasagna
-            ```
-
-            ### What's New
+            | Package | Install |
+            |---------|---------|
+            | `@cosmneo/onion-lasagna` | `bun add @cosmneo/onion-lasagna` |
+            | `@cosmneo/onion-lasagna-zod` | `bun add @cosmneo/onion-lasagna-zod` |
+            | `@cosmneo/onion-lasagna-zod-v3` | `bun add @cosmneo/onion-lasagna-zod-v3` |
+            | `@cosmneo/onion-lasagna-typebox` | `bun add @cosmneo/onion-lasagna-typebox` |
+            | `@cosmneo/onion-lasagna-valibot` | `bun add @cosmneo/onion-lasagna-valibot` |
+            | `@cosmneo/onion-lasagna-arktype` | `bun add @cosmneo/onion-lasagna-arktype` |
+            | `@cosmneo/onion-lasagna-hono` | `bun add @cosmneo/onion-lasagna-hono` |
+            | `@cosmneo/onion-lasagna-elysia` | `bun add @cosmneo/onion-lasagna-elysia` |
+            | `@cosmneo/onion-lasagna-fastify` | `bun add @cosmneo/onion-lasagna-fastify` |
+            | `@cosmneo/onion-lasagna-express` | `bun add @cosmneo/onion-lasagna-express` |
+            | `@cosmneo/onion-lasagna-nestjs` | `bun add @cosmneo/onion-lasagna-nestjs` |
+            | `@cosmneo/onion-lasagna-client` | `bun add @cosmneo/onion-lasagna-client` |
+            | `@cosmneo/onion-lasagna-saga` | `bun add @cosmneo/onion-lasagna-saga` |
+            | `@cosmneo/onion-lasagna-react-query` | `bun add @cosmneo/onion-lasagna-react-query` |
 
             See [CHANGELOG](https://github.com/Cosmneo/onion-lasagna/blob/main/packages/onion-lasagna/CHANGELOG.md) for details.
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dry-run:
+    runs-on: ubuntu-latest
+    needs: test
+    if: ${{ inputs.dry_run }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js (for npm view)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Bump versions (if specified)
+        if: ${{ inputs.version }}
+        run: bun scripts/bump-version.ts ${{ inputs.version }}
+
+      - name: Dry run publish check
+        run: bun scripts/publish-all.ts --dry-run
