@@ -3,13 +3,21 @@
   "private": true,
   "description": "Monorepo for onion-lasagna library and documentation",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "author": "Cosmneo",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Cosmneo/onion-lasagna.git"
   },
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/onion-lasagna",
+    "packages/servers/*",
+    "packages/schemas/*",
+    "packages/clients/*",
+    "packages/patterns/*",
+    "packages/tooling/*",
+    "apps/*"
+  ],
   "packageManager": "bun@1.3.3",
   "engines": {
     "node": ">=18.0.0"
@@ -32,6 +40,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "turbo run test",
-    "test:run": "turbo run test:run"
+    "test:run": "turbo run test:run",
+    "publish:dry": "bun scripts/publish-all.ts --dry-run",
+    "version:set": "bun scripts/bump-version.ts --set",
+    "version:bump": "bun scripts/bump-version.ts patch",
+    "version:bump:minor": "bun scripts/bump-version.ts minor",
+    "version:bump:major": "bun scripts/bump-version.ts major"
   }
 }
