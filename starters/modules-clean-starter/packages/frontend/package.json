@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "Frontend package with design system components and styles",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": true,
   "engines": {
     "node": ">=18.0.0"

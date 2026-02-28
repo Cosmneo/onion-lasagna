@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "Backend package with onion architecture",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": true,
   "engines": {
     "node": ">=18.0.0"
@@ -13,7 +13,7 @@
   ],
   "sideEffects": false,
   "dependencies": {
-    "@cosmneo/onion-lasagna": "^0.1.0"
+    "@cosmneo/onion-lasagna": "^0.2.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
