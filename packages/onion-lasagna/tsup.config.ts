@@ -2,33 +2,20 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
   entry: {
-    // Backend core
-    'backend/core/onion-layers': 'src/backend/core/onion-layers/index.ts',
-    'backend/core/global': 'src/backend/core/global/index.ts',
-    'backend/core/presentation': 'src/backend/core/onion-layers/presentation/index.ts',
+    // Core (domain, app, infra, presentation layers + global)
+    index: 'src/index.ts',
+    global: 'src/global/index.ts',
+    // Dedicated entry points for ports and common types
+    ports: 'src/ports.ts',
+    types: 'src/types.ts',
     // HTTP Presentation Layer (unified route system)
-    'http/index': 'src/backend/core/onion-layers/presentation/http/index.ts',
-    'http/schema/index': 'src/backend/core/onion-layers/presentation/http/schema/index.ts',
-    'http/schema/types': 'src/backend/core/onion-layers/presentation/http/schema/types/index.ts',
-    'http/schema/zod':
-      'src/backend/core/onion-layers/presentation/http/schema/adapters/zod.adapter.ts',
-    'http/schema/typebox':
-      'src/backend/core/onion-layers/presentation/http/schema/adapters/typebox.adapter.ts',
-    'http/route/index': 'src/backend/core/onion-layers/presentation/http/route/index.ts',
-    'http/client/index': 'src/backend/core/onion-layers/presentation/http/client/index.ts',
-    'http/react-query/index':
-      'src/backend/core/onion-layers/presentation/http/react-query/index.ts',
-    'http/server/index': 'src/backend/core/onion-layers/presentation/http/server/index.ts',
-    'http/openapi/index': 'src/backend/core/onion-layers/presentation/http/openapi/index.ts',
-    // HTTP Framework Adapters (unified route system)
-    'http/frameworks/hono':
-      'src/backend/core/onion-layers/presentation/http/frameworks/hono/index.ts',
-    'http/frameworks/fastify':
-      'src/backend/core/onion-layers/presentation/http/frameworks/fastify/index.ts',
-    'http/frameworks/elysia':
-      'src/backend/core/onion-layers/presentation/http/frameworks/elysia/index.ts',
-    'http/frameworks/nestjs':
-      'src/backend/core/onion-layers/presentation/http/frameworks/nestjs/index.ts',
+    'http/index': 'src/presentation/http/index.ts',
+    'http/schema/index': 'src/presentation/http/schema/index.ts',
+    'http/schema/types': 'src/presentation/http/schema/types/index.ts',
+    'http/route/index': 'src/presentation/http/route/index.ts',
+    'http/server/index': 'src/presentation/http/server/index.ts',
+    'http/shared/index': 'src/presentation/http/shared/index.ts',
+    'http/openapi/index': 'src/presentation/http/openapi/index.ts',
   },
   dts: true,
   format: ['esm', 'cjs'],
@@ -37,20 +24,5 @@ export default defineConfig({
   target: 'es2022',
   minify: false,
   skipNodeModulesBundle: true,
-  external: [
-    'zod',
-    'uuid',
-    'arktype',
-    'valibot',
-    '@sinclair/typebox',
-    'aws-lambda',
-    'hono',
-    'elysia',
-    'fastify',
-    '@nestjs/common',
-    '@nestjs/core',
-    'express',
-    '@tanstack/react-query',
-    'react',
-  ],
+  external: ['uuid'],
 });
