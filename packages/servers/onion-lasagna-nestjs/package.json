@@ -1,0 +1,57 @@
+{
+  "name": "@cosmneo/onion-lasagna-nestjs",
+  "version": "0.2.0",
+  "description": "NestJS adapter for onion-lasagna unified routes.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Cosmneo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cosmneo/onion-lasagna.git",
+    "directory": "packages/servers/onion-lasagna-nestjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "devDependencies": {
+    "@cosmneo/onion-lasagna": "workspace:*",
+    "@nestjs/common": "^11.1.10",
+    "@nestjs/core": "^11.1.10",
+    "@nestjs/platform-express": "^11.1.10",
+    "@nestjs/testing": "^11.1.10",
+    "@types/express": "^5.0.3",
+    "@types/supertest": "^6.0.2",
+    "express": "^5.2.1",
+    "reflect-metadata": "^0.2.2",
+    "supertest": "^7.1.0",
+    "tsup": "^8.5.1",
+    "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.1.10",
+    "@nestjs/core": "^11.1.10",
+    "@cosmneo/onion-lasagna": ">=0.2.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "prepublishOnly": "bun run build"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
