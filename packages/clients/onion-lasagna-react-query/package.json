@@ -1,0 +1,55 @@
+{
+  "name": "@cosmneo/onion-lasagna-react-query",
+  "version": "0.2.0",
+  "description": "React Query hooks adapter for onion-lasagna",
+  "type": "module",
+  "license": "MIT",
+  "author": "Cosmneo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cosmneo/onion-lasagna.git",
+    "directory": "packages/clients/onion-lasagna-react-query"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "devDependencies": {
+    "@cosmneo/onion-lasagna": "workspace:*",
+    "@cosmneo/onion-lasagna-client": "workspace:*",
+    "@cosmneo/onion-lasagna-zod": "workspace:*",
+    "@tanstack/react-query": "^5",
+    "@types/react": "^19",
+    "react": "^19",
+    "tsup": "^8.5.1",
+    "vitest": "^4.0.16",
+    "zod": "4.3.6"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5",
+    "react": "^18 || ^19",
+    "@cosmneo/onion-lasagna": ">=0.2.0",
+    "@cosmneo/onion-lasagna-client": ">=0.2.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "prepublishOnly": "bun run build"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
