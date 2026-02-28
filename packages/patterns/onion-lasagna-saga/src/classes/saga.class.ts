@@ -310,10 +310,6 @@ export class Saga<TContext = unknown> {
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  public reset(): void {
-    // No-op in stateless execution mode
-  }
-
   public getSteps(): ReadonlyArray<ISagaStep<TContext>> {
     return Object.freeze([...this.steps]);
   }

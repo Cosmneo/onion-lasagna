@@ -660,9 +660,9 @@ describe('Saga', () => {
     });
   });
 
-  // ─── addStep, reset, getSteps ──────────────────────────────────
+  // ─── addStep, getSteps ─────────────────────────────────────────
 
-  describe('addStep / getSteps / reset', () => {
+  describe('addStep / getSteps', () => {
     it('should chain addStep calls', () => {
       const saga = new Saga<TestContext>();
       const returned = saga.addStep(step('a')).addStep(step('b'));

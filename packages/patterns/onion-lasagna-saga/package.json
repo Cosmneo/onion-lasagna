@@ -1,15 +1,15 @@
 {
   "name": "@cosmneo/onion-lasagna-saga",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Saga pattern implementation with retry, compensation, timeout, and abort support for onion-lasagna",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "author": "Cosmneo",
   "homepage": "https://onion-lasagna.cosmneo.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Cosmneo/onion-lasagna.git",
-    "directory": "packages/onion-lasagna-saga"
+    "directory": "packages/patterns/onion-lasagna-saga"
   },
   "bugs": {
     "url": "https://github.com/Cosmneo/onion-lasagna/issues"
