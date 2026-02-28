@@ -26,7 +26,9 @@ import type {
  * that matches all mini schemas via the `_zod` internal property.
  */
 interface ZodMiniSchema {
-  safeParse(data: unknown): { success: true; data: unknown } | { success: false; error: ZodMiniError };
+  safeParse(
+    data: unknown,
+  ): { success: true; data: unknown } | { success: false; error: ZodMiniError };
   readonly _zod: {
     readonly output: unknown;
     readonly input: unknown;

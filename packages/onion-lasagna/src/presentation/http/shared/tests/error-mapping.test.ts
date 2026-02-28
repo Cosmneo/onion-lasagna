@@ -279,5 +279,4 @@ describe('error-mapping', () => {
       expect(hasValidationErrors(undefined)).toBe(false);
     });
   });
-
 });

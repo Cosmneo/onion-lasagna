@@ -230,9 +230,7 @@ describe('NestJS register-routes', () => {
     });
 
     it('maps UseCaseError to 400', async () => {
-      const response = await request(app.getHttpServer())
-        .post('/items')
-        .send({});
+      const response = await request(app.getHttpServer()).post('/items').send({});
       expect(response.status).toBe(400);
       expect(response.body.message).toBe('Validation failed');
       expect(response.body.errorCode).toBe('VALIDATION_ERROR');

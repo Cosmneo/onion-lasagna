@@ -77,9 +77,10 @@ type RequiresInput<TRoute extends RouteDefinition> =
  * A mock handler function for a single route.
  * Receives the same input as the real client and returns the response type.
  */
-export type MockHandler<TRoute extends RouteDefinition> = RequiresInput<TRoute> extends true
-  ? (input: MockRequestInput<TRoute>) => MockResponse<TRoute> | Promise<MockResponse<TRoute>>
-  : (input?: MockRequestInput<TRoute>) => MockResponse<TRoute> | Promise<MockResponse<TRoute>>;
+export type MockHandler<TRoute extends RouteDefinition> =
+  RequiresInput<TRoute> extends true
+    ? (input: MockRequestInput<TRoute>) => MockResponse<TRoute> | Promise<MockResponse<TRoute>>
+    : (input?: MockRequestInput<TRoute>) => MockResponse<TRoute> | Promise<MockResponse<TRoute>>;
 
 /**
  * Recursively maps a router config to mock handler objects.
@@ -101,9 +102,10 @@ export type MockHandlers<T extends RouterConfig> = {
 /**
  * A mock client method for a single route.
  */
-export type MockClientMethod<TRoute extends RouteDefinition> = RequiresInput<TRoute> extends true
-  ? (input: MockRequestInput<TRoute>) => Promise<MockResponse<TRoute>>
-  : (input?: MockRequestInput<TRoute>) => Promise<MockResponse<TRoute>>;
+export type MockClientMethod<TRoute extends RouteDefinition> =
+  RequiresInput<TRoute> extends true
+    ? (input: MockRequestInput<TRoute>) => Promise<MockResponse<TRoute>>
+    : (input?: MockRequestInput<TRoute>) => Promise<MockResponse<TRoute>>;
 
 /**
  * Recursively builds the mock client type from a router config.

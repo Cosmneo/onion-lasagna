@@ -201,9 +201,7 @@ describe('zodMiniSchema', () => {
       const jsonSchema = schema.toJsonSchema();
 
       expect(jsonSchema.properties?.['user']).toBeDefined();
-      expect(
-        (jsonSchema.properties?.['user'] as { properties?: object }).properties,
-      ).toBeDefined();
+      expect((jsonSchema.properties?.['user'] as { properties?: object }).properties).toBeDefined();
     });
 
     it('generates JSON Schema for enums', () => {

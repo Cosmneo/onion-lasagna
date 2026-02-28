@@ -7,7 +7,11 @@
  */
 
 import type { Elysia, Handler } from 'elysia';
-import type { UnifiedRouteInput, RawHttpRequest, HandlerResponse } from '@cosmneo/onion-lasagna/http/server';
+import type {
+  UnifiedRouteInput,
+  RawHttpRequest,
+  HandlerResponse,
+} from '@cosmneo/onion-lasagna/http/server';
 import type { RegisterElysiaRoutesOptions, ElysiaContext } from './types';
 
 /**
@@ -168,7 +172,13 @@ export function registerElysiaRoutes(
     // detects them and populates them (Elysia optimizes by only computing
     // properties that appear in the handler's source code).
     const handler: Handler = async ({ headers, query, body, params, store }) => {
-      const ctx: ElysiaContext = { headers: headers ?? {}, query: query ?? {}, body, params: params ?? ({} as Record<string, string>), store: store ?? {} };
+      const ctx: ElysiaContext = {
+        headers: headers ?? {},
+        query: query ?? {},
+        body,
+        params: params ?? ({} as Record<string, string>),
+        store: store ?? {},
+      };
       const rawRequest = extractRequest(ctx, method, path);
       const handlerContext = contextExtractor ? contextExtractor(ctx) : undefined;
       const response = await route.handler(rawRequest, handlerContext);

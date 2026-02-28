@@ -229,9 +229,7 @@ describe('valibotSchema', () => {
       const jsonSchema = schema.toJsonSchema();
 
       expect(jsonSchema.properties?.['user']).toBeDefined();
-      expect(
-        (jsonSchema.properties?.['user'] as { properties?: object }).properties,
-      ).toBeDefined();
+      expect((jsonSchema.properties?.['user'] as { properties?: object }).properties).toBeDefined();
     });
 
     it('generates JSON Schema for picklist enums', () => {
@@ -243,9 +241,7 @@ describe('valibotSchema', () => {
     });
 
     it('generates JSON Schema for number constraints', () => {
-      const schema = valibotSchema(
-        v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(100)),
-      );
+      const schema = valibotSchema(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(100)));
 
       const jsonSchema = schema.toJsonSchema();
 

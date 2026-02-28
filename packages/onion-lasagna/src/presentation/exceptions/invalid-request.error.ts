@@ -1,8 +1,5 @@
 import { CodedError } from '../../global/exceptions/coded-error.error';
-import {
-  ErrorCodes,
-  type PresentationErrorCode,
-} from '../../global/exceptions/error-codes.const';
+import { ErrorCodes, type PresentationErrorCode } from '../../global/exceptions/error-codes.const';
 import type { ValidationError } from '../../global/interfaces/types/validation-error.type';
 
 /**

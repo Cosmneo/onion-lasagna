@@ -52,9 +52,7 @@ import type {
  * const jsonSchema = userSchema.toJsonSchema();
  * ```
  */
-export function arktypeSchema<T extends Type>(
-  schema: T,
-): SchemaAdapter<T['infer'], T['inferIn']> {
+export function arktypeSchema<T extends Type>(schema: T): SchemaAdapter<T['infer'], T['inferIn']> {
   type TOutput = T['infer'];
   type TInput = T['inferIn'];
 

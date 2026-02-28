@@ -24,7 +24,9 @@ const listUsersRoute = defineRoute({
   responses: {
     200: {
       description: 'Success',
-      schema: zodSchema(z.object({ items: z.array(z.object({ id: z.string() })), total: z.number() })),
+      schema: zodSchema(
+        z.object({ items: z.array(z.object({ id: z.string() })), total: z.number() }),
+      ),
     },
   },
 });
@@ -212,10 +214,7 @@ describe('createMockClient', () => {
     });
 
     it('works without input for parameterless routes', async () => {
-      const { client } = createMockClient(
-        { list: listItemsRoute },
-        { list: () => undefined },
-      );
+      const { client } = createMockClient({ list: listItemsRoute }, { list: () => undefined });
 
       const result = await (client['list'] as () => Promise<unknown>)();
       expect(result).toBeUndefined();
@@ -258,9 +257,9 @@ describe('createMockClient', () => {
       );
 
       const users = client['users'] as Record<string, (input: unknown) => Promise<unknown>>;
-      await expect(
-        users['get']!({ pathParams: { userId: '1' } }),
-      ).rejects.toThrow('MockClient: no handler for route "users.get"');
+      await expect(users['get']!({ pathParams: { userId: '1' } })).rejects.toThrow(
+        'MockClient: no handler for route "users.get"',
+      );
     });
   });
 
@@ -357,9 +356,7 @@ describe('createMockClient', () => {
         },
       );
 
-      await expect(
-        (c['fail'] as () => Promise<unknown>)(),
-      ).rejects.toThrow('handler error');
+      await expect((c['fail'] as () => Promise<unknown>)()).rejects.toThrow('handler error');
 
       expect(cs).toHaveLength(0);
     });
@@ -370,11 +367,7 @@ describe('createMockClient', () => {
       const { client } = createMockClient(
         { list: listItemsRoute },
         {
-          list: mockSequence([
-            () => 'first',
-            () => 'second',
-            () => 'third',
-          ]),
+          list: mockSequence([() => 'first', () => 'second', () => 'third']),
         },
       );
 

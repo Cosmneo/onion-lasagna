@@ -7,7 +7,11 @@
  */
 
 import type { Router, Request, Response, NextFunction } from 'express';
-import type { UnifiedRouteInput, RawHttpRequest, HandlerResponse } from '@cosmneo/onion-lasagna/http/server';
+import type {
+  UnifiedRouteInput,
+  RawHttpRequest,
+  HandlerResponse,
+} from '@cosmneo/onion-lasagna/http/server';
 import type { RegisterExpressRoutesOptions } from './types';
 
 /**

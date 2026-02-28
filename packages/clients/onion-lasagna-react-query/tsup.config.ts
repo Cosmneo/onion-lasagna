@@ -9,5 +9,10 @@ export default defineConfig({
   target: 'es2022',
   minify: false,
   skipNodeModulesBundle: true,
-  external: ['@tanstack/react-query', 'react', '@cosmneo/onion-lasagna', '@cosmneo/onion-lasagna-client'],
+  external: [
+    '@tanstack/react-query',
+    'react',
+    '@cosmneo/onion-lasagna',
+    '@cosmneo/onion-lasagna-client',
+  ],
 });

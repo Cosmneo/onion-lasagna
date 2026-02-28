@@ -8,8 +8,17 @@
  * @module unified/client/create-client
  */
 
-import type { RouterConfig, RouterDefinition, PrettifyDeep } from '@cosmneo/onion-lasagna/http/route';
-import { isRouteDefinition, isRouterDefinition, buildPath, hasPathParams } from '@cosmneo/onion-lasagna/http/route';
+import type {
+  RouterConfig,
+  RouterDefinition,
+  PrettifyDeep,
+} from '@cosmneo/onion-lasagna/http/route';
+import {
+  isRouteDefinition,
+  isRouterDefinition,
+  buildPath,
+  hasPathParams,
+} from '@cosmneo/onion-lasagna/http/route';
 import type { ClientConfig, InferClient } from './client-types';
 import { ClientError } from './client-types';
 

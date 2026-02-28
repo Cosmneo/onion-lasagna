@@ -248,10 +248,9 @@ describe('buildQueryKeys', () => {
     });
 
     it('prepends prefix to nested route keys', () => {
-      const keys = buildQueryKeys(
-        { users: { list: listUsersRoute, get: getUserRoute } },
-        ['my-api'],
-      );
+      const keys = buildQueryKeys({ users: { list: listUsersRoute, get: getUserRoute } }, [
+        'my-api',
+      ]);
 
       const usersNs = keys['users'] as (() => readonly string[]) & Record<string, unknown>;
       const listKeyFn = usersNs['list'] as (input?: unknown) => readonly unknown[];

@@ -48,7 +48,10 @@ const listItemsRoute = defineRoute({
     200: {
       description: 'List of items',
       schema: zodSchema(
-        z.object({ items: z.array(z.object({ id: z.string(), name: z.string() })), total: z.number() }),
+        z.object({
+          items: z.array(z.object({ id: z.string(), name: z.string() })),
+          total: z.number(),
+        }),
       ),
     },
   },

@@ -209,9 +209,7 @@ describe('arktypeSchema', () => {
       const jsonSchema = schema.toJsonSchema();
 
       expect(jsonSchema.properties?.['user']).toBeDefined();
-      expect(
-        (jsonSchema.properties?.['user'] as { properties?: object }).properties,
-      ).toBeDefined();
+      expect((jsonSchema.properties?.['user'] as { properties?: object }).properties).toBeDefined();
     });
 
     it('generates JSON Schema for string literal enums', () => {
@@ -245,7 +243,11 @@ describe('arktypeSchema', () => {
 
     it('generates JSON Schema for morph schemas using output type', () => {
       const schema = arktypeSchema(
-        type({ age: type('string | number').pipe((v) => Number(v)).to('number%1 >= 0') }),
+        type({
+          age: type('string | number')
+            .pipe((v) => Number(v))
+            .to('number%1 >= 0'),
+        }),
       );
 
       const jsonSchema = schema.toJsonSchema();

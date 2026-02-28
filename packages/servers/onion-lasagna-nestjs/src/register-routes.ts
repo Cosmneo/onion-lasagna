@@ -24,7 +24,11 @@ import {
   type Type,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import type { UnifiedRouteInput, RawHttpRequest, HandlerResponse } from '@cosmneo/onion-lasagna/http/server';
+import type {
+  UnifiedRouteInput,
+  RawHttpRequest,
+  HandlerResponse,
+} from '@cosmneo/onion-lasagna/http/server';
 import type { RegisterNestRoutesOptions } from './types';
 import { OnionExceptionFilter } from './exception-filter';
 
@@ -151,15 +155,8 @@ export function createNestController(
     };
 
     // Apply HTTP method decorator (e.g., @Get(path))
-    const descriptor = Object.getOwnPropertyDescriptor(
-      OnionRouteController.prototype,
-      methodName,
-    )!;
-    getMethodDecorator(route.method)(path)(
-      OnionRouteController.prototype,
-      methodName,
-      descriptor,
-    );
+    const descriptor = Object.getOwnPropertyDescriptor(OnionRouteController.prototype, methodName)!;
+    getMethodDecorator(route.method)(path)(OnionRouteController.prototype, methodName, descriptor);
 
     // Apply @Req() at parameter index 0
     Req()(OnionRouteController.prototype, methodName, 0);

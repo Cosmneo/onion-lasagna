@@ -11,10 +11,7 @@ function createContext(): TestContext {
   return { values: [] };
 }
 
-function step(
-  name: string,
-  overrides?: Partial<ISagaStep<TestContext>>,
-): ISagaStep<TestContext> {
+function step(name: string, overrides?: Partial<ISagaStep<TestContext>>): ISagaStep<TestContext> {
   return {
     name,
     action: vi.fn(async (ctx) => {

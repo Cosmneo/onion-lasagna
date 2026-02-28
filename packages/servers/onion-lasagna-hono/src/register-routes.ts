@@ -8,7 +8,11 @@
 
 import type { Context } from 'hono';
 import type { ContentfulStatusCode, StatusCode } from 'hono/utils/http-status';
-import type { UnifiedRouteInput, RawHttpRequest, HandlerResponse } from '@cosmneo/onion-lasagna/http/server';
+import type {
+  UnifiedRouteInput,
+  RawHttpRequest,
+  HandlerResponse,
+} from '@cosmneo/onion-lasagna/http/server';
 import type { RegisterHonoRoutesOptions, HonoLike } from './types';
 import { InvalidRequestError } from '@cosmneo/onion-lasagna';
 

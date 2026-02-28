@@ -122,9 +122,7 @@ export abstract class BaseInboundAdapter<
    * @throws {DomainError} For domain invariant violations
    * @throws {InfraError} For infrastructure failures
    */
-  public async execute(
-    ...args: TInput extends void ? [] : [input: TInput]
-  ): Promise<TOutput> {
+  public async execute(...args: TInput extends void ? [] : [input: TInput]): Promise<TOutput> {
     const input = args[0] as TInput;
     return wrapErrorUnlessAsync(
       async () => {

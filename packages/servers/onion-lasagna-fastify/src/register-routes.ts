@@ -7,7 +7,11 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply, HTTPMethods } from 'fastify';
-import type { UnifiedRouteInput, RawHttpRequest, HandlerResponse } from '@cosmneo/onion-lasagna/http/server';
+import type {
+  UnifiedRouteInput,
+  RawHttpRequest,
+  HandlerResponse,
+} from '@cosmneo/onion-lasagna/http/server';
 import type { RegisterFastifyRoutesOptions } from './types';
 
 /**

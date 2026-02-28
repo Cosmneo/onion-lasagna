@@ -52,4 +52,3 @@ export type ContentType =
   | 'text/html'
   | 'application/octet-stream'
   | (string & {});
-

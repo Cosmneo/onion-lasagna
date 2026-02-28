@@ -8,7 +8,11 @@ import type { Context } from 'hono';
 import type { HandlerContext } from '@cosmneo/onion-lasagna/http/server';
 
 // Re-export shared error types
-export type { ErrorItem, ErrorResponseBody, MappedErrorResponse } from '@cosmneo/onion-lasagna/http/shared';
+export type {
+  ErrorItem,
+  ErrorResponseBody,
+  MappedErrorResponse,
+} from '@cosmneo/onion-lasagna/http/shared';
 
 /**
  * Structural interface for Hono app compatibility.

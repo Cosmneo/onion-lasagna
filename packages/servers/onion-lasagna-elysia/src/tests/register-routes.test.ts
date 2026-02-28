@@ -81,9 +81,7 @@ describe('Elysia register-routes', () => {
     });
 
     it('handles DELETE requests with 204 No Content', async () => {
-      const res = await app.handle(
-        new Request('http://localhost/users/456', { method: 'DELETE' }),
-      );
+      const res = await app.handle(new Request('http://localhost/users/456', { method: 'DELETE' }));
       expect(res.status).toBe(204);
     });
 

@@ -1,8 +1,5 @@
 import { CodedError } from '../../global/exceptions/coded-error.error';
-import {
-  ErrorCodes,
-  type PresentationErrorCode,
-} from '../../global/exceptions/error-codes.const';
+import { ErrorCodes, type PresentationErrorCode } from '../../global/exceptions/error-codes.const';
 
 /**
  * Error thrown when access to a resource is denied.

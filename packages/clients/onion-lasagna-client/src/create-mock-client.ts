@@ -8,9 +8,19 @@
  * @module unified/client/create-mock-client
  */
 
-import type { RouterConfig, RouterDefinition, PrettifyDeep } from '@cosmneo/onion-lasagna/http/route';
+import type {
+  RouterConfig,
+  RouterDefinition,
+  PrettifyDeep,
+} from '@cosmneo/onion-lasagna/http/route';
 import { isRouteDefinition, isRouterDefinition } from '@cosmneo/onion-lasagna/http/route';
-import type { MockHandlers, MockCall, MockClientResult, InferMockClient, MockSequenceOptions } from './types';
+import type {
+  MockHandlers,
+  MockCall,
+  MockClientResult,
+  InferMockClient,
+  MockSequenceOptions,
+} from './types';
 
 /**
  * Creates an in-memory mock client from a router definition and handler map.

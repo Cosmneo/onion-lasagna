@@ -8,7 +8,11 @@ import type { Request } from 'express';
 import type { HandlerContext } from '@cosmneo/onion-lasagna/http/server';
 
 // Re-export shared error types
-export type { ErrorItem, ErrorResponseBody, MappedErrorResponse } from '@cosmneo/onion-lasagna/http/shared';
+export type {
+  ErrorItem,
+  ErrorResponseBody,
+  MappedErrorResponse,
+} from '@cosmneo/onion-lasagna/http/shared';
 
 /**
  * Context extractor function for Express.

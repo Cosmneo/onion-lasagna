@@ -8,11 +8,20 @@
  */
 
 import { useQuery, useMutation } from '@tanstack/react-query';
-import type { RouterConfig, RouterDefinition, PrettifyDeep } from '@cosmneo/onion-lasagna/http/route';
+import type {
+  RouterConfig,
+  RouterDefinition,
+  PrettifyDeep,
+} from '@cosmneo/onion-lasagna/http/route';
 import { isRouteDefinition, isRouterDefinition } from '@cosmneo/onion-lasagna/http/route';
 import { createClient } from '@cosmneo/onion-lasagna-client';
 import { buildQueryKeys } from './query-keys';
-import type { ReactQueryHooksResult, ReactQueryHooksConfig, InferHooks, InferQueryKeys } from './types';
+import type {
+  ReactQueryHooksResult,
+  ReactQueryHooksConfig,
+  InferHooks,
+  InferQueryKeys,
+} from './types';
 
 /**
  * HTTP methods that map to `useQuery`.
@@ -71,7 +80,9 @@ export function createReactQueryHooks<T extends RouterConfig>(
   const client = createClient(router, config);
 
   // Build hooks proxy and query keys (with optional prefix for cache isolation)
-  const hooks = buildHooksProxy(routes, client, prefix, config.useEnabled) as PrettifyDeep<InferHooks<T>>;
+  const hooks = buildHooksProxy(routes, client, prefix, config.useEnabled) as PrettifyDeep<
+    InferHooks<T>
+  >;
   const queryKeys = buildQueryKeys(routes, prefix) as PrettifyDeep<InferQueryKeys<T>>;
 
   return { hooks, queryKeys };

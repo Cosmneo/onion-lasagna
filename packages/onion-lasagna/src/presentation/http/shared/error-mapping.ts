@@ -311,4 +311,3 @@ export function mapErrorToHttpResponse(error: unknown): MappedErrorResponse {
     body: createErrorResponseBody(error),
   };
 }
-

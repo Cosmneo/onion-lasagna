@@ -50,13 +50,13 @@ bun run format     # Prettier
 
 All paths relative to `packages/onion-lasagna/src/`:
 
-| Layer        | Path              | Purpose                                |
-| ------------ | ----------------- | -------------------------------------- |
-| Domain       | `domain/`         | Entities, VOs, Events, business rules  |
-| App          | `app/`            | Use cases, ports, inbound adapters     |
-| Infra        | `infra/`          | Outbound adapters, error wrapping      |
-| Presentation | `presentation/`   | HTTP route system, error mapping       |
-| Global       | `global/`         | Shared errors, utils, validation types |
+| Layer        | Path            | Purpose                                |
+| ------------ | --------------- | -------------------------------------- |
+| Domain       | `domain/`       | Entities, VOs, Events, business rules  |
+| App          | `app/`          | Use cases, ports, inbound adapters     |
+| Infra        | `infra/`        | Outbound adapters, error wrapping      |
+| Presentation | `presentation/` | HTTP route system, error mapping       |
+| Global       | `global/`       | Shared errors, utils, validation types |
 
 > **Search:** For exports and classes, grep `packages/onion-lasagna/src/**/index.ts`
 
@@ -189,13 +189,13 @@ const routes = serverRoutes(projectRouter)
 
 Each schema adapter is a separate package:
 
-| Library  | Package                          | Adapter Function    |
-| -------- | -------------------------------- | ------------------- |
-| Zod v4   | `@cosmneo/onion-lasagna-zod`     | `zodSchema()`       |
-| Zod v3   | `@cosmneo/onion-lasagna-zod-v3`  | `zodSchema()`       |
-| TypeBox  | `@cosmneo/onion-lasagna-typebox` | `typeboxSchema()`   |
-| Valibot  | `@cosmneo/onion-lasagna-valibot` | `valibotSchema()`   |
-| ArkType  | `@cosmneo/onion-lasagna-arktype` | `arktypeSchema()`   |
+| Library | Package                          | Adapter Function  |
+| ------- | -------------------------------- | ----------------- |
+| Zod v4  | `@cosmneo/onion-lasagna-zod`     | `zodSchema()`     |
+| Zod v3  | `@cosmneo/onion-lasagna-zod-v3`  | `zodSchema()`     |
+| TypeBox | `@cosmneo/onion-lasagna-typebox` | `typeboxSchema()` |
+| Valibot | `@cosmneo/onion-lasagna-valibot` | `valibotSchema()` |
+| ArkType | `@cosmneo/onion-lasagna-arktype` | `arktypeSchema()` |
 
 > **Search:** For schema implementations, read `packages/schemas/*/src/`
 
@@ -205,13 +205,13 @@ Each schema adapter is a separate package:
 
 Each framework adapter is a separate package. All export `registerRoutes`, `onionErrorHandler`, and `mapErrorToResponse`:
 
-| Framework | Package                           |
-| --------- | --------------------------------- |
-| Hono      | `@cosmneo/onion-lasagna-hono`     |
-| Elysia    | `@cosmneo/onion-lasagna-elysia`   |
-| Express   | `@cosmneo/onion-lasagna-express`  |
-| Fastify   | `@cosmneo/onion-lasagna-fastify`  |
-| NestJS    | `@cosmneo/onion-lasagna-nestjs`   |
+| Framework | Package                          |
+| --------- | -------------------------------- |
+| Hono      | `@cosmneo/onion-lasagna-hono`    |
+| Elysia    | `@cosmneo/onion-lasagna-elysia`  |
+| Express   | `@cosmneo/onion-lasagna-express` |
+| Fastify   | `@cosmneo/onion-lasagna-fastify` |
+| NestJS    | `@cosmneo/onion-lasagna-nestjs`  |
 
 > **Search:** For integration details, read `packages/servers/*/src/index.ts`
 
@@ -219,12 +219,13 @@ Each framework adapter is a separate package. All export `registerRoutes`, `onio
 
 ## Client Packages
 
-| Package                              | Purpose                                              |
-| ------------------------------------ | ---------------------------------------------------- |
-| `@cosmneo/onion-lasagna-client`      | Type-safe HTTP client from router definitions        |
-| `@cosmneo/onion-lasagna-react-query` | React Query hooks from router definitions            |
+| Package                              | Purpose                                       |
+| ------------------------------------ | --------------------------------------------- |
+| `@cosmneo/onion-lasagna-client`      | Type-safe HTTP client from router definitions |
+| `@cosmneo/onion-lasagna-react-query` | React Query hooks from router definitions     |
 
 **Key features of `createReactQueryHooks`:**
+
 - GET/HEAD → `useQuery`, other methods → `useMutation`
 - `queryKeyPrefix` for cache isolation
 - `useEnabled` hook for global query gating (e.g., auth session readiness)
@@ -236,9 +237,9 @@ Each framework adapter is a separate package. All export `registerRoutes`, `onio
 
 ## Pattern Packages
 
-| Package                          | Purpose                                        |
-| -------------------------------- | ---------------------------------------------- |
-| `@cosmneo/onion-lasagna-saga`    | Sequential saga orchestrator with compensation |
+| Package                       | Purpose                                        |
+| ----------------------------- | ---------------------------------------------- |
+| `@cosmneo/onion-lasagna-saga` | Sequential saga orchestrator with compensation |
 
 **Key features:** per-step retry, `exponentialBackoff(minMs, maxMs)` helper, compensation strategies, timeout + abort propagation, lifecycle hooks.
 
@@ -248,18 +249,18 @@ Each framework adapter is a separate package. All export `registerRoutes`, `onio
 
 ## Core Package Exports
 
-| Entry Point                        | Purpose                              |
-| ---------------------------------- | ------------------------------------ |
-| `@cosmneo/onion-lasagna`           | All layers (domain, app, infra, etc) |
-| `@cosmneo/onion-lasagna/global`    | Shared errors, utils, types          |
-| `@cosmneo/onion-lasagna/ports`     | Port interfaces                      |
-| `@cosmneo/onion-lasagna/types`     | Shared type definitions              |
-| `@cosmneo/onion-lasagna/http`      | HTTP types and utilities             |
-| `@cosmneo/onion-lasagna/http/route`| `defineRoute`, `defineRouter`        |
-| `@cosmneo/onion-lasagna/http/server`| `serverRoutes`, route handlers      |
-| `@cosmneo/onion-lasagna/http/schema`| Schema adapter interface            |
-| `@cosmneo/onion-lasagna/http/shared`| Error mapping, shared HTTP types    |
-| `@cosmneo/onion-lasagna/http/openapi`| OpenAPI generation                 |
+| Entry Point                           | Purpose                              |
+| ------------------------------------- | ------------------------------------ |
+| `@cosmneo/onion-lasagna`              | All layers (domain, app, infra, etc) |
+| `@cosmneo/onion-lasagna/global`       | Shared errors, utils, types          |
+| `@cosmneo/onion-lasagna/ports`        | Port interfaces                      |
+| `@cosmneo/onion-lasagna/types`        | Shared type definitions              |
+| `@cosmneo/onion-lasagna/http`         | HTTP types and utilities             |
+| `@cosmneo/onion-lasagna/http/route`   | `defineRoute`, `defineRouter`        |
+| `@cosmneo/onion-lasagna/http/server`  | `serverRoutes`, route handlers       |
+| `@cosmneo/onion-lasagna/http/schema`  | Schema adapter interface             |
+| `@cosmneo/onion-lasagna/http/shared`  | Error mapping, shared HTTP types     |
+| `@cosmneo/onion-lasagna/http/openapi` | OpenAPI generation                   |
 
 > **IMPORTANT:** Always verify actual exports by reading the index.ts files. Do not assume.
 

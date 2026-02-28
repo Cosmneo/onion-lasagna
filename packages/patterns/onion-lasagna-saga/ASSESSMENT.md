@@ -17,13 +17,13 @@ Sequential saga orchestrator for in-process distributed operations. Executes a c
 
 ## Known trade-offs
 
-| Trade-off | Why it stays |
-|-----------|-------------|
-| **No persistence** | This is an in-process orchestrator, not a workflow engine. Durable sagas need an event store, outbox, and checkpointing — a different library. |
-| **No parallel steps** | Sequential is the correct default for compensatable operations. Parallel-with-compensation is a fundamentally different execution model with partial failure semantics. Consumers can wrap concurrent work in a single step. |
-| **No idempotency guarantees** | Idempotency is a property of the operation, not the orchestrator. Consumers must make their actions and compensations idempotent. |
-| **Timeout does not kill the action** | JS has no way to forcefully terminate a running function. The `AbortSignal` is propagated — it is the action's responsibility to respect it. |
-| **Mutable shared context** | Pass-by-reference is intentional. Steps communicate results through context mutation. Deep-cloning before each step would be unreliable (functions, symbols, circular refs) and expensive. |
+| Trade-off                            | Why it stays                                                                                                                                                                                                                 |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No persistence**                   | This is an in-process orchestrator, not a workflow engine. Durable sagas need an event store, outbox, and checkpointing — a different library.                                                                               |
+| **No parallel steps**                | Sequential is the correct default for compensatable operations. Parallel-with-compensation is a fundamentally different execution model with partial failure semantics. Consumers can wrap concurrent work in a single step. |
+| **No idempotency guarantees**        | Idempotency is a property of the operation, not the orchestrator. Consumers must make their actions and compensations idempotent.                                                                                            |
+| **Timeout does not kill the action** | JS has no way to forcefully terminate a running function. The `AbortSignal` is propagated — it is the action's responsibility to respect it.                                                                                 |
+| **Mutable shared context**           | Pass-by-reference is intentional. Steps communicate results through context mutation. Deep-cloning before each step would be unreliable (functions, symbols, circular refs) and expensive.                                   |
 
 ## Scope boundaries
 

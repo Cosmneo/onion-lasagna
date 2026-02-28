@@ -1,8 +1,5 @@
 import { CodedError } from '../../global/exceptions/coded-error.error';
-import {
-  ErrorCodes,
-  type PresentationErrorCode,
-} from '../../global/exceptions/error-codes.const';
+import { ErrorCodes, type PresentationErrorCode } from '../../global/exceptions/error-codes.const';
 
 /**
  * Base error class for presentation layer (controller) failures.
