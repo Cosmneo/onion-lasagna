@@ -1,0 +1,48 @@
+{
+  "name": "@cosmneo/onion-lasagna-zod",
+  "version": "0.2.0",
+  "description": "Zod schema adapter for onion-lasagna",
+  "type": "module",
+  "license": "MIT",
+  "author": "Cosmneo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cosmneo/onion-lasagna.git",
+    "directory": "packages/schemas/onion-lasagna-zod"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "vitest": "^4.0.16",
+    "zod": "4.3.6",
+    "@cosmneo/onion-lasagna": "workspace:*"
+  },
+  "peerDependencies": {
+    "zod": "^4.2.1",
+    "@cosmneo/onion-lasagna": ">=0.2.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "prepublishOnly": "bun run build"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
