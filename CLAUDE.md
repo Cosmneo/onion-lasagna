@@ -6,10 +6,28 @@
 
 ```
 onion-lasagna/
-├── packages/onion-lasagna/    # Library (@cosmneo/onion-lasagna)
-├── apps/docs/                 # Next.js docs site
-├── examples/my-todo-app/      # Reference implementation
-└── starters/                  # Project templates
+├── packages/onion-lasagna/                    # Core library (@cosmneo/onion-lasagna)
+├── packages/servers/
+│   ├── onion-lasagna-hono/                    # @cosmneo/onion-lasagna-hono
+│   ├── onion-lasagna-elysia/                  # @cosmneo/onion-lasagna-elysia
+│   ├── onion-lasagna-express/                 # @cosmneo/onion-lasagna-express
+│   ├── onion-lasagna-fastify/                 # @cosmneo/onion-lasagna-fastify
+│   └── onion-lasagna-nestjs/                  # @cosmneo/onion-lasagna-nestjs
+├── packages/schemas/
+│   ├── onion-lasagna-zod/                     # @cosmneo/onion-lasagna-zod (v4)
+│   ├── onion-lasagna-zod-v3/                  # @cosmneo/onion-lasagna-zod-v3
+│   ├── onion-lasagna-typebox/                 # @cosmneo/onion-lasagna-typebox
+│   ├── onion-lasagna-valibot/                 # @cosmneo/onion-lasagna-valibot
+│   └── onion-lasagna-arktype/                 # @cosmneo/onion-lasagna-arktype
+├── packages/clients/
+│   ├── onion-lasagna-client/                  # @cosmneo/onion-lasagna-client
+│   └── onion-lasagna-react-query/             # @cosmneo/onion-lasagna-react-query
+├── packages/patterns/
+│   └── onion-lasagna-saga/                    # @cosmneo/onion-lasagna-saga
+├── packages/tooling/                          # CLI tools (out of scope)
+├── apps/docs/                                 # Next.js docs site
+├── starters/                                  # Project templates
+└── examples/my-todo-app/                      # Reference implementation
 ```
 
 ## Commands
@@ -28,18 +46,19 @@ bun run format     # Prettier
 
 ---
 
-## Architecture Quick Reference
+## Core Library Source Layout
 
-| Layer        | Path                         | Purpose                               |
-| ------------ | ---------------------------- | ------------------------------------- |
-| Domain       | `onion-layers/domain/`       | Entities, VOs, Events, business rules |
-| App          | `onion-layers/app/`          | Use cases, ports, adapters            |
-| Infra        | `onion-layers/infra/`        | Repositories, external services       |
-| Presentation | `onion-layers/presentation/` | Controllers, HTTP mapping             |
-| Global       | `global/`                    | DTOs, errors, validators              |
-| Frameworks   | `frameworks/`                | Hono, Elysia, Fastify, NestJS         |
+All paths relative to `packages/onion-lasagna/src/`:
 
-> **Search:** For actual exports and classes, grep `packages/onion-lasagna/src/backend/core/**/index.ts`
+| Layer        | Path              | Purpose                                |
+| ------------ | ----------------- | -------------------------------------- |
+| Domain       | `domain/`         | Entities, VOs, Events, business rules  |
+| App          | `app/`            | Use cases, ports, inbound adapters     |
+| Infra        | `infra/`          | Outbound adapters, error wrapping      |
+| Presentation | `presentation/`   | HTTP route system, error mapping       |
+| Global       | `global/`         | Shared errors, utils, validation types |
+
+> **Search:** For exports and classes, grep `packages/onion-lasagna/src/**/index.ts`
 
 ---
 
@@ -87,7 +106,7 @@ Repository throws → BaseOutboundAdapter wraps → InfraError
 
 **Built-in VOs:** `BaseUuidV4Vo`, `BaseUuidV7Vo`, `BaseEmailVo`, `BaseShortTextVo`, `BaseMediumTextVo`, `BaseLongTextVo`, `BasePaginationVo`, `BaseAuditByVo`, `BaseAuditOnVo`
 
-> **Search:** For VO constraints/validation, read `packages/onion-lasagna/src/backend/core/onion-layers/domain/value-objects/*.ts`
+> **Search:** For VO constraints/validation, read `packages/onion-lasagna/src/domain/value-objects/*.ts`
 
 **Pattern:** Always use static `create()` factory, private constructor, validate before construction.
 
@@ -102,7 +121,7 @@ Repository throws → BaseOutboundAdapter wraps → InfraError
 
 **Errors:** `UseCaseError`, `NotFoundError` (404), `ConflictError` (409), `UnprocessableError` (422)
 
-> **Search:** For error handling logic, read `packages/onion-lasagna/src/backend/core/onion-layers/app/classes/base-inbound-adapter.class.ts`
+> **Search:** For error handling logic, read `packages/onion-lasagna/src/app/classes/base-inbound-adapter.class.ts`
 
 ---
 
@@ -116,7 +135,7 @@ Override `createInfraError(error, methodName)` to customize error type.
 
 **Errors:** `InfraError`, `DbError`, `NetworkError`, `TimeoutError`, `ExternalServiceError`
 
-> **Search:** For wrapping mechanism, read `packages/onion-lasagna/src/backend/core/onion-layers/infra/classes/base-outbound-adapter.class.ts`
+> **Search:** For wrapping mechanism, read `packages/onion-lasagna/src/infra/classes/base-outbound-adapter.class.ts`
 
 ---
 
@@ -146,7 +165,7 @@ const routes = serverRoutes(projectRouter)
 
 **Errors:** `AccessDeniedError` (403), `InvalidRequestError` (400)
 
-> **Search:** For server routes, read `packages/onion-lasagna/src/backend/core/onion-layers/presentation/http/server/`
+> **Search:** For server routes, read `packages/onion-lasagna/src/presentation/http/server/`
 
 ---
 
@@ -162,70 +181,87 @@ const routes = serverRoutes(projectRouter)
 | `UnprocessableError`                           | 422    | No                         |
 | `DomainError`, `InfraError`, `ControllerError` | 500    | **Yes** (security)         |
 
-> **Search:** For mapping logic, grep `mapErrorToResponse` or `mapErrorToHttpException` in `packages/onion-lasagna/src/backend/frameworks/`
+> **Search:** For mapping logic, grep `mapErrorToResponse` in `packages/onion-lasagna/src/presentation/http/shared/`
 
 ---
 
-## Schema Adapters (Validation)
+## Schema Adapter Packages
 
-Schema adapters wrap validation libraries for use in route definitions:
+Each schema adapter is a separate package:
 
-| Library | Adapter Function  | Import Path                                  |
-| ------- | ----------------- | -------------------------------------------- |
-| Zod     | `zodSchema()`     | `@cosmneo/onion-lasagna/http/schema/zod`     |
-| TypeBox | `typeboxSchema()` | `@cosmneo/onion-lasagna/http/schema/typebox` |
+| Library  | Package                          | Adapter Function    |
+| -------- | -------------------------------- | ------------------- |
+| Zod v4   | `@cosmneo/onion-lasagna-zod`     | `zodSchema()`       |
+| Zod v3   | `@cosmneo/onion-lasagna-zod-v3`  | `zodSchema()`       |
+| TypeBox  | `@cosmneo/onion-lasagna-typebox` | `typeboxSchema()`   |
+| Valibot  | `@cosmneo/onion-lasagna-valibot` | `valibotSchema()`   |
+| ArkType  | `@cosmneo/onion-lasagna-arktype` | `arktypeSchema()`   |
 
-**Usage in route definitions:**
-
-```typescript
-import { zodSchema, z } from '@cosmneo/onion-lasagna/http/schema/zod';
-
-const route = defineRoute({
-  request: { body: { schema: zodSchema(z.object({ name: z.string() })) } },
-});
-```
-
-> **Search:** For schema implementations, read `packages/onion-lasagna/src/backend/core/onion-layers/presentation/http/schema/`
+> **Search:** For schema implementations, read `packages/schemas/*/src/`
 
 ---
 
-## Framework Integrations
+## Server Framework Packages
 
-All follow pattern:
+Each framework adapter is a separate package. All export `registerRoutes`, `onionErrorHandler`, and `mapErrorToResponse`:
 
-```typescript
-register*Routes(app, routes, { prefix?, middlewares?, contextExtractor? })
-app.onError(onionErrorHandler) // or equivalent
-```
+| Framework | Package                           |
+| --------- | --------------------------------- |
+| Hono      | `@cosmneo/onion-lasagna-hono`     |
+| Elysia    | `@cosmneo/onion-lasagna-elysia`   |
+| Express   | `@cosmneo/onion-lasagna-express`  |
+| Fastify   | `@cosmneo/onion-lasagna-fastify`  |
+| NestJS    | `@cosmneo/onion-lasagna-nestjs`   |
 
-| Framework | Import Path                                      | Key Exports                                                          |
-| --------- | ------------------------------------------------ | -------------------------------------------------------------------- |
-| Hono      | `@cosmneo/onion-lasagna/http/frameworks/hono`    | `registerHonoRoutes`, `onionErrorHandler`, `mapErrorToHttpException` |
-| Elysia    | `@cosmneo/onion-lasagna/http/frameworks/elysia`  | `registerElysiaRoutes`, `onionErrorHandler`, `mapErrorToResponse`    |
-| Fastify   | `@cosmneo/onion-lasagna/http/frameworks/fastify` | `registerFastifyRoutes`, `onionErrorHandler`, `mapErrorToResponse`   |
-| NestJS    | `@cosmneo/onion-lasagna/http/frameworks/nestjs`  | `OnionExceptionFilter`, `@OnionRequest()`, `mapErrorToResponse`      |
-
-> **Search:** For integration details, read `packages/onion-lasagna/src/backend/core/onion-layers/presentation/http/frameworks/*/index.ts`
+> **Search:** For integration details, read `packages/servers/*/src/index.ts`
 
 ---
 
-## Package Exports
+## Client Packages
+
+| Package                              | Purpose                                              |
+| ------------------------------------ | ---------------------------------------------------- |
+| `@cosmneo/onion-lasagna-client`      | Type-safe HTTP client from router definitions        |
+| `@cosmneo/onion-lasagna-react-query` | React Query hooks from router definitions            |
+
+**Key features of `createReactQueryHooks`:**
+- GET/HEAD → `useQuery`, other methods → `useMutation`
+- `queryKeyPrefix` for cache isolation
+- `useEnabled` hook for global query gating (e.g., auth session readiness)
+- `onRequest` interceptor for dynamic headers (Bearer tokens)
+
+> **Search:** For client implementations, read `packages/clients/*/src/`
+
+---
+
+## Pattern Packages
+
+| Package                          | Purpose                                        |
+| -------------------------------- | ---------------------------------------------- |
+| `@cosmneo/onion-lasagna-saga`    | Sequential saga orchestrator with compensation |
+
+**Key features:** per-step retry, `exponentialBackoff(minMs, maxMs)` helper, compensation strategies, timeout + abort propagation, lifecycle hooks.
+
+> **Search:** For saga implementation, read `packages/patterns/onion-lasagna-saga/src/`
+
+---
+
+## Core Package Exports
+
+| Entry Point                        | Purpose                              |
+| ---------------------------------- | ------------------------------------ |
+| `@cosmneo/onion-lasagna`           | All layers (domain, app, infra, etc) |
+| `@cosmneo/onion-lasagna/global`    | Shared errors, utils, types          |
+| `@cosmneo/onion-lasagna/ports`     | Port interfaces                      |
+| `@cosmneo/onion-lasagna/types`     | Shared type definitions              |
+| `@cosmneo/onion-lasagna/http`      | HTTP types and utilities             |
+| `@cosmneo/onion-lasagna/http/route`| `defineRoute`, `defineRouter`        |
+| `@cosmneo/onion-lasagna/http/server`| `serverRoutes`, route handlers      |
+| `@cosmneo/onion-lasagna/http/schema`| Schema adapter interface            |
+| `@cosmneo/onion-lasagna/http/shared`| Error mapping, shared HTTP types    |
+| `@cosmneo/onion-lasagna/http/openapi`| OpenAPI generation                 |
 
 > **IMPORTANT:** Always verify actual exports by reading the index.ts files. Do not assume.
-
-| Entry Point                                        | Purpose                                     |
-| -------------------------------------------------- | ------------------------------------------- |
-| `@cosmneo/onion-lasagna/backend/core/onion-layers` | Domain, App, Infra layer classes            |
-| `@cosmneo/onion-lasagna/backend/core/global`       | DTOs, errors, validators                    |
-| `@cosmneo/onion-lasagna/backend/core/presentation` | Presentation layer utilities                |
-| `@cosmneo/onion-lasagna/http`                      | HTTP types and utilities                    |
-| `@cosmneo/onion-lasagna/http/route`                | `defineRoute`, `defineRouter`               |
-| `@cosmneo/onion-lasagna/http/server`               | `serverRoutes`, route handlers              |
-| `@cosmneo/onion-lasagna/http/schema/zod`           | Zod schema adapter                          |
-| `@cosmneo/onion-lasagna/http/schema/typebox`       | TypeBox schema adapter                      |
-| `@cosmneo/onion-lasagna/http/frameworks/*`         | Framework adapters (hono, etc.)             |
-| `@cosmneo/onion-lasagna/http/react-query`          | React Query hooks (`createReactQueryHooks`) |
-| `@cosmneo/onion-lasagna/http/openapi`              | OpenAPI generation                          |
 
 ---
 
@@ -261,7 +297,7 @@ app.onError(onionErrorHandler) // or equivalent
 
 ## Testing
 
-> **Search:** For testing patterns and mocks, read test files in `packages/onion-lasagna/src/backend/core/**/tests/` and `examples/my-todo-app/`
+> **Search:** For testing patterns and mocks, read test files in `packages/onion-lasagna/src/**/tests/` and `examples/my-todo-app/`
 
 **Mock pattern:** Mock repository ports, inject into use case, assert on calls and results.
 
