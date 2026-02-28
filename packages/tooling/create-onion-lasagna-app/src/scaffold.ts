@@ -149,7 +149,7 @@ interface ScaffoldOptions {
   name: string;
   structure: Structure;
   starter: Starter;
-  validator: 'zod' | 'valibot' | 'arktype' | 'typebox';
+  validator: 'zod' | 'typebox';
   framework: 'hono' | 'elysia' | 'fastify';
   packageManager: PackageManager;
   install: boolean;
@@ -161,8 +161,6 @@ const REPO = 'Cosmneo/onion-lasagna';
 
 const VALIDATOR_PACKAGES: Record<string, string> = {
   zod: 'zod',
-  valibot: 'valibot',
-  arktype: 'arktype',
   typebox: '@sinclair/typebox',
 };
 

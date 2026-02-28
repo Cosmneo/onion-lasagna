@@ -143,9 +143,9 @@ flowchart LR
     subgraph UseCase
         UC[CreateUserUseCase]
     end
-    subgraph DTOs
-        I[CreateUserInputDto]
-        O[CreateUserOutputDto]
+    subgraph Types
+        I[CreateUserInput]
+        O[CreateUserOutput]
     end
 
     P -.->|implements| UC
@@ -161,7 +161,7 @@ app/
 │   ├── create-user.port.ts      # Port interface
 │   └── index.ts                 # Updated exports
 └── use-cases/commands/create-user/
-    ├── createUser.dto.ts        # Input/Output DTOs
+    ├── createUser.types.ts      # Input/Output types
     ├── createUser.use-case.ts   # Use case implementation
     └── index.ts                 # Barrel exports
 ```
@@ -170,9 +170,9 @@ app/
 
 ```typescript
 // create-user.port.ts
-import type { BaseInboundPort } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+import type { BaseInboundPort } from '@cosmneo/onion-lasagna';
 
-export type CreateUserPort = BaseInboundPort<CreateUserInputDto, CreateUserOutputDto>;
+export type CreateUserPort = BaseInboundPort<CreateUserInput, CreateUserOutput>;
 ```
 
 **Use Case:**
@@ -180,10 +180,10 @@ export type CreateUserPort = BaseInboundPort<CreateUserInputDto, CreateUserOutpu
 ```typescript
 // createUser.use-case.ts
 export class CreateUserUseCase
-  extends BaseInboundAdapter<CreateUserInputDto, CreateUserOutputDto>
+  extends BaseInboundAdapter<CreateUserInput, CreateUserOutput>
   implements CreateUserPort
 {
-  protected async execute(input: CreateUserInputDto): Promise<CreateUserOutputDto> {
+  protected async handle(input: CreateUserInput, _authContext: void): Promise<CreateUserOutput> {
     // Implement your command logic here
   }
 }
@@ -210,7 +210,7 @@ classDiagram
     class Email {
         -props: EmailProps
         +value: string
-        +create(value, validator)$ Email
+        +create(props)$ Email
         #validate(): void
     }
     BaseValueObject <|-- Email
@@ -243,9 +243,8 @@ export class Email extends BaseValueObject<EmailProps> {
     return this.props.value;
   }
 
-  static create(value: unknown, validator: BoundValidator<EmailProps>): Email {
-    const validated = validator.parse(value);
-    return new Email(validated);
+  static create(props: EmailProps): Email {
+    return new Email(props);
   }
 
   protected validate(): void {

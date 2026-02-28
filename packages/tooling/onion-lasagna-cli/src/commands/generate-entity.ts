@@ -5,7 +5,7 @@ import pc from 'picocolors';
 import { toPascalCase, toCamelCase, toKebabCase } from '../utils/naming.js';
 import { findProjectRoot, loadConfig, getBackendPath, writeFileWithDir } from '../utils/project.js';
 
-export async function generateValueObject(name?: string): Promise<void> {
+export async function generateEntity(name?: string): Promise<void> {
   const projectRoot = findProjectRoot();
   if (!projectRoot) {
     p.log.error(
@@ -49,12 +49,12 @@ export async function generateValueObject(name?: string): Promise<void> {
     process.exit(0);
   }
 
-  // Get value object name
-  let voName = name;
-  if (!voName) {
+  // Get entity name
+  let entityName = name;
+  if (!entityName) {
     const result = await p.text({
-      message: 'Value object name',
-      placeholder: 'email',
+      message: 'Entity name',
+      placeholder: 'user',
       validate: (value) => {
         if (!value) return 'Name is required';
         if (!/^[a-z][a-z0-9-]*$/.test(value)) {
@@ -67,73 +67,97 @@ export async function generateValueObject(name?: string): Promise<void> {
       p.cancel('Operation cancelled.');
       process.exit(0);
     }
-    voName = result;
+    entityName = result;
   }
 
-  const kebabName = toKebabCase(voName);
+  const kebabName = toKebabCase(entityName);
   const pascalName = toPascalCase(kebabName);
   const camelName = toCamelCase(kebabName);
 
   const s = p.spinner();
-  s.start(`Creating value object: ${kebabName}`);
+  s.start(`Creating entity: ${kebabName}`);
 
   const contextPath = path.join(bcPath, context as string);
-  const voPath = path.join(contextPath, 'domain', 'value-objects');
+  const entitiesPath = path.join(contextPath, 'domain', 'entities');
 
-  // Generate Value Object
-  const voContent = `import { BaseValueObject } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-import type { BoundValidator } from '@cosmneo/onion-lasagna/backend/core/global';
+  // Generate Entity
+  const entityContent = `import { BaseEntity } from '@cosmneo/onion-lasagna';
 
 interface ${pascalName}Props {
-  value: string;
+  id: string;
+  // Add your entity properties here
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export class ${pascalName} extends BaseValueObject<${pascalName}Props> {
+export class ${pascalName} extends BaseEntity<${pascalName}Props> {
   private constructor(props: ${pascalName}Props) {
     super(props);
   }
 
-  get value(): string {
-    return this.props.value;
+  get id(): string {
+    return this.props.id;
   }
 
-  static create(value: unknown, validator: BoundValidator<${pascalName}Props>): ${pascalName} {
-    const validated = validator.parse(value);
-    return new ${pascalName}(validated);
+  get createdAt(): Date {
+    return this.props.createdAt;
+  }
+
+  get updatedAt(): Date {
+    return this.props.updatedAt;
+  }
+
+  static create(props: Omit<${pascalName}Props, 'createdAt' | 'updatedAt'>): ${pascalName} {
+    const now = new Date();
+    return new ${pascalName}({
+      ...props,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  static reconstitute(props: ${pascalName}Props): ${pascalName} {
+    return new ${pascalName}(props);
   }
 
   protected validate(): void {
-    // Add custom validation logic if needed
+    if (!this.props.id) {
+      throw new Error('${pascalName} id is required');
+    }
   }
 }
 `;
 
-  writeFileWithDir(path.join(voPath, `${kebabName}.vo.ts`), voContent);
+  writeFileWithDir(path.join(entitiesPath, `${kebabName}.entity.ts`), entityContent);
 
   // Update index file
-  const indexPath = path.join(voPath, 'index.ts');
+  const indexPath = path.join(entitiesPath, 'index.ts');
   const currentIndex = fs.existsSync(indexPath)
     ? fs.readFileSync(indexPath, 'utf-8')
-    : `// ${toPascalCase(context as string)} Value Objects\n`;
+    : `// ${toPascalCase(context as string)} Entities\n`;
 
-  if (!currentIndex.includes(`${kebabName}.vo.js`)) {
+  if (!currentIndex.includes(`${kebabName}.entity.js`)) {
     const newIndex = currentIndex.replace(
       /^(\/\/ .+\n)?/,
-      `$1export { ${pascalName} } from './${kebabName}.vo.js';\n`,
+      `$1export { ${pascalName} } from './${kebabName}.entity.js';\n`,
     );
     fs.writeFileSync(indexPath, newIndex);
   }
 
-  s.stop(`Value object created: ${kebabName}`);
+  s.stop(`Entity created: ${kebabName}`);
 
-  p.log.success(pc.green(`Created value object in: ${context}`));
+  p.log.success(pc.green(`Created entity in: ${context}`));
   p.log.info(`
 File created:
-  domain/value-objects/${kebabName}.vo.ts
+  domain/entities/${kebabName}.entity.ts
 
 Usage:
-  import { ${pascalName} } from './${context}/domain/value-objects/index.js';
+  import { ${pascalName} } from './${context}/domain/entities/index.js';
 
-  const ${camelName} = ${pascalName}.create(rawValue, validator);
+  // Create new entity
+  const ${camelName} = ${pascalName}.create({ id: 'uuid', /* ... */ });
+
+  // Reconstitute from persistence
+  const ${camelName}FromDb = ${pascalName}.reconstitute(dbRecord);
 `);
 }

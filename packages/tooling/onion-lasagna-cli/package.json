@@ -1,6 +1,7 @@
 {
   "name": "onion-lasagna-cli",
   "version": "0.1.0",
+  "license": "MIT",
   "description": "Development CLI for onion-lasagna projects",
   "type": "module",
   "bin": {

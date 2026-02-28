@@ -17,7 +17,7 @@ interface CliArgs {
   name?: string;
   structure?: Structure;
   starter?: Starter;
-  validator?: 'zod' | 'valibot' | 'arktype' | 'typebox';
+  validator?: 'zod' | 'typebox';
   framework?: 'hono' | 'elysia' | 'fastify';
   packageManager?: PackageManager;
   install?: boolean;
@@ -114,7 +114,7 @@ ${pc.bold('Usage:')}
 ${pc.bold('Options:')}
   --structure <type>       Project structure: simple, modules (default: simple)
   -s, --starter <name>     Starter template (filtered by structure)
-  -v, --validator <lib>    Validation library: zod, valibot, arktype, typebox (default: zod)
+  -v, --validator <lib>    Validation library: zod, typebox (default: zod)
   -f, --framework <fw>     Web framework: hono, elysia, fastify (default: hono)
 
   --use-bun                Use bun package manager (default)
@@ -503,8 +503,6 @@ async function main() {
           initialValue: args.validator,
           options: [
             { value: 'zod', label: 'Zod', hint: 'Most popular, great TypeScript inference' },
-            { value: 'valibot', label: 'Valibot', hint: 'Smallest bundle size' },
-            { value: 'arktype', label: 'ArkType', hint: 'Fastest runtime validation' },
             { value: 'typebox', label: 'TypeBox', hint: 'JSON Schema compatible' },
           ],
         }),
@@ -557,7 +555,7 @@ async function main() {
     name: project.name as string,
     structure: project.structure as Structure,
     starter: project.starter as Starter,
-    validator: project.validator as 'zod' | 'valibot' | 'arktype' | 'typebox',
+    validator: project.validator as 'zod' | 'typebox',
     framework: project.framework as 'hono' | 'elysia' | 'fastify',
     packageManager,
     install: project.install as boolean,

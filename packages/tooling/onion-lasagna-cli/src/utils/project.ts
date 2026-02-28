@@ -3,7 +3,7 @@ import path from 'node:path';
 
 interface OnionLasagnaConfig {
   starter: 'simple' | 'modules';
-  validator: 'zod' | 'valibot' | 'arktype' | 'typebox';
+  validator: 'zod' | 'typebox';
   framework: 'hono' | 'elysia' | 'fastify';
 }
 

@@ -99,10 +99,10 @@ export async function generateUseCase(name?: string, type?: 'command' | 'query')
   const contextPath = path.join(bcPath, context as string);
 
   // Generate Port (interface)
-  const portContent = `import type { BaseInboundPort } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
-import type { ${pascalName}InputDto, ${pascalName}OutputDto } from '../../use-cases/${typeFolder}/${kebabName}/${camelName}.dto.js';
+  const portContent = `import type { BaseInboundPort } from '@cosmneo/onion-lasagna';
+import type { ${pascalName}Input, ${pascalName}Output } from '../../use-cases/${typeFolder}/${kebabName}/${camelName}.types.js';
 
-export type ${pascalName}Port = BaseInboundPort<${pascalName}InputDto, ${pascalName}OutputDto>;
+export type ${pascalName}Port = BaseInboundPort<${pascalName}Input, ${pascalName}Output>;
 `;
 
   writeFileWithDir(
@@ -110,40 +110,29 @@ export type ${pascalName}Port = BaseInboundPort<${pascalName}InputDto, ${pascalN
     portContent,
   );
 
-  // Generate DTOs
-  const dtoContent = `import { BaseDto } from '@cosmneo/onion-lasagna/backend/core/global';
-import type { BoundValidator } from '@cosmneo/onion-lasagna/backend/core/global';
-
-export class ${pascalName}InputDto extends BaseDto {
+  // Generate types (input/output interfaces)
+  const typesContent = `export interface ${pascalName}Input {
   // Add input properties here
-
-  constructor(props: unknown, validator: BoundValidator<${pascalName}InputDto>) {
-    super(props, validator);
-  }
 }
 
-export class ${pascalName}OutputDto extends BaseDto {
+export interface ${pascalName}Output {
   // Add output properties here
-
-  constructor(props: unknown, validator: BoundValidator<${pascalName}OutputDto>) {
-    super(props, validator);
-  }
 }
 `;
 
   const useCasePath = path.join(contextPath, 'app', 'use-cases', typeFolder, kebabName);
-  writeFileWithDir(path.join(useCasePath, `${camelName}.dto.ts`), dtoContent);
+  writeFileWithDir(path.join(useCasePath, `${camelName}.types.ts`), typesContent);
 
   // Generate Use Case
-  const useCaseContent = `import { BaseInboundAdapter } from '@cosmneo/onion-lasagna/backend/core/onion-layers';
+  const useCaseContent = `import { BaseInboundAdapter } from '@cosmneo/onion-lasagna';
 import type { ${pascalName}Port } from '../../../ports/inbound/${typeFolder}/${kebabName}.port.js';
-import type { ${pascalName}InputDto, ${pascalName}OutputDto } from './${camelName}.dto.js';
+import type { ${pascalName}Input, ${pascalName}Output } from './${camelName}.types.js';
 
 export class ${pascalName}UseCase
-  extends BaseInboundAdapter<${pascalName}InputDto, ${pascalName}OutputDto>
+  extends BaseInboundAdapter<${pascalName}Input, ${pascalName}Output>
   implements ${pascalName}Port
 {
-  protected async execute(input: ${pascalName}InputDto): Promise<${pascalName}OutputDto> {
+  protected async handle(input: ${pascalName}Input, _authContext: void): Promise<${pascalName}Output> {
     // Implement your ${useCaseType} logic here
     throw new Error('Not implemented');
   }
@@ -154,7 +143,7 @@ export class ${pascalName}UseCase
 
   // Generate index file
   const indexContent = `export { ${pascalName}UseCase } from './${camelName}.use-case.js';
-export { ${pascalName}InputDto, ${pascalName}OutputDto } from './${camelName}.dto.js';
+export type { ${pascalName}Input, ${pascalName}Output } from './${camelName}.types.js';
 `;
 
   writeFileWithDir(path.join(useCasePath, 'index.ts'), indexContent);
@@ -194,7 +183,7 @@ export { ${pascalName}InputDto, ${pascalName}OutputDto } from './${camelName}.dt
 Files created:
   app/ports/inbound/${typeFolder}/${kebabName}.port.ts
   app/use-cases/${typeFolder}/${kebabName}/
-    ├── ${camelName}.dto.ts
+    ├── ${camelName}.types.ts
     ├── ${camelName}.use-case.ts
     └── index.ts
 `);
