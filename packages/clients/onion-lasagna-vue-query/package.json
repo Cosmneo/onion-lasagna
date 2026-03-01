@@ -1,0 +1,54 @@
+{
+  "name": "@cosmneo/onion-lasagna-vue-query",
+  "version": "0.2.0",
+  "description": "Vue Query hooks adapter for onion-lasagna",
+  "type": "module",
+  "license": "MIT",
+  "author": "Cosmneo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cosmneo/onion-lasagna.git",
+    "directory": "packages/clients/onion-lasagna-vue-query"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "devDependencies": {
+    "@cosmneo/onion-lasagna": "workspace:*",
+    "@cosmneo/onion-lasagna-client": "workspace:*",
+    "@cosmneo/onion-lasagna-zod": "workspace:*",
+    "@tanstack/vue-query": "^5",
+    "tsup": "^8.5.1",
+    "vitest": "^4.0.16",
+    "vue": "^3",
+    "zod": "4.3.6"
+  },
+  "peerDependencies": {
+    "@tanstack/vue-query": "^5",
+    "vue": "^3",
+    "@cosmneo/onion-lasagna": ">=0.2.0",
+    "@cosmneo/onion-lasagna-client": ">=0.2.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "prepublishOnly": "bun run build"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
