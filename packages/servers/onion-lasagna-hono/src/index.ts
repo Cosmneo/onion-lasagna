@@ -10,7 +10,7 @@
  * import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
  *
  * const app = new Hono();
- * app.onError(onionErrorHandler);
+ * app.onError(onionErrorHandler());
  *
  * const routes = serverRoutes(router)
  *   .handle('...', { requestMapper, useCase, responseMapper })
@@ -22,7 +22,7 @@
  */
 
 export { registerHonoRoutes } from './register-routes';
-export { onionErrorHandler, mapErrorToResponse } from './error-handler';
+export { onionErrorHandler, mapErrorToResponse, mapErrorToHttpException } from './error-handler';
 export type {
   HonoLike,
   RegisterHonoRoutesOptions,

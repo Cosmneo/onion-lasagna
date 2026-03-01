@@ -26,6 +26,7 @@ import { InvalidRequestError } from '../../exceptions/invalid-request.error';
 import { ControllerError } from '../../exceptions/controller.error';
 import { UnauthorizedError } from '../../../app/exceptions/unauthorized.error';
 import { wrapError } from '../../../global/utils/wrap-error.util';
+import { generateOperationId } from '../route/utils';
 
 /**
  * Internal implementation for creating server routes.
@@ -68,7 +69,7 @@ export function createServerRoutesInternal<T extends RouterConfig>(
       );
     }
 
-    result.push(createRouteHandler(route, handlerConfig, resolvedOptions));
+    result.push(createRouteHandler(key, route, handlerConfig, resolvedOptions));
   }
 
   return result;
@@ -131,6 +132,7 @@ function sortRoutesBySpecificity<T extends { route: { path: string } }>(routes: 
  * - Use case pattern: requestMapper → useCase.execute → responseMapper
  */
 function createRouteHandler(
+  key: string,
   route: RouteDefinition,
   // TInput/TOutput are user-defined and erased at this level - any is required for type compatibility
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -148,7 +150,7 @@ function createRouteHandler(
     method: route.method,
     path: normalizePath(route.path),
     metadata: {
-      operationId: route.docs.operationId,
+      operationId: route.docs.operationId ?? generateOperationId(key),
       summary: route.docs.summary,
       description: route.docs.description,
       tags: route.docs.tags as string[],
@@ -164,7 +166,7 @@ function createRouteHandler(
       // Context validation failures are treated as authentication errors (401)
       // because context typically carries auth data (user, session, token).
       // A missing or invalid context means the caller is not properly authenticated.
-      const validatedContext: unknown = route.request.context?.schema
+      const validatedContext: unknown = route.request.context
         ? wrapError(
             () => {
               const result = validateContextData(route, rawContext);
@@ -304,7 +306,7 @@ function createRouteHandler(
 }
 
 /**
- * Validates request data against route schemas.
+ * Validates request data against route request schemas.
  */
 function validateRequestData(
   route: RouteDefinition,
@@ -319,8 +321,8 @@ function validateRequestData(
   } = {};
 
   // Validate body
-  if (route.request.body?.schema) {
-    const result = (route.request.body.schema as SchemaAdapter).validate(rawRequest.body);
+  if (route.request.body) {
+    const result = (route.request.body as SchemaAdapter).validate(rawRequest.body);
     if (result.success) {
       data.body = result.data;
     } else {
@@ -334,9 +336,9 @@ function validateRequestData(
   }
 
   // Validate query
-  if (route.request.query?.schema) {
+  if (route.request.query) {
     const queryObj = normalizeQuery(rawRequest.query);
-    const result = (route.request.query.schema as SchemaAdapter).validate(queryObj);
+    const result = (route.request.query as SchemaAdapter).validate(queryObj);
     if (result.success) {
       data.query = result.data;
     } else {
@@ -350,8 +352,8 @@ function validateRequestData(
   }
 
   // Validate path params
-  if (route.request.params?.schema) {
-    const result = (route.request.params.schema as SchemaAdapter).validate(rawRequest.params ?? {});
+  if (route.request.params) {
+    const result = (route.request.params as SchemaAdapter).validate(rawRequest.params ?? {});
     if (result.success) {
       data.pathParams = result.data;
     } else {
@@ -368,9 +370,9 @@ function validateRequestData(
   }
 
   // Validate headers
-  if (route.request.headers?.schema) {
+  if (route.request.headers) {
     const headersObj = normalizeHeaders(rawRequest.headers);
-    const result = (route.request.headers.schema as SchemaAdapter).validate(headersObj);
+    const result = (route.request.headers as SchemaAdapter).validate(headersObj);
     if (result.success) {
       data.headers = result.data;
     } else {
@@ -391,36 +393,32 @@ function validateRequestData(
 }
 
 /**
- * Validates response data against route response schemas.
+ * Validates response data against the route's response schema.
+ *
+ * Looks up the matching status code in `route.responses` and validates
+ * the response body against its schema, if one is defined.
  */
 function validateResponseData(
   route: RouteDefinition,
   response: HandlerResponse,
 ): ValidationResultInternal {
-  const statusCode = String(response.status);
-  const responses = route.responses as Record<string, { schema?: SchemaAdapter } | undefined>;
-  const responseConfig = responses[statusCode];
-
-  // No schema defined for this status code - skip validation
-  if (!responseConfig) {
+  if (!route.responses) {
     return { success: true };
   }
 
-  const schema = responseConfig.schema;
+  const entry = route.responses[String(response.status)];
+  const schema = entry?.schema as SchemaAdapter | undefined;
 
-  // No schema in the response config - skip validation
   if (!schema) {
     return { success: true };
   }
 
-  // Validate response body against schema
   const result = schema.validate(response.body);
 
   if (result.success) {
     return { success: true };
   }
 
-  // Prefix errors with 'response.' for clarity
   const errors = result.issues.map((issue) => ({
     ...issue,
     path: ['response', ...issue.path],
@@ -436,7 +434,7 @@ function validateContextData(
   route: RouteDefinition,
   context: HandlerContext,
 ): ContextValidationResultInternal {
-  const contextSchema = route.request.context?.schema as SchemaAdapter | undefined;
+  const contextSchema = route.request.context as SchemaAdapter | undefined;
 
   // No context schema defined - skip validation
   if (!contextSchema) {

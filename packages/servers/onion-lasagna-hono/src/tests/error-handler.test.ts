@@ -228,27 +228,29 @@ describe('Hono error-handler', () => {
   });
 
   describe('onionErrorHandler', () => {
+    const handler = onionErrorHandler();
+
     it('returns a Response object', () => {
       const error = new NotFoundError({ message: 'Not found' });
-      const response = onionErrorHandler(error, {} as never);
+      const response = handler(error, {} as never);
       expect(response).toBeInstanceOf(Response);
     });
 
     it('sets correct status code', () => {
       const error = new NotFoundError({ message: 'Not found' });
-      const response = onionErrorHandler(error, {} as never);
+      const response = handler(error, {} as never);
       expect(response.status).toBe(404);
     });
 
     it('sets Content-Type header', () => {
       const error = new NotFoundError({ message: 'Not found' });
-      const response = onionErrorHandler(error, {} as never);
+      const response = handler(error, {} as never);
       expect(response.headers.get('Content-Type')).toBe('application/json');
     });
 
     it('returns proper JSON body', async () => {
       const error = new ConflictError({ message: 'Conflict occurred' });
-      const response = onionErrorHandler(error, {} as never);
+      const response = handler(error, {} as never);
       const body = await response.json();
       expect(body.message).toBe('Conflict occurred');
     });
@@ -257,7 +259,7 @@ describe('Hono error-handler', () => {
   describe('Hono app integration', () => {
     it('handles errors thrown in routes', async () => {
       const app = new Hono();
-      app.onError(onionErrorHandler);
+      app.onError(onionErrorHandler());
 
       app.get('/users/:id', () => {
         throw new NotFoundError({ message: 'User not found', code: 'USER_NOT_FOUND' });
@@ -273,7 +275,7 @@ describe('Hono error-handler', () => {
 
     it('handles async errors in routes', async () => {
       const app = new Hono();
-      app.onError(onionErrorHandler);
+      app.onError(onionErrorHandler());
 
       app.post('/projects', async () => {
         await Promise.resolve();
@@ -286,7 +288,7 @@ describe('Hono error-handler', () => {
 
     it('handles validation errors with field details', async () => {
       const app = new Hono();
-      app.onError(onionErrorHandler);
+      app.onError(onionErrorHandler());
 
       app.post('/users', () => {
         throw new ObjectValidationError({
@@ -307,7 +309,7 @@ describe('Hono error-handler', () => {
 
     it('masks internal errors in routes', async () => {
       const app = new Hono();
-      app.onError(onionErrorHandler);
+      app.onError(onionErrorHandler());
 
       app.get('/data', () => {
         throw new DbError({ message: 'Connection string: postgres://secret@db' });
@@ -324,7 +326,7 @@ describe('Hono error-handler', () => {
 
     it('handles middleware errors', async () => {
       const app = new Hono();
-      app.onError(onionErrorHandler);
+      app.onError(onionErrorHandler());
 
       app.use('*', async (_c, next) => {
         throw new AccessDeniedError({ message: 'Token expired' });
@@ -344,7 +346,7 @@ describe('Hono error-handler', () => {
       const app = new Hono();
       const api = new Hono();
 
-      app.onError(onionErrorHandler);
+      app.onError(onionErrorHandler());
       api.get('/items/:id', () => {
         throw new NotFoundError({ message: 'Item not found' });
       });

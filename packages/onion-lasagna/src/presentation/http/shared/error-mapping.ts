@@ -125,9 +125,6 @@ export function hasValidationErrors(error: unknown): error is ErrorWithValidatio
 /**
  * Builds a validation error response body from error details.
  *
- * This is a shared helper used by both instanceof-based and string-based
- * error mapping functions to avoid duplication.
- *
  * @param message - The error message
  * @param code - The error code
  * @param validationErrors - Array of field validation errors
@@ -287,20 +284,16 @@ export function createErrorResponseBody(error: unknown): ErrorResponseBody {
 /**
  * Maps an error to a complete HTTP response structure.
  *
- * Mapping strategy:
- * - `ObjectValidationError` → 400 Bad Request (with field errors)
- * - `InvalidRequestError` → 400 Bad Request (with field errors)
- * - `UseCaseError` → 400 Bad Request
- * - `UnauthorizedError` → 401 Unauthorized (authentication required/invalid)
- * - `ForbiddenError` → 403 Forbidden (authorization denied in use case)
- * - `AccessDeniedError` → 403 Forbidden (access denied at controller/guard level)
- * - `NotFoundError` → 404 Not Found
- * - `ConflictError` → 409 Conflict
- * - `UnprocessableError` → 422 Unprocessable Entity
- * - `DomainError` → 500 Internal Server Error (masked)
- * - `InfraError` → 500 Internal Server Error (masked)
- * - `ControllerError` → 500 Internal Server Error (masked)
- * - Unknown → 500 Internal Server Error (masked)
+ * Mapping strategy (checked in order):
+ * 1. `ObjectValidationError` / `InvalidRequestError` → 400 Bad Request (with field errors)
+ * 2. `UseCaseError` → 400 Bad Request
+ * 3. `UnauthorizedError` → 401 Unauthorized
+ * 4. `ForbiddenError` / `AccessDeniedError` → 403 Forbidden
+ * 5. `NotFoundError` → 404 Not Found
+ * 6. `ConflictError` → 409 Conflict
+ * 7. `UnprocessableError` → 422 Unprocessable Entity
+ * 8. `DomainError` / `InfraError` / `ControllerError` → 500 Internal Server Error (masked)
+ * 9. Unknown → 500 Internal Server Error (masked)
  *
  * @param error - The error to map
  * @returns Mapped error response with status and body

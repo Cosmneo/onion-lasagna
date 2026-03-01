@@ -1,5 +1,5 @@
 /**
- * @fileoverview Type definitions for React Query integration.
+ * @fileoverview Type definitions for React Query integration (v2 — flat API).
  *
  * Provides type-safe hooks and query key types that map from
  * the unified route system's router configuration.
@@ -16,7 +16,6 @@ import type {
 import type {
   RouteDefinition,
   RouterConfig,
-  ResponsesConfig,
   HasPathParams,
   PathParams,
   PrettifyDeep,
@@ -47,27 +46,11 @@ export type HookRequestInput<TRoute extends RouteDefinition> = PrettifyDeep<
 >;
 
 /**
- * Response type extraction (first 2xx response).
- * Uses structural matching on schema's _output phantom property.
- */
-type ExtractSuccessResponse<T extends ResponsesConfig> = T extends {
-  200: { schema: { _output: infer TBody } };
-}
-  ? TBody
-  : T extends { 201: { schema: { _output: infer TBody } } }
-    ? TBody
-    : T extends { 202: { schema: { _output: infer TBody } } }
-      ? TBody
-      : T extends { 204: { description: string } }
-        ? void // eslint-disable-line @typescript-eslint/no-invalid-void-type -- void is semantically correct for 204 No Content
-        : unknown;
-
-/**
  * Response from a hook request.
+ * Reads the response type directly from the route's `_types.response`.
  */
-export type HookResponse<TRoute extends RouteDefinition> = ExtractSuccessResponse<
-  TRoute['responses']
->;
+export type HookResponse<TRoute extends RouteDefinition> =
+  TRoute['_types']['response'] extends undefined ? void : TRoute['_types']['response'];
 
 /**
  * Checks if a route requires input (has body, params, or required query).

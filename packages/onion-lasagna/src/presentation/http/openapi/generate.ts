@@ -1,9 +1,12 @@
 /**
- * @fileoverview OpenAPI specification generation from router definitions.
+ * @fileoverview OpenAPI specification generation from router definitions (v2 — flat API).
  *
  * The `generateOpenAPI` function creates a complete OpenAPI 3.1 specification
  * from a router definition. All route schemas are converted to JSON Schema
  * and included in the specification.
+ *
+ * Schemas are read from `route.request` (body, query, params, headers) and
+ * per-status response schemas from `route.responses`.
  *
  * @module unified/openapi/generate
  */
@@ -11,6 +14,7 @@
 import type { JsonSchema, SchemaAdapter } from '../schema/types';
 import type { RouterConfig, RouterDefinition, RouteDefinition } from '../route/types';
 import { isRouterDefinition, collectRoutes, getPathParamNames } from '../route/types';
+import { generateOperationId } from '../route/utils';
 import type {
   OpenAPIConfig,
   OpenAPISpec,
@@ -20,7 +24,6 @@ import type {
   OpenAPIParameter,
   OpenAPIRequestBody,
   OpenAPIResponses,
-  OpenAPIResponse,
   OpenAPITag,
 } from './types';
 
@@ -66,6 +69,9 @@ function isValidJsonSchema(value: unknown): value is JsonSchema {
  * This function walks the router structure, extracts JSON schemas from
  * all route definitions, and builds a complete OpenAPI 3.1 specification.
  *
+ * Operation IDs are auto-generated from the router key path when not
+ * explicitly specified in the route docs.
+ *
  * @param router - Router definition or router config
  * @param config - OpenAPI configuration (info, servers, security, etc.)
  * @returns Complete OpenAPI specification
@@ -90,38 +96,6 @@ function isValidJsonSchema(value: unknown): value is JsonSchema {
  * // Serve the spec
  * app.get('/openapi.json', (c) => c.json(spec));
  * ```
- *
- * @example With security
- * ```typescript
- * const spec = generateOpenAPI(api, {
- *   info: { title: 'Secure API', version: '1.0.0' },
- *   securitySchemes: {
- *     bearerAuth: {
- *       type: 'http',
- *       scheme: 'bearer',
- *       bearerFormat: 'JWT',
- *     },
- *     apiKey: {
- *       type: 'apiKey',
- *       in: 'header',
- *       name: 'X-API-Key',
- *     },
- *   },
- *   security: [{ bearerAuth: [] }],
- * });
- * ```
- *
- * @example With custom tags
- * ```typescript
- * const spec = generateOpenAPI(api, {
- *   info: { title: 'Tagged API', version: '1.0.0' },
- *   tags: [
- *     { name: 'Users', description: 'User management operations' },
- *     { name: 'Posts', description: 'Blog post operations' },
- *     { name: 'Admin', description: 'Administrative operations' },
- *   ],
- * });
- * ```
  */
 export function generateOpenAPI<T extends RouterConfig>(
   router: T | RouterDefinition<T>,
@@ -134,14 +108,14 @@ export function generateOpenAPI<T extends RouterConfig>(
   const paths: OpenAPIPaths = {};
   const allTags = new Set<string>();
 
-  for (const { route } of collectedRoutes) {
+  for (const { key, route } of collectedRoutes) {
     const openAPIPath = convertToOpenAPIPath(route.path);
 
     if (!paths[openAPIPath]) {
       paths[openAPIPath] = {};
     }
 
-    const operation = buildOperation(route);
+    const operation = buildOperation(key, route);
     const method = route.method.toLowerCase() as keyof OpenAPIPathItem;
 
     (paths[openAPIPath] as Record<string, OpenAPIOperation>)[method] = operation;
@@ -203,16 +177,16 @@ function convertToOpenAPIPath(path: string): string {
 
 /**
  * Builds an OpenAPI operation from a route definition.
+ * Auto-generates operationId from the key if not explicitly set.
  */
-function buildOperation(route: RouteDefinition): OpenAPIOperation {
+function buildOperation(key: string, route: RouteDefinition): OpenAPIOperation {
   const operation: OpenAPIOperation = {
     responses: buildResponses(route),
   };
 
-  // Add documentation
-  if (route.docs.operationId) {
-    (operation as { operationId: string }).operationId = route.docs.operationId;
-  }
+  // operationId: use explicit or auto-generate from router key
+  const operationId = route.docs.operationId ?? generateOperationId(key);
+  (operation as { operationId: string }).operationId = operationId;
 
   if (route.docs.summary) {
     (operation as { summary: string }).summary = route.docs.summary;
@@ -254,7 +228,7 @@ function buildOperation(route: RouteDefinition): OpenAPIOperation {
 }
 
 /**
- * Builds OpenAPI parameters from route.
+ * Builds OpenAPI parameters from route request schemas.
  */
 function buildParameters(route: RouteDefinition): OpenAPIParameter[] {
   const parameters: OpenAPIParameter[] = [];
@@ -270,8 +244,8 @@ function buildParameters(route: RouteDefinition): OpenAPIParameter[] {
     };
 
     // If we have a params schema, try to get more info
-    if (route.request.params?.schema) {
-      const jsonSchema = (route.request.params.schema as SchemaAdapter).toJsonSchema();
+    if (route.request.params) {
+      const jsonSchema = (route.request.params as SchemaAdapter).toJsonSchema();
       if (jsonSchema.properties && typeof jsonSchema.properties === 'object') {
         const propSchema = (jsonSchema.properties as Record<string, unknown>)[name];
         if (isValidJsonSchema(propSchema)) {
@@ -284,8 +258,8 @@ function buildParameters(route: RouteDefinition): OpenAPIParameter[] {
   }
 
   // Query parameters
-  if (route.request.query?.schema) {
-    const querySchema = (route.request.query.schema as SchemaAdapter).toJsonSchema();
+  if (route.request.query) {
+    const querySchema = (route.request.query as SchemaAdapter).toJsonSchema();
 
     if (querySchema.properties && typeof querySchema.properties === 'object') {
       const requiredFields = new Set(
@@ -318,8 +292,8 @@ function buildParameters(route: RouteDefinition): OpenAPIParameter[] {
   }
 
   // Header parameters
-  if (route.request.headers?.schema) {
-    const headersSchema = (route.request.headers.schema as SchemaAdapter).toJsonSchema();
+  if (route.request.headers) {
+    const headersSchema = (route.request.headers as SchemaAdapter).toJsonSchema();
 
     if (headersSchema.properties && typeof headersSchema.properties === 'object') {
       const requiredFields = new Set(
@@ -351,23 +325,25 @@ function buildParameters(route: RouteDefinition): OpenAPIParameter[] {
 
 /**
  * Builds OpenAPI request body from route.
+ * Reads metadata (contentType, required, description) from `route._meta.body`.
  */
 function buildRequestBody(route: RouteDefinition): OpenAPIRequestBody {
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- caller checks body exists
-  const bodyConfig = route.request.body!;
-  const contentType = bodyConfig.contentType ?? 'application/json';
+  const bodySchema = route.request.body as SchemaAdapter;
+  const meta = route._meta?.body;
+
+  const contentType = meta?.contentType ?? 'application/json';
 
   const requestBody: OpenAPIRequestBody = {
-    required: bodyConfig.required !== false,
+    required: meta?.required !== false,
     content: {
       [contentType]: {
-        schema: (bodyConfig.schema as SchemaAdapter).toJsonSchema(),
+        schema: bodySchema.toJsonSchema(),
       },
     },
   };
 
-  if (bodyConfig.description) {
-    (requestBody as { description: string }).description = bodyConfig.description;
+  if (meta?.description) {
+    (requestBody as { description: string }).description = meta.description;
   }
 
   return requestBody;
@@ -375,34 +351,33 @@ function buildRequestBody(route: RouteDefinition): OpenAPIRequestBody {
 
 /**
  * Builds OpenAPI responses from route.
+ *
+ * Each status code in `route.responses` gets its own entry with
+ * description, schema, and content type. If no responses are defined,
+ * a default `200` entry is generated.
  */
 function buildResponses(route: RouteDefinition): OpenAPIResponses {
   const responses: OpenAPIResponses = {};
 
-  for (const [statusCode, responseConfig] of Object.entries(route.responses)) {
-    if (!responseConfig || typeof responseConfig !== 'object') continue;
+  if (route.responses && Object.keys(route.responses).length > 0) {
+    for (const [statusCode, config] of Object.entries(route.responses)) {
+      const description = config.description ?? `Response ${statusCode}`;
 
-    const response: OpenAPIResponse = {
-      description:
-        (responseConfig as { description?: string }).description ?? `Response ${statusCode}`,
-    };
-
-    const schema = (responseConfig as { schema?: SchemaAdapter }).schema;
-    if (schema) {
-      const contentType =
-        (responseConfig as { contentType?: string }).contentType ?? 'application/json';
-      (response as { content: Record<string, { schema: object }> }).content = {
-        [contentType]: {
-          schema: schema.toJsonSchema(),
-        },
-      };
+      if (config.schema) {
+        const contentType = config.contentType ?? 'application/json';
+        responses[statusCode] = {
+          description,
+          content: {
+            [contentType]: {
+              schema: (config.schema as SchemaAdapter).toJsonSchema(),
+            },
+          },
+        };
+      } else {
+        responses[statusCode] = { description };
+      }
     }
-
-    responses[statusCode] = response;
-  }
-
-  // Ensure at least a default response exists
-  if (Object.keys(responses).length === 0) {
+  } else {
     responses['200'] = { description: 'Successful response' };
   }
 

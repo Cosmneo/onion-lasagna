@@ -149,12 +149,11 @@ function sendResponse(c: Context, response: HandlerResponse): Response {
  * import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna-hono';
  * import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
  * import { projectRouter } from './routes';
- * import { projectHandlers } from './handlers';
  *
  * const app = new Hono();
  *
  * // Register error handler
- * app.onError(onionErrorHandler);
+ * app.onError(onionErrorHandler());
  *
  * // Create unified routes using builder pattern
  * const routes = serverRoutes(projectRouter)

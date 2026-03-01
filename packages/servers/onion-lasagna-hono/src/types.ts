@@ -77,3 +77,4 @@ export interface RegisterHonoRoutesOptions {
    */
   readonly contextExtractor?: HonoContextExtractor;
 }
+

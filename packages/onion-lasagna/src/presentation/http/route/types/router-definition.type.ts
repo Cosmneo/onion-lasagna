@@ -9,35 +9,45 @@
  * @module unified/route/types/router-definition
  */
 
-import type { RouteDefinition, ResponsesConfig } from './route-definition.type';
+import type { RouteDefinition } from './route-definition.type';
 import type { HttpMethod } from './http.type';
+import type { SchemaAdapter } from '../../schema/types';
 
 // ============================================================================
 // Router Types
 // ============================================================================
 
 /**
- * A router entry can be either a route definition or a nested router.
- * Uses permissive types to allow any valid route definition.
+ * A router entry can be a route definition, a nested router config, or a router definition.
  */
 export type RouterEntry =
-  | RouteDefinition<
-      HttpMethod,
-      string,
-      unknown,
-      unknown,
-      unknown,
-      unknown,
-      unknown,
-      ResponsesConfig
-    >
-  | RouterConfig;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | RouteDefinition<HttpMethod, string, unknown, unknown, unknown, unknown, unknown, any>
+  | RouterConfig
+  | RouterDefinition;
 
 /**
  * Configuration for a router (group of routes).
  */
 export interface RouterConfig {
   readonly [key: string]: RouterEntry;
+}
+
+/**
+ * Router-level defaults applied to all child routes.
+ */
+export interface RouterDefaults {
+  /**
+   * Default tags for all routes in this router.
+   * Merged with route-specific tags.
+   */
+  readonly tags?: readonly string[];
+
+  /**
+   * Default context schema for all routes in this router.
+   * Applied to routes that don't define their own context.
+   */
+  readonly context?: SchemaAdapter;
 }
 
 /**
@@ -55,9 +65,9 @@ export interface RouterDefinition<T extends RouterConfig = RouterConfig> {
   readonly basePath?: string;
 
   /**
-   * Default tags for all routes in this router.
+   * Default values applied to all child routes.
    */
-  readonly tags?: readonly string[];
+  readonly defaults?: RouterDefaults;
 
   /**
    * Marker to identify this as a router.
@@ -79,7 +89,6 @@ export function isRouteDefinition(value: unknown): value is RouteDefinition {
     value !== null &&
     'method' in value &&
     'path' in value &&
-    'responses' in value &&
     '_types' in value
   );
 }
@@ -102,26 +111,6 @@ export function isRouterDefinition(value: unknown): value is RouterDefinition {
 
 /**
  * Flattens a router into a map of path keys to route definitions.
- *
- * @example
- * ```typescript
- * const router = defineRouter({
- *   users: {
- *     list: listUsersRoute,
- *     get: getUserRoute,
- *   },
- *   posts: {
- *     create: createPostRoute,
- *   },
- * });
- *
- * type Flat = FlattenRouter<typeof router>;
- * // {
- * //   'users.list': typeof listUsersRoute,
- * //   'users.get': typeof getUserRoute,
- * //   'posts.create': typeof createPostRoute,
- * // }
- * ```
  */
 export type FlattenRouter<
   T extends RouterConfig,
@@ -144,12 +133,6 @@ export type FlattenRouter<
 
 /**
  * Gets all route keys from a router.
- *
- * @example
- * ```typescript
- * type Keys = RouterKeys<typeof router>;
- * // 'users.list' | 'users.get' | 'posts.create'
- * ```
  */
 export type RouterKeys<T extends RouterConfig, Prefix extends string = ''> = T extends RouterConfig
   ? {
@@ -164,12 +147,6 @@ export type RouterKeys<T extends RouterConfig, Prefix extends string = ''> = T e
 
 /**
  * Gets a route by its dotted key path.
- *
- * @example
- * ```typescript
- * type UserGet = GetRoute<typeof router, 'users.get'>;
- * // typeof getUserRoute
- * ```
  */
 export type GetRoute<
   T extends RouterConfig,
@@ -193,11 +170,6 @@ export type GetRoute<
 
 /**
  * Deep-merges two router configs at the type level.
- *
- * - If both sides are sub-routers (extend RouterConfig), recurse.
- * - Otherwise last-one-wins (B overrides A).
- * - RouteDefinition does NOT extend RouterConfig (it has `method`, `path`, etc.)
- *   so the conditional correctly distinguishes leaves from sub-routers.
  */
 export type DeepMergeTwo<A extends RouterConfig, B extends RouterConfig> = {
   readonly [K in keyof A | keyof B]: K extends keyof A
@@ -230,11 +202,6 @@ export type DeepMergeAll<T extends readonly RouterConfig[]> = T extends readonly
 
 /**
  * Recursively flattens complex types for clean IDE hover display.
- * Applied at return sites (not inside recursion) so DTS emit stays fast —
- * TypeScript only resolves when concrete types are provided.
- *
- * Works with any recursive object type: router configs, client types,
- * React Query hooks, etc. Functions and primitives pass through unchanged.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type PrettifyDeep<T> = T extends (...args: any[]) => any

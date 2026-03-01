@@ -1,6 +1,6 @@
 {
   "name": "@cosmneo/onion-lasagna-express",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Express.js framework adapter for onion-lasagna",
   "type": "module",
   "license": "MIT",
@@ -28,7 +28,7 @@
   },
   "peerDependencies": {
     "express": "^5",
-    "@cosmneo/onion-lasagna": ">=0.2.0"
+    "@cosmneo/onion-lasagna": ">=0.2.1"
   },
   "scripts": {
     "build": "tsup",

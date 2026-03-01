@@ -9,21 +9,15 @@
  * @example Define a route
  * ```typescript
  * import { defineRoute } from '@cosmneo/onion-lasagna/http';
- * import { zodSchema, z } from '@cosmneo/onion-lasagna/http/schema/zod';
+ * import { zodSchema } from '@cosmneo/onion-lasagna-zod';
  *
  * const getUser = defineRoute({
  *   method: 'GET',
  *   path: '/api/users/:userId',
- *   responses: {
- *     200: {
- *       description: 'User found',
- *       schema: zodSchema(z.object({
- *         id: z.string(),
- *         name: z.string(),
- *       })),
- *     },
- *     404: { description: 'User not found' },
- *   },
+ *   response: zodSchema(z.object({
+ *     id: z.string(),
+ *     name: z.string(),
+ *   })),
  * });
  * ```
  *
@@ -45,6 +39,9 @@
 export { defineRoute } from './define-route';
 export { defineRouter, mergeRouters } from './define-router';
 export type { DefineRouterOptions } from './define-router';
+
+// Export utility functions
+export { generateOperationId } from './utils';
 
 // Export all types
 export * from './types';

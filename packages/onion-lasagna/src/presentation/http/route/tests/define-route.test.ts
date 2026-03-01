@@ -39,7 +39,6 @@ describe('defineRoute', () => {
 
       expect(route.method).toBe('POST');
       expect(route.request.body).toBeDefined();
-      expect(route.request.body?.schema).toBeDefined();
     });
 
     it('creates route with query params', () => {
@@ -57,7 +56,6 @@ describe('defineRoute', () => {
       });
 
       expect(route.request.query).toBeDefined();
-      expect(route.request.query?.schema).toBeDefined();
     });
 
     it('creates route with path params schema', () => {
@@ -282,7 +280,7 @@ describe('defineRoute', () => {
         },
       });
 
-      expect(route.request.body?.required).toBe(true);
+      expect(route._meta.body?.required).toBe(true);
     });
 
     it('supports custom content type', () => {
@@ -300,7 +298,7 @@ describe('defineRoute', () => {
         },
       });
 
-      expect(route.request.body?.contentType).toBe('multipart/form-data');
+      expect(route._meta.body?.contentType).toBe('multipart/form-data');
     });
 
     it('supports body description', () => {
@@ -318,7 +316,7 @@ describe('defineRoute', () => {
         },
       });
 
-      expect(route.request.body?.description).toBe('User data to create');
+      expect(route._meta.body?.description).toBe('User data to create');
     });
   });
 });

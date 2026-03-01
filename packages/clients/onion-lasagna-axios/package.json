@@ -1,6 +1,6 @@
 {
   "name": "@cosmneo/onion-lasagna-axios",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Axios adapter for onion-lasagna client",
   "type": "module",
   "license": "MIT",

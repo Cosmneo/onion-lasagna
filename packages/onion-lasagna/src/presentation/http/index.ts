@@ -1,5 +1,5 @@
 /**
- * @fileoverview Unified Route System
+ * @fileoverview Unified Route System (v2 — flat API)
  *
  * A comprehensive system for defining routes that powers:
  * - Type-safe client generation
@@ -12,7 +12,7 @@
  * ```typescript
  * // 1. Define schemas (in infra layer)
  * import { z } from 'zod';
- * import { zodSchema } from '@cosmneo/onion-lasagna/http/schema/zod';
+ * import { zodSchema } from '@cosmneo/onion-lasagna-zod';
  *
  * const userSchema = zodSchema(z.object({
  *   id: z.string().uuid(),
@@ -20,16 +20,13 @@
  *   email: z.string().email(),
  * }));
  *
- * // 2. Define routes
+ * // 2. Define routes (flat API)
  * import { defineRoute, defineRouter } from '@cosmneo/onion-lasagna/http';
  *
  * const getUser = defineRoute({
  *   method: 'GET',
  *   path: '/api/users/:userId',
- *   responses: {
- *     200: { description: 'User found', schema: userSchema },
- *     404: { description: 'User not found' },
- *   },
+ *   response: userSchema,
  *   docs: { summary: 'Get a user by ID', tags: ['Users'] },
  * });
  *
@@ -47,13 +44,11 @@
  * import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
  *
  * const routes = serverRoutes(api)
- *   .handle('users.get', {
- *     handler: async (req) => {
- *       const user = await db.users.findById(req.pathParams.userId);
- *       return user
- *         ? { status: 200, body: user }
- *         : { status: 404, body: { error: 'Not found' } };
- *     },
+ *   .handle('users.get', async (req) => {
+ *     const user = await db.users.findById(req.pathParams.userId);
+ *     return user
+ *       ? { status: 200, body: user }
+ *       : { status: 404, body: { error: 'Not found' } };
  *   })
  *   .build();
  *
@@ -73,6 +68,7 @@
 export { defineRoute } from './route/define-route';
 export { defineRouter, mergeRouters } from './route/define-router';
 export type { DefineRouterOptions } from './route/define-router';
+export { generateOperationId } from './route/utils';
 
 // Route types
 export type {
@@ -83,13 +79,6 @@ export type {
   HasPathParams,
   ExtractPathParamNames,
   RouteDefinition,
-  RouteDefinitionInput,
-  RequestBodyConfig,
-  QueryParamsConfig,
-  PathParamsConfig,
-  HeadersConfig,
-  ResponseConfig,
-  ResponsesConfig,
   RouteDocumentation,
   RouterConfig,
   RouterDefinition,
@@ -104,8 +93,8 @@ export type {
   InferRouteQuery,
   InferRoutePathParams,
   InferRouteHeaders,
+  InferRouteContext,
   InferRouteResponse,
-  InferRouteSuccessResponse,
   InferRouteMethod,
   InferRoutePath,
 } from './route/types';
@@ -145,10 +134,6 @@ export {
   createRejectingAdapter,
 } from './schema/types';
 
-// Schema adapters are exported from submodules:
-// - @cosmneo/onion-lasagna/http/schema/zod
-// - @cosmneo/onion-lasagna/http/schema/typebox
-
 // ============================================================================
 // Server
 // ============================================================================
@@ -162,6 +147,7 @@ export type {
 export type {
   UseCasePort,
   ValidatedRequest,
+  TypedContext,
   HandlerContext,
   HandlerResponse,
   RouteHandlerConfig,
@@ -185,3 +171,21 @@ export type {
   OpenAPISecurityScheme,
   OpenAPITag,
 } from './openapi/types';
+
+// ============================================================================
+// Shared (Error Mapping)
+// ============================================================================
+
+export {
+  mapErrorToHttpResponse,
+  getHttpStatusCode,
+  shouldMaskError,
+  createErrorResponseBody,
+  isErrorType,
+  hasValidationErrors,
+} from './shared/error-mapping';
+export type {
+  ErrorItem,
+  ErrorResponseBody,
+  MappedErrorResponse,
+} from './shared/types';

@@ -100,10 +100,10 @@ describe('defineRouter', () => {
         {
           list: listUsersRoute,
         },
-        { tags: ['Users', 'Admin'] },
+        { defaults: { tags: ['Users', 'Admin'] } },
       );
 
-      expect(router.tags).toEqual(['Users', 'Admin']);
+      expect(router.defaults?.tags).toEqual(['Users', 'Admin']);
     });
 
     it('sets both basePath and tags', () => {
@@ -113,12 +113,12 @@ describe('defineRouter', () => {
         },
         {
           basePath: '/admin',
-          tags: ['Admin'],
+          defaults: { tags: ['Admin'] },
         },
       );
 
       expect(router.basePath).toBe('/admin');
-      expect(router.tags).toEqual(['Admin']);
+      expect(router.defaults?.tags).toEqual(['Admin']);
     });
 
     it('has undefined options when not provided', () => {
@@ -127,7 +127,7 @@ describe('defineRouter', () => {
       });
 
       expect(router.basePath).toBeUndefined();
-      expect(router.tags).toBeUndefined();
+      expect(router.defaults).toBeUndefined();
     });
   });
 

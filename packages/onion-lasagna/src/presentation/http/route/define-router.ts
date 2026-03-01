@@ -2,13 +2,19 @@
  * @fileoverview Factory function for creating router definitions.
  *
  * The `defineRouter` function groups routes into a hierarchical structure
- * that enables organized API clients, OpenAPI tag grouping, and structured
- * server route registration.
+ * with optional router-level defaults for context and tags.
  *
  * @module unified/route/define-router
  */
 
-import type { RouterConfig, RouterDefinition, DeepMergeTwo, DeepMergeAll } from './types';
+import type {
+  RouterConfig,
+  RouterDefaults,
+  RouterDefinition,
+  RouteDefinition,
+  DeepMergeTwo,
+  DeepMergeAll,
+} from './types';
 import { isRouteDefinition, isRouterDefinition } from './types';
 
 /**
@@ -18,19 +24,26 @@ export interface DefineRouterOptions {
   /**
    * Base path prefix for all routes in this router.
    * Will be prepended to all route paths.
-   *
-   * @example
-   * ```typescript
-   * defineRouter({ ... }, { basePath: '/api/v1' })
-   * ```
    */
   readonly basePath?: string;
 
   /**
-   * Default tags for all routes in this router.
-   * Will be merged with route-specific tags.
+   * Default values applied to all child routes.
+   *
+   * @example
+   * ```typescript
+   * defineRouter({
+   *   list: listUsersRoute,
+   *   get: getUserRoute,
+   * }, {
+   *   defaults: {
+   *     context: zodSchema(executionContextSchema),
+   *     tags: ['Users'],
+   *   },
+   * })
+   * ```
    */
-  readonly tags?: readonly string[];
+  readonly defaults?: RouterDefaults;
 }
 
 /**
@@ -40,7 +53,7 @@ export interface DefineRouterOptions {
  * - Organized API structure with nested namespaces
  * - Typed client method generation
  * - OpenAPI tag grouping
- * - Server route registration
+ * - Router-level defaults for context and tags
  *
  * @param routes - Object containing routes and nested routers
  * @param options - Optional router configuration
@@ -48,80 +61,45 @@ export interface DefineRouterOptions {
  *
  * @example Basic router
  * ```typescript
- * import { defineRouter } from '@cosmneo/onion-lasagna/http';
- *
  * const api = defineRouter({
  *   users: {
  *     list: listUsersRoute,
  *     get: getUserRoute,
  *     create: createUserRoute,
- *     update: updateUserRoute,
- *     delete: deleteUserRoute,
- *   },
- *   posts: {
- *     list: listPostsRoute,
- *     get: getPostRoute,
- *     create: createPostRoute,
  *   },
  * });
- *
- * // Client usage:
- * // client.users.list({ query: { page: 1 } })
- * // client.users.get({ params: { id: '123' } })
- * // client.posts.create({ body: { title: 'Hello' } })
  * ```
  *
- * @example Nested routers
+ * @example With router-level defaults
  * ```typescript
- * const projectRouter = defineRouter({
- *   list: listProjectsRoute,
- *   get: getProjectRoute,
- *   tasks: {
- *     list: listTasksRoute,
- *     create: createTaskRoute,
- *     update: updateTaskRoute,
- *   },
- *   members: {
- *     list: listMembersRoute,
- *     add: addMemberRoute,
- *     remove: removeMemberRoute,
- *   },
- * });
- *
  * const api = defineRouter({
- *   projects: projectRouter.routes,
- *   users: userRouter.routes,
- * });
- *
- * // Client usage:
- * // client.projects.tasks.create({ params: { projectId: '123' }, body: { ... } })
- * ```
- *
- * @example With base path and tags
- * ```typescript
- * const adminApi = defineRouter({
- *   users: {
- *     list: listUsersRoute,
- *     ban: banUserRoute,
- *   },
- *   analytics: {
- *     dashboard: getDashboardRoute,
- *     reports: getReportsRoute,
- *   },
+ *   list: listUsersRoute,
+ *   get: getUserRoute,
  * }, {
- *   basePath: '/admin',
- *   tags: ['Admin'],
+ *   basePath: '/api/v1',
+ *   defaults: {
+ *     context: zodSchema(executionContextSchema),
+ *     tags: ['Users'],
+ *   },
  * });
+ * // Context is applied to all routes that don't define their own.
+ * // Tags are merged with each route's existing tags.
  * ```
  */
 export function defineRouter<T extends RouterConfig>(
   routes: T,
   options?: DefineRouterOptions,
 ): RouterDefinition<T> {
+  const defaults = options?.defaults;
+
+  // Apply defaults to routes if context or tags are provided
+  const processedRoutes =
+    defaults?.context || defaults?.tags ? (applyRouterDefaults(routes, defaults) as T) : routes;
+
   const definition: RouterDefinition<T> = {
-    routes,
+    routes: processedRoutes,
     basePath: options?.basePath,
-    tags: options?.tags,
+    defaults,
     _isRouter: true,
   };
 
@@ -130,13 +108,78 @@ export function defineRouter<T extends RouterConfig>(
 }
 
 /**
+ * Recursively applies router-level defaults to all routes in the tree.
+ */
+function applyRouterDefaults(routes: RouterConfig, defaults: RouterDefaults): RouterConfig {
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(routes)) {
+    if (isRouteDefinition(value)) {
+      result[key] = applyDefaultsToRoute(value, defaults);
+    } else if (isRouterDefinition(value)) {
+      result[key] = {
+        ...value,
+        routes: applyRouterDefaults(value.routes, defaults),
+      };
+    } else if (typeof value === 'object' && value !== null) {
+      result[key] = applyRouterDefaults(value as RouterConfig, defaults);
+    }
+  }
+
+  return result as RouterConfig;
+}
+
+/**
+ * Applies router-level defaults to a single route definition.
+ */
+function applyDefaultsToRoute(
+  route: RouteDefinition,
+  defaults: RouterDefaults,
+): RouteDefinition {
+  const needsContext = defaults.context && !route.request.context;
+  const needsTags = defaults.tags && defaults.tags.length > 0;
+
+  if (!needsContext && !needsTags) return route;
+
+  return Object.freeze({
+    ...route,
+    request: {
+      ...route.request,
+      context: route.request.context ?? defaults.context ?? undefined,
+    },
+    docs: {
+      ...route.docs,
+      tags: mergeTags(defaults.tags, route.docs.tags),
+    },
+  }) as RouteDefinition;
+}
+
+/**
+ * Merges router-level tags with route-level tags, avoiding duplicates.
+ */
+function mergeTags(
+  routerTags?: readonly string[],
+  routeTags?: readonly string[],
+): readonly string[] | undefined {
+  if (!routerTags || routerTags.length === 0) return routeTags;
+  if (!routeTags || routeTags.length === 0) return routerTags;
+
+  // Merge, preserving order: router tags first, then route-specific tags (no duplicates)
+  const merged = [...routerTags];
+  for (const tag of routeTags) {
+    if (!merged.includes(tag)) {
+      merged.push(tag);
+    }
+  }
+  return merged;
+}
+
+/**
  * Deep freezes an object and all its nested objects.
  */
 function deepFreeze<T extends object>(obj: T): T {
-  // Get all property names
   const propNames = Object.getOwnPropertyNames(obj) as (keyof T)[];
 
-  // Freeze properties before freezing self
   for (const name of propNames) {
     const value = obj[name];
     if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -187,23 +230,6 @@ function deepMergeConfigs(a: RouterConfig, b: RouterConfig): RouterConfig {
 }
 
 // Overloads for 2–8 routers (clean IDE experience)
-
-/**
- * Merges multiple routers into a single router with deep merge.
- *
- * Overlapping sub-router keys are recursively merged instead of overwritten.
- * Leaf routes (RouteDefinition) use last-one-wins semantics.
- *
- * @example
- * ```typescript
- * const api = mergeRouters(
- *   userRouter,
- *   organizationRouter,
- *   feedbackRouter,
- * );
- * // If all three define `users`, their sub-routes are deep-merged.
- * ```
- */
 export function mergeRouters<T1 extends RouterConfig, T2 extends RouterConfig>(
   r1: RouterInput<T1>,
   r2: RouterInput<T2>,

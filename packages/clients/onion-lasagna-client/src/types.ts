@@ -1,5 +1,5 @@
 /**
- * @fileoverview Type definitions for the mock client.
+ * @fileoverview Type definitions for the mock client (v2 — flat API).
  *
  * Provides types for creating in-memory mock clients that mirror
  * the shape of `createClient` for use in tests.
@@ -10,8 +10,6 @@
 import type {
   RouteDefinition,
   RouterConfig,
-  ResponsesConfig,
-  ResponseConfig,
   HasPathParams,
   PathParams,
   PrettifyDeep,
@@ -37,27 +35,11 @@ export type MockRequestInput<TRoute extends RouteDefinition> = PrettifyDeep<
 >;
 
 /**
- * Response type extraction (first 2xx response).
- * Uses structural matching on schema's _output phantom property.
+ * Response type extraction.
+ * Reads the response type directly from the route's `_types.response`.
  */
-type ExtractSuccessResponse<T extends ResponsesConfig> = T extends {
-  200: { schema: { _output: infer TBody } };
-}
-  ? TBody
-  : T extends { 201: { schema: { _output: infer TBody } } }
-    ? TBody
-    : T extends { 202: { schema: { _output: infer TBody } } }
-      ? TBody
-      : T extends { 204: ResponseConfig }
-        ? void // eslint-disable-line @typescript-eslint/no-invalid-void-type -- void is semantically correct for 204 No Content
-        : unknown;
-
-/**
- * Response from a mock handler.
- */
-export type MockResponse<TRoute extends RouteDefinition> = ExtractSuccessResponse<
-  TRoute['responses']
->;
+export type MockResponse<TRoute extends RouteDefinition> =
+  TRoute['_types']['response'] extends undefined ? void : TRoute['_types']['response'];
 
 // ============================================================================
 // Handler Types

@@ -15,22 +15,20 @@ export {
 } from './path-params.type';
 
 export type {
-  // Request types
-  RequestBodyConfig,
-  QueryParamsConfig,
-  PathParamsConfig,
-  HeadersConfig,
-  ContextConfig,
-  RequestConfig,
+  // Schema field metadata
+  SchemaFieldConfig,
+  SchemaFieldInput,
+  RouteFieldMeta,
   // Response types
-  ResponseConfig,
-  ResponsesConfig,
+  ResponseFieldConfig,
+  ResponsesDefinition,
+  ExtractSuccessSchema,
   // Documentation types
   SecurityRequirement,
   ExternalDocs,
   RouteDocumentation,
   // Route definition types
-  RouteDefinitionInput,
+  RouteRequestDefinition,
   RouteDefinition,
   // Inference helpers
   InferRouteBody,
@@ -39,7 +37,6 @@ export type {
   InferRouteHeaders,
   InferRouteContext,
   InferRouteResponse,
-  InferRouteSuccessResponse,
   InferRouteMethod,
   InferRoutePath,
 } from './route-definition.type';
@@ -47,6 +44,7 @@ export type {
 export type {
   RouterEntry,
   RouterConfig,
+  RouterDefaults,
   RouterDefinition,
   FlattenRouter,
   RouterKeys,

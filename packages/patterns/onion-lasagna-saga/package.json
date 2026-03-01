@@ -1,6 +1,6 @@
 {
   "name": "@cosmneo/onion-lasagna-saga",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Saga pattern implementation with retry, compensation, timeout, and abort support for onion-lasagna",
   "type": "module",
   "license": "MIT",

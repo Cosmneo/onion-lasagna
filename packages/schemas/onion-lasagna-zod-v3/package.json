@@ -1,6 +1,6 @@
 {
   "name": "@cosmneo/onion-lasagna-zod-v3",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Zod v3 schema adapter for onion-lasagna",
   "type": "module",
   "license": "MIT",
@@ -27,7 +27,7 @@
   "peerDependencies": {
     "zod": "^3.20.0",
     "zod-to-json-schema": "^3.22.0",
-    "@cosmneo/onion-lasagna": ">=0.2.0"
+    "@cosmneo/onion-lasagna": ">=0.2.1"
   },
   "scripts": {
     "build": "tsup",

@@ -81,7 +81,7 @@
     },
     "packages/clients/onion-lasagna-axios": {
       "name": "@cosmneo/onion-lasagna-axios",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "axios": "^1",
         "tsup": "^8.5.1",
@@ -93,7 +93,7 @@
     },
     "packages/clients/onion-lasagna-client": {
       "name": "@cosmneo/onion-lasagna-client",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@cosmneo/onion-lasagna-zod": "workspace:*",
@@ -102,12 +102,12 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
       },
     },
     "packages/clients/onion-lasagna-react-query": {
       "name": "@cosmneo/onion-lasagna-react-query",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@cosmneo/onion-lasagna-client": "workspace:*",
@@ -120,15 +120,15 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
-        "@cosmneo/onion-lasagna-client": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
+        "@cosmneo/onion-lasagna-client": ">=0.2.1",
         "@tanstack/react-query": "^5",
         "react": "^18 || ^19",
       },
     },
     "packages/clients/onion-lasagna-svelte-query": {
       "name": "@cosmneo/onion-lasagna-svelte-query",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@cosmneo/onion-lasagna-client": "workspace:*",
@@ -140,15 +140,15 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
-        "@cosmneo/onion-lasagna-client": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
+        "@cosmneo/onion-lasagna-client": ">=0.2.1",
         "@tanstack/svelte-query": "^5",
         "svelte": "^4 || ^5",
       },
     },
     "packages/clients/onion-lasagna-swr": {
       "name": "@cosmneo/onion-lasagna-swr",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@cosmneo/onion-lasagna-client": "workspace:*",
@@ -161,15 +161,15 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
-        "@cosmneo/onion-lasagna-client": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
+        "@cosmneo/onion-lasagna-client": ">=0.2.1",
         "react": "^18 || ^19",
         "swr": "^2",
       },
     },
     "packages/clients/onion-lasagna-vue-query": {
       "name": "@cosmneo/onion-lasagna-vue-query",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@cosmneo/onion-lasagna-client": "workspace:*",
@@ -181,15 +181,15 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
-        "@cosmneo/onion-lasagna-client": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
+        "@cosmneo/onion-lasagna-client": ">=0.2.1",
         "@tanstack/vue-query": "^5",
         "vue": "^3",
       },
     },
     "packages/onion-lasagna": {
       "name": "@cosmneo/onion-lasagna",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@types/node": "^25.0.3",
         "@vitest/coverage-v8": "^4.0.16",
@@ -205,7 +205,7 @@
     },
     "packages/patterns/onion-lasagna-saga": {
       "name": "@cosmneo/onion-lasagna-saga",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "tsup": "^8.5.1",
         "typescript": "^5.7.0",
@@ -214,7 +214,7 @@
     },
     "packages/schemas/onion-lasagna-arktype": {
       "name": "@cosmneo/onion-lasagna-arktype",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "arktype": "2.1.29",
@@ -222,13 +222,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
         "arktype": "^2.0.0",
       },
     },
     "packages/schemas/onion-lasagna-typebox": {
       "name": "@cosmneo/onion-lasagna-typebox",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@sinclair/typebox": "^0.34.41",
@@ -236,13 +236,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
         "@sinclair/typebox": "^0.34.41",
       },
     },
     "packages/schemas/onion-lasagna-valibot": {
       "name": "@cosmneo/onion-lasagna-valibot",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@valibot/to-json-schema": "1.5.0",
@@ -251,14 +251,14 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
         "@valibot/to-json-schema": "^1.0.0",
         "valibot": "^1.0.0",
       },
     },
     "packages/schemas/onion-lasagna-zod": {
       "name": "@cosmneo/onion-lasagna-zod",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "tsup": "^8.5.1",
@@ -266,13 +266,13 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
         "zod": "^4.2.1",
       },
     },
     "packages/schemas/onion-lasagna-zod-v3": {
       "name": "@cosmneo/onion-lasagna-zod-v3",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "tsup": "^8.5.1",
@@ -281,14 +281,14 @@
         "zod-to-json-schema": "3.24.5",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
         "zod": "^3.20.0",
         "zod-to-json-schema": "^3.22.0",
       },
     },
     "packages/servers/onion-lasagna-elysia": {
       "name": "@cosmneo/onion-lasagna-elysia",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "elysia": "^1.2",
@@ -296,13 +296,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
         "elysia": "^1.2",
       },
     },
     "packages/servers/onion-lasagna-express": {
       "name": "@cosmneo/onion-lasagna-express",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@types/express": "^5.0.3",
@@ -313,13 +313,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
         "express": "^5",
       },
     },
     "packages/servers/onion-lasagna-fastify": {
       "name": "@cosmneo/onion-lasagna-fastify",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "fastify": "^5",
@@ -327,13 +327,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
         "fastify": "^5",
       },
     },
     "packages/servers/onion-lasagna-hono": {
       "name": "@cosmneo/onion-lasagna-hono",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "hono": "^4",
@@ -341,13 +341,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
         "hono": "^4",
       },
     },
     "packages/servers/onion-lasagna-nestjs": {
       "name": "@cosmneo/onion-lasagna-nestjs",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@nestjs/common": "^11.1.10",
@@ -363,7 +363,7 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.2.0",
+        "@cosmneo/onion-lasagna": ">=0.2.1",
         "@nestjs/common": "^11.1.10",
         "@nestjs/core": "^11.1.10",
       },

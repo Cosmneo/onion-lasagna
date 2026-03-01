@@ -1,5 +1,5 @@
 /**
- * @fileoverview Client types for the unified route system.
+ * @fileoverview Client types for the unified route system (v2 — flat API).
  *
  * @module unified/client/types
  */
@@ -7,8 +7,6 @@
 import type {
   RouteDefinition,
   RouterConfig,
-  ResponsesConfig,
-  ResponseConfig,
   PathParams,
   HasPathParams,
   PrettifyDeep,
@@ -153,29 +151,10 @@ export type ClientRequestInput<TRoute extends RouteDefinition> = PrettifyDeep<
 
 /**
  * Response from a client request.
- * Returns the successful response body type.
+ * Reads the response type directly from the route's `_types.response`.
  */
-export type ClientResponse<TRoute extends RouteDefinition> = ExtractSuccessResponse<
-  TRoute['responses']
->;
-
-/**
- * Extracts the success response type from responses config.
- *
- * Uses structural matching on the schema's _output phantom property to avoid
- * type identity issues when SchemaAdapter is imported from different paths.
- */
-type ExtractSuccessResponse<T extends ResponsesConfig> = T extends {
-  200: { schema: { _output: infer TBody } };
-}
-  ? TBody
-  : T extends { 201: { schema: { _output: infer TBody } } }
-    ? TBody
-    : T extends { 202: { schema: { _output: infer TBody } } }
-      ? TBody
-      : T extends { 204: ResponseConfig }
-        ? void // eslint-disable-line @typescript-eslint/no-invalid-void-type -- void is semantically correct for 204 No Content
-        : unknown;
+export type ClientResponse<TRoute extends RouteDefinition> =
+  TRoute['_types']['response'] extends undefined ? void : TRoute['_types']['response'];
 
 // ============================================================================
 // Client Types

@@ -1,6 +1,6 @@
 {
   "name": "@cosmneo/onion-lasagna-nestjs",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "NestJS adapter for onion-lasagna unified routes.",
   "type": "module",
   "license": "MIT",
@@ -34,7 +34,7 @@
   "peerDependencies": {
     "@nestjs/common": "^11.1.10",
     "@nestjs/core": "^11.1.10",
-    "@cosmneo/onion-lasagna": ">=0.2.0"
+    "@cosmneo/onion-lasagna": ">=0.2.1"
   },
   "scripts": {
     "build": "tsup",

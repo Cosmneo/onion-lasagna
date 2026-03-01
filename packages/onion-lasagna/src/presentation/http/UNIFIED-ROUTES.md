@@ -21,15 +21,15 @@ The unified route system solves a common problem: maintaining consistency betwee
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Route Definition                         │
-│  ┌────────────────────────────────────────────────────-─┐   │
-│  │  defineRoute({                                       │   │
-│  │    method: 'POST',                                   │   │
-│  │    path: '/api/projects',                            │   │
-│  │    request: { body: projectSchema },                 │   │
-│  │    responses: { 201: { schema: projectResponse } }   │   │
-│  │  })                                                  │   │
-│  └─────────────────────────────────────────────────-────┘   │
+│                    Route Definition                          │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │  defineRoute({                                        │  │
+│  │    method: 'POST',                                    │  │
+│  │    path: '/api/projects',                             │  │
+│  │    request: { body: projectSchema },                  │  │
+│  │    responses: { 201: { schema: projectResponse } }    │  │
+│  │  })                                                   │  │
+│  └────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
                               │
           ┌───────────────────┼───────────────────┐
@@ -54,19 +54,28 @@ The unified route system solves a common problem: maintaining consistency betwee
 
 ## Schema Adapters
 
-Schema adapters wrap validation libraries (Zod, TypeBox) to provide:
+Schema adapters wrap validation libraries to provide:
 
 - **Runtime validation** via `validate(data)`
 - **JSON Schema conversion** via `toJsonSchema()`
 - **Type inference** via phantom types `_output` and `_input`
 
+Each schema adapter is a **separate package**:
+
+| Library | Package                          | Adapter Function  |
+| ------- | -------------------------------- | ----------------- |
+| Zod v4  | `@cosmneo/onion-lasagna-zod`     | `zodSchema()`     |
+| Zod v3  | `@cosmneo/onion-lasagna-zod-v3`  | `zodSchema()`     |
+| TypeBox | `@cosmneo/onion-lasagna-typebox` | `typeboxSchema()` |
+| Valibot | `@cosmneo/onion-lasagna-valibot` | `valibotSchema()` |
+| ArkType | `@cosmneo/onion-lasagna-arktype` | `arktypeSchema()` |
+
 ### Zod Adapter
 
 ```typescript
 import { z } from 'zod';
-import { zodSchema } from '@cosmneo/onion-lasagna/http/schema/zod';
+import { zodSchema } from '@cosmneo/onion-lasagna-zod';
 
-// Wrap a Zod schema
 const createProjectSchema = zodSchema(
   z.object({
     name: z.string().min(1).max(100).describe('Project name'),
@@ -89,22 +98,13 @@ if (result.success) {
 
 // JSON Schema for OpenAPI
 const jsonSchema = createProjectSchema.toJsonSchema();
-// {
-//   type: 'object',
-//   properties: {
-//     name: { type: 'string', minLength: 1, maxLength: 100, description: 'Project name' },
-//     description: { type: 'string', description: 'Project description' },
-//     priority: { type: 'string', enum: ['low', 'medium', 'high'], default: 'medium' }
-//   },
-//   required: ['name']
-// }
 ```
 
 ### TypeBox Adapter
 
 ```typescript
 import { Type } from '@sinclair/typebox';
-import { typeboxSchema } from '@cosmneo/onion-lasagna/http/schema/typebox';
+import { typeboxSchema } from '@cosmneo/onion-lasagna-typebox';
 
 const createProjectSchema = typeboxSchema(
   Type.Object({
@@ -119,7 +119,7 @@ const createProjectSchema = typeboxSchema(
 
 ### Where Schemas Live
 
-**Important**: Schemas are defined in your bounded context's infrastructure layer, not inline in route definitions:
+Schemas are defined in your bounded context's infrastructure layer, not inline in route definitions:
 
 ```
 bounded-contexts/
@@ -135,7 +135,7 @@ bounded-contexts/
 ```typescript
 // infra/schemas/project.schema.ts
 import { z } from 'zod';
-import { zodSchema } from '@cosmneo/onion-lasagna/http/schema/zod';
+import { zodSchema } from '@cosmneo/onion-lasagna-zod';
 
 export const createProjectBodySchema = zodSchema(
   z.object({
@@ -162,50 +162,90 @@ export type ProjectResponse = typeof projectResponseSchema._output;
 
 ## Defining Routes
 
-A route definition captures everything about an endpoint:
+A route definition captures everything about an endpoint. The `defineRoute` function accepts `SchemaFieldInput` for each schema field — either a **bare schema** or an **object with metadata**:
 
 ```typescript
 import { defineRoute } from '@cosmneo/onion-lasagna/http/route';
 import {
   createProjectBodySchema,
   projectResponseSchema,
-  validationErrorSchema,
 } from '../infra/schemas/project.schema';
 
 export const createProjectRoute = defineRoute({
-  // HTTP method
   method: 'POST',
-
-  // Path with optional parameters (e.g., '/projects/:projectId')
   path: '/api/projects',
 
-  // Request schemas
+  // Request schemas grouped under `request`
   request: {
+    // Bare schema (most common)
     body: createProjectBodySchema,
+
+    // Or with metadata for OpenAPI
+    // body: {
+    //   schema: createProjectBodySchema,
+    //   description: 'Project data to create',
+    //   contentType: 'application/json',
+    //   required: true,
+    // },
+
     // query: queryParamsSchema,    // Optional
     // params: pathParamsSchema,    // Optional (for :param validation)
     // headers: headersSchema,      // Optional
+    // context: contextSchema,      // Optional (e.g., JWT payload)
   },
 
-  // Response schemas (for OpenAPI documentation)
+  // Per-status response definitions (for OpenAPI and type inference)
   responses: {
     201: {
       description: 'Project created successfully',
       schema: projectResponseSchema,
     },
-    400: {
-      description: 'Validation error',
-      schema: validationErrorSchema,
-    },
+    400: { description: 'Validation error' },
   },
 
-  // Documentation metadata
+  // Documentation metadata (optional)
   docs: {
-    operationId: 'createProject',
     summary: 'Create a new project',
     description: 'Creates a new project with the given name and description.',
     tags: ['Projects'],
+    operationId: 'createProject', // Auto-generated from router key if omitted
     deprecated: false,
+  },
+});
+```
+
+### SchemaFieldInput
+
+Each schema field (`body`, `query`, `params`, `headers`, `context`) accepts a `SchemaFieldInput` — either a bare `SchemaAdapter` or a `SchemaFieldConfig` object:
+
+```typescript
+// Bare schema (common case — just the adapter)
+body: zodSchema(z.object({ name: z.string() }))
+
+// With metadata (for OpenAPI enrichment)
+body: {
+  schema: zodSchema(z.object({ name: z.string() })),
+  description: 'The user to create',     // OpenAPI description
+  contentType: 'application/json',        // Content type (body only)
+  required: true,                         // Whether required (body only)
+}
+```
+
+Internally, the schema is extracted to `route.request.body` (the `SchemaAdapter` directly) and metadata is stored in `route._meta.body`.
+
+### Response Type Inference
+
+The success response type is inferred from the first 2xx status with a `schema`, cascading through `200 → 201 → 202 → 204`:
+
+```typescript
+// Response type inferred as ProjectResponse (from 201 schema)
+const route = defineRoute({
+  method: 'POST',
+  path: '/projects',
+  request: { body: createProjectBodySchema },
+  responses: {
+    201: { schema: projectResponseSchema, description: 'Created' },
+    400: { description: 'Bad Request' },
   },
 });
 ```
@@ -217,24 +257,15 @@ Path parameters are automatically extracted from the path pattern:
 ```typescript
 const getProjectRoute = defineRoute({
   method: 'GET',
-  path: '/api/projects/:projectId', // :projectId is extracted
+  path: '/api/projects/:projectId',
   request: {
-    // Optional: validate path params
-    params: zodSchema(
-      z.object({
-        projectId: z.string().uuid(),
-      }),
-    ),
+    params: zodSchema(z.object({ projectId: z.string().uuid() })),
   },
   responses: {
     200: { description: 'Project found', schema: projectResponseSchema },
     404: { description: 'Project not found' },
   },
-  docs: {
-    operationId: 'getProject',
-    summary: 'Get project by ID',
-    tags: ['Projects'],
-  },
+  docs: { summary: 'Get project by ID', tags: ['Projects'] },
 });
 
 // TypeScript knows: pathParams: { projectId: string }
@@ -257,17 +288,20 @@ const listProjectsRoute = defineRoute({
     ),
   },
   responses: {
-    200: {
-      description: 'List of projects',
-      schema: projectListResponseSchema,
-    },
+    200: { description: 'List of projects', schema: projectListResponseSchema },
   },
-  docs: {
-    operationId: 'listProjects',
-    summary: 'List all projects',
-    tags: ['Projects'],
-  },
+  docs: { summary: 'List all projects', tags: ['Projects'] },
 });
+```
+
+### Auto-Generated operationId
+
+When `docs.operationId` is not specified, it is auto-generated from the router key path:
+
+```typescript
+// "users.list"      → "usersList"
+// "projects.create" → "projectsCreate"
+// "org.members.get" → "orgMembersGet"
 ```
 
 ---
@@ -294,16 +328,39 @@ export const projectManagementRouter = defineRouter({
     update: updateTaskRoute,
   },
 });
+```
 
-// Type is inferred as:
-// {
-//   projects: {
-//     create: RouteDefinition<...>,
-//     list: RouteDefinition<...>,
-//     ...
-//   },
-//   tasks: { ... }
-// }
+### Router Options
+
+```typescript
+const api = defineRouter(
+  {
+    list: listUsersRoute,
+    get: getUserRoute,
+  },
+  {
+    basePath: '/api/v1',
+    defaults: {
+      context: zodSchema(executionContextSchema), // Applied to routes without own context
+      tags: ['Users'],                            // Merged into each route's docs.tags
+    },
+  },
+);
+```
+
+### Router Composition with `mergeRouters`
+
+Combine multiple routers (supports 2–8+ routers with deep merge):
+
+```typescript
+import { mergeRouters } from '@cosmneo/onion-lasagna/http/route';
+
+const api = mergeRouters(
+  { users: usersRouter.routes },
+  { posts: postsRouter.routes },
+  { comments: commentsRouter.routes },
+);
+// Overlapping sub-routers are deep-merged; leaf routes are overwritten.
 ```
 
 ---
@@ -320,11 +377,9 @@ const api = createClient(projectManagementRouter, {
   baseUrl: 'http://localhost:3000',
 
   // Default headers for all requests
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 
-  // Request timeout
+  // Request timeout (ms)
   timeout: 30000,
 
   // Request interceptor (add auth, logging, etc.)
@@ -355,11 +410,11 @@ const api = createClient(projectManagementRouter, {
   },
 });
 
-// Usage - fully typed!
+// Usage — fully typed!
 const project = await api.projects.create({
   body: {
-    name: 'My Project', // ✓ Required, string
-    description: 'Optional', // ✓ Optional, string
+    name: 'My Project',   // ✓ Required, string
+    description: 'Desc',  // ✓ Optional, string
   },
 });
 // project is typed as ProjectResponse
@@ -388,284 +443,138 @@ try {
   });
 } catch (error) {
   if (error instanceof ClientError) {
-    console.log(error.status); // 404
-    console.log(error.statusText); // 'Not Found'
-    console.log(error.body); // Error response body
+    console.log(error.status);        // 404
+    console.log(error.statusText);    // 'Not Found'
+    console.log(error.body);          // Error response body
     console.log(error.isClientError); // true (4xx)
     console.log(error.isServerError); // false (5xx)
   }
 }
 ```
 
+### React Query Hooks
+
+```typescript
+import { createReactQueryHooks } from '@cosmneo/onion-lasagna-react-query';
+import { projectManagementRouter } from './routes';
+
+const { hooks, queryKeys } = createReactQueryHooks(projectManagementRouter, {
+  baseUrl: '/api',
+  onRequest: async (request) => {
+    request.headers.set('Authorization', `Bearer ${token}`);
+    return request;
+  },
+
+  // Prefix for cache key isolation
+  queryKeyPrefix: 'projects-api',
+
+  // Gate all queries on auth session readiness
+  useEnabled: () => {
+    const { isValid } = useValidSession();
+    return isValid;
+  },
+});
+
+// GET/HEAD → useQuery
+const { data, isLoading } = hooks.projects.list.useQuery({ query: { page: 1 } });
+
+// POST/PUT/PATCH/DELETE → useMutation
+const { mutate } = hooks.projects.create.useMutation({
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.projects() }),
+});
+
+// Query keys for cache invalidation
+queryKeys.projects();                              // ['projects-api', 'projects']
+queryKeys.projects.list();                         // ['projects-api', 'projects', 'list']
+queryKeys.projects.get({ pathParams: { id } });    // ['projects-api', 'projects', 'get', ...]
+```
+
 ---
 
 ## Output 2: Server Routes with Auto-Validation
 
-This is where the unified system provides significant value: **automatic request validation** before your handler is called.
+The `serverRoutes()` builder creates validated server routes from your router definition.
+
+### Builder Pattern
+
+```typescript
+import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
+import { projectManagementRouter } from './routes';
+
+const routes = serverRoutes(projectManagementRouter)
+  // Simple handler — receives validated, typed request
+  .handle('projects.list', async (req, ctx) => ({
+    status: 200,
+    body: await projectService.list(req.query),
+  }))
+
+  // Use case pattern — requestMapper → useCase.execute() → responseMapper
+  .handleWithUseCase('projects.create', {
+    requestMapper: (req, ctx) => ({
+      name: req.body.name,
+      createdBy: ctx.userId,
+    }),
+    useCase: createProjectUseCase,
+    responseMapper: (output) => ({
+      status: 201 as const,
+      body: { id: output.id },
+    }),
+  })
+
+  // Simple handler with middleware
+  .handle('projects.get', {
+    handler: async (req) => {
+      const project = await projectService.findById(req.pathParams.projectId);
+      if (!project) throw new NotFoundError({ message: 'Project not found' });
+      return { status: 200, body: project };
+    },
+    middleware: [requireAuth],
+  })
+
+  // .build() — type error if any routes are missing handlers
+  .build();
+
+// .buildPartial() — allows missing handlers (skips them)
+```
 
 ### How Auto-Validation Works
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        HTTP Request Flow                                 │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  1. Raw HTTP Request arrives                                             │
-│     ┌─────────────────────────────────────────────────────────────────┐ │
-│     │ POST /api/projects                                               │ │
-│     │ Content-Type: application/json                                   │ │
-│     │ Authorization: Bearer xxx                                        │ │
-│     │                                                                  │ │
-│     │ { "name": "", "priority": "invalid" }                           │ │
-│     └─────────────────────────────────────────────────────────────────┘ │
-│                              │                                           │
-│                              ▼                                           │
-│  2. createServerRoutes extracts request data                            │
-│     ┌─────────────────────────────────────────────────────────────────┐ │
-│     │ body: { "name": "", "priority": "invalid" }                     │ │
-│     │ query: {}                                                        │ │
-│     │ params: {}                                                       │ │
-│     │ headers: { authorization: "Bearer xxx", ... }                   │ │
-│     └─────────────────────────────────────────────────────────────────┘ │
-│                              │                                           │
-│                              ▼                                           │
-│  3. Validate EACH part against its schema                               │
-│     ┌─────────────────────────────────────────────────────────────────┐ │
-│     │ body validation:                                                 │ │
-│     │   ✗ name: String must contain at least 1 character(s)           │ │
-│     │   ✗ priority: Invalid enum value                                │ │
-│     │                                                                  │ │
-│     │ query validation: (no schema defined, skip)                      │ │
-│     │ params validation: (no schema defined, skip)                     │ │
-│     │ headers validation: (no schema defined, skip)                    │ │
-│     └─────────────────────────────────────────────────────────────────┘ │
-│                              │                                           │
-│                              ▼                                           │
-│  4a. Validation FAILED → Return 400 immediately                        │
-│     ┌─────────────────────────────────────────────────────────────────┐ │
-│     │ HTTP 400 Bad Request                                             │ │
-│     │ {                                                                │ │
-│     │   "success": false,                                              │ │
-│     │   "error": {                                                     │ │
-│     │     "code": "VALIDATION_ERROR",                                  │ │
-│     │     "message": "Request validation failed",                      │ │
-│     │     "details": [                                                 │ │
-│     │       { "path": "body.name", "message": "..." },                │ │
-│     │       { "path": "body.priority", "message": "..." }             │ │
-│     │     ]                                                            │ │
-│     │   }                                                              │ │
-│     │ }                                                                │ │
-│     └─────────────────────────────────────────────────────────────────┘ │
-│                                                                          │
-│  4b. Validation PASSED → Call your handler with typed data             │
-│     ┌─────────────────────────────────────────────────────────────────┐ │
-│     │ handler(validatedRequest, context) {                            │ │
-│     │   // validatedRequest.body is typed as CreateProjectBody        │ │
-│     │   // validatedRequest.query is typed as ListQueryParams         │ │
-│     │   // validatedRequest.pathParams is typed as { projectId: ... } │ │
-│     │   // All data is GUARANTEED to match the schema                 │ │
-│     │ }                                                                │ │
-│     └─────────────────────────────────────────────────────────────────┘ │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+  1. Raw HTTP Request arrives
+     ┌──────────────────────────────────────────────┐
+     │ POST /api/projects                           │
+     │ Content-Type: application/json               │
+     │ { "name": "", "priority": "invalid" }        │
+     └──────────────────────────────────────────────┘
+                          │
+                          ▼
+  2. Extract request data into RawHttpRequest
+     ┌──────────────────────────────────────────────┐
+     │ body: { "name": "", "priority": "invalid" }  │
+     │ query: {}                                    │
+     │ params: {}                                   │
+     │ headers: { ... }                             │
+     └──────────────────────────────────────────────┘
+                          │
+                          ▼
+  3. Validate each part against its route schema
+     ┌──────────────────────────────────────────────┐
+     │ route.request.body → validate(rawBody)       │
+     │   ✗ name: too short                          │
+     │   ✗ priority: invalid enum value             │
+     │                                              │
+     │ route.request.query → (no schema, skip)      │
+     │ route.request.params → (no schema, skip)     │
+     │ route.request.headers → (no schema, skip)    │
+     └──────────────────────────────────────────────┘
+                          │
+              ┌───────────┴───────────┐
+              ▼                       ▼
+  4a. FAILED → InvalidRequestError   4b. PASSED → Call handler
+      (400 Bad Request)                  with ValidatedRequest
 ```
 
-### The validateRequest Function (Detailed)
-
-Here's exactly what happens inside `createServerRoutes`:
-
-```typescript
-// This is the internal validation logic (simplified for clarity)
-function validateRequest(route: RouteDefinition, rawRequest: RawHttpRequest) {
-  const errors: ValidationIssue[] = [];
-  const data: ValidatedData = {};
-
-  // 1. BODY VALIDATION
-  if (route.request.body?.schema) {
-    const result = route.request.body.schema.validate(rawRequest.body);
-
-    if (result.success) {
-      data.body = result.data; // Transformed/coerced data
-    } else {
-      // Prefix all error paths with 'body.'
-      errors.push(
-        ...result.issues.map((issue) => ({
-          ...issue,
-          path: ['body', ...issue.path],
-        })),
-      );
-    }
-  }
-
-  // 2. QUERY VALIDATION
-  if (route.request.query?.schema) {
-    // Normalize query (handle arrays, convert types)
-    const queryObj = normalizeQuery(rawRequest.query);
-    const result = route.request.query.schema.validate(queryObj);
-
-    if (result.success) {
-      data.query = result.data; // Coerced numbers, defaults applied
-    } else {
-      errors.push(
-        ...result.issues.map((issue) => ({
-          ...issue,
-          path: ['query', ...issue.path],
-        })),
-      );
-    }
-  }
-
-  // 3. PATH PARAMS VALIDATION
-  if (route.request.params?.schema) {
-    const result = route.request.params.schema.validate(rawRequest.params ?? {});
-
-    if (result.success) {
-      data.pathParams = result.data;
-    } else {
-      errors.push(
-        ...result.issues.map((issue) => ({
-          ...issue,
-          path: ['pathParams', ...issue.path],
-        })),
-      );
-    }
-  } else {
-    // No schema = pass through raw params
-    data.pathParams = rawRequest.params ?? {};
-  }
-
-  // 4. HEADERS VALIDATION
-  if (route.request.headers?.schema) {
-    const headersObj = normalizeHeaders(rawRequest.headers);
-    const result = route.request.headers.schema.validate(headersObj);
-
-    if (result.success) {
-      data.headers = result.data;
-    } else {
-      errors.push(
-        ...result.issues.map((issue) => ({
-          ...issue,
-          path: ['headers', ...issue.path],
-        })),
-      );
-    }
-  }
-
-  // 5. RETURN AGGREGATED RESULT
-  if (errors.length > 0) {
-    return { success: false, errors };
-  }
-
-  return { success: true, data };
-}
-```
-
-### Using createServerRoutes
-
-```typescript
-import { createServerRoutes } from '@cosmneo/onion-lasagna/http/server';
-import { projectManagementRouter } from './routes';
-
-const routes = createServerRoutes(
-  projectManagementRouter,
-  {
-    // Handler for each route (key matches router structure)
-    'projects.create': {
-      handler: async (req, ctx) => {
-        // req.body is GUARANTEED to be valid CreateProjectBody
-        // No manual validation needed!
-
-        const project = await projectService.create({
-          name: req.body.name, // string (validated)
-          description: req.body.description, // string | undefined
-          priority: req.body.priority, // 'low' | 'medium' | 'high'
-          createdBy: ctx.userId,
-        });
-
-        return {
-          status: 201,
-          body: project,
-        };
-      },
-      // Optional: route-specific middleware
-      middleware: [requireAuth],
-    },
-
-    'projects.list': {
-      handler: async (req, ctx) => {
-        // req.query is validated and coerced
-        // z.coerce.number() already converted strings to numbers
-
-        const { page, limit, search, status } = req.query;
-        // page: number (default 1)
-        // limit: number (default 20)
-        // search: string | undefined
-        // status: 'active' | 'archived' | undefined
-
-        const projects = await projectService.list({
-          page,
-          limit,
-          search,
-          status,
-        });
-
-        return {
-          status: 200,
-          body: projects,
-        };
-      },
-    },
-
-    'projects.get': {
-      handler: async (req, ctx) => {
-        // req.pathParams.projectId is validated UUID
-        const project = await projectService.findById(req.pathParams.projectId);
-
-        if (!project) {
-          return {
-            status: 404,
-            body: { error: 'Project not found' },
-          };
-        }
-
-        return {
-          status: 200,
-          body: project,
-        };
-      },
-    },
-  },
-  {
-    // Global options
-
-    // Global middleware (runs before all handlers)
-    middleware: [requestLogger, errorHandler],
-
-    // Custom validation error response
-    onValidationError: (errors) => ({
-      status: 400,
-      body: {
-        success: false,
-        code: 'VALIDATION_ERROR',
-        errors: errors.map((e) => ({
-          field: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }),
-
-    // Custom context factory
-    createContext: (rawRequest) => ({
-      requestId: crypto.randomUUID(),
-      userId: extractUserId(rawRequest),
-      timestamp: new Date(),
-    }),
-  },
-);
-```
+Each schema field on the route (`route.request.body`, `route.request.query`, etc.) is a `SchemaAdapter` directly. The validation pipeline calls `.validate()` on each one.
 
 ### The ValidatedRequest Type
 
@@ -673,19 +582,10 @@ When your handler is called, you receive a `ValidatedRequest` with fully typed p
 
 ```typescript
 interface ValidatedRequest<TRoute extends RouteDefinition> {
-  // Validated and typed body
-  readonly body: TRoute['_types']['body'];
-
-  // Validated and typed query params
-  readonly query: TRoute['_types']['query'];
-
-  // Validated and typed path params
-  readonly pathParams: TRoute['_types']['pathParams'];
-
-  // Validated and typed headers
-  readonly headers: TRoute['_types']['headers'];
-
-  // Raw request for edge cases
+  readonly body: TRoute['_types']['body'];           // Validated body type
+  readonly query: TRoute['_types']['query'];         // Validated query type
+  readonly pathParams: TRoute['_types']['pathParams']; // Validated path params type
+  readonly headers: TRoute['_types']['headers'];     // Validated headers type
   readonly raw: {
     readonly method: string;
     readonly url: string;
@@ -694,34 +594,39 @@ interface ValidatedRequest<TRoute extends RouteDefinition> {
 }
 ```
 
+### HandlerResponse
+
+```typescript
+interface HandlerResponse<TData = unknown> {
+  readonly status: number;
+  readonly body?: TData;
+  readonly headers?: Record<string, string>;
+}
+```
+
 ### Registering with Hono
+
+The `@cosmneo/onion-lasagna-hono` package provides `registerHonoRoutes` and `onionErrorHandler`:
 
 ```typescript
 import { Hono } from 'hono';
-import { registerHonoRoutes } from '@cosmneo/onion-lasagna/backend/frameworks/hono';
+import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna-hono';
 
 const app = new Hono();
 
-// The routes from createServerRoutes are UnifiedRouteInput[]
-// which is compatible with registerHonoRoutes
-for (const route of routes) {
-  const method = route.method.toLowerCase() as 'get' | 'post' | 'put' | 'delete' | 'patch';
+// Global error handler (factory — call it to get the handler)
+app.onError(onionErrorHandler());
 
-  app[method](route.path, async (c) => {
-    const rawRequest = {
-      method: c.req.method,
-      url: c.req.url,
-      headers: Object.fromEntries(c.req.raw.headers),
-      body: await c.req.json().catch(() => undefined),
-      query: Object.fromEntries(new URL(c.req.url).searchParams),
-      params: c.req.param(),
-    };
+// Register all routes from the builder
+registerHonoRoutes(app, routes, {
+  prefix: '/api/v1',          // Optional URL prefix
+  contextExtractor: (c) => ({ // Optional context from Hono's Context
+    requestId: c.get('requestId'),
+    user: c.get('user'),
+  }),
+});
 
-    const response = await route.handler(rawRequest);
-
-    return c.json(response.body, response.status as any);
-  });
-}
+export default app;
 ```
 
 ### Why Auto-Validation Matters
@@ -736,33 +641,21 @@ for (const route of routes) {
 
 ### What About Custom Validation?
 
-The auto-validation handles **request shape validation**. You still handle **business logic validation** in your handler:
+Auto-validation handles **request shape validation**. You still handle **business logic validation** in your handler:
 
 ```typescript
-'projects.create': {
-  handler: async (req, ctx) => {
-    // Schema validation PASSED - data is valid shape
-    // But we still need business validation:
+.handle('projects.create', async (req, ctx) => {
+  // Schema validation PASSED — data is valid shape.
+  // Business validation still needed:
 
-    const existingProject = await projectService.findByName(req.body.name);
-    if (existingProject) {
-      return {
-        status: 409,
-        body: { error: 'Project with this name already exists' },
-      };
-    }
+  const existing = await projectService.findByName(req.body.name);
+  if (existing) {
+    throw new ConflictError({ message: 'Project with this name already exists' });
+  }
 
-    const userQuota = await quotaService.check(ctx.userId);
-    if (userQuota.projectsRemaining <= 0) {
-      return {
-        status: 422,
-        body: { error: 'Project quota exceeded' },
-      };
-    }
-
-    // Now create the project...
-  },
-},
+  const project = await projectService.create(req.body);
+  return { status: 201, body: project };
+})
 ```
 
 ---
@@ -776,51 +669,29 @@ import { generateOpenAPI } from '@cosmneo/onion-lasagna/http/openapi';
 import { projectManagementRouter } from './routes';
 
 const spec = generateOpenAPI(projectManagementRouter, {
-  // Required: API info
   info: {
     title: 'Project Management API',
     version: '1.0.0',
     description: 'API for managing projects and tasks',
-    contact: {
-      name: 'API Support',
-      email: 'support@example.com',
-    },
-    license: {
-      name: 'MIT',
-      url: 'https://opensource.org/licenses/MIT',
-    },
+    contact: { name: 'API Support', email: 'support@example.com' },
+    license: { name: 'MIT', url: 'https://opensource.org/licenses/MIT' },
   },
 
-  // Optional: Server configurations
   servers: [
     { url: 'http://localhost:3000', description: 'Development' },
     { url: 'https://api.example.com', description: 'Production' },
   ],
 
-  // Optional: Security schemes
   securitySchemes: {
-    bearerAuth: {
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-    },
-    apiKey: {
-      type: 'apiKey',
-      in: 'header',
-      name: 'X-API-Key',
-    },
+    bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
   },
-
-  // Optional: Global security requirement
   security: [{ bearerAuth: [] }],
 
-  // Optional: Tag descriptions
   tags: [
     { name: 'Projects', description: 'Project management operations' },
     { name: 'Tasks', description: 'Task management operations' },
   ],
 
-  // Optional: External documentation
   externalDocs: {
     description: 'Full documentation',
     url: 'https://docs.example.com',
@@ -829,179 +700,32 @@ const spec = generateOpenAPI(projectManagementRouter, {
 
 // Serve the spec
 app.get('/openapi.json', (c) => c.json(spec));
-
-// Use with Swagger UI
-app.get('/docs', (c) => {
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>API Documentation</title>
-        <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css" />
-      </head>
-      <body>
-        <div id="swagger-ui"></div>
-        <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
-        <script>
-          SwaggerUIBundle({
-            url: '/openapi.json',
-            dom_id: '#swagger-ui',
-          });
-        </script>
-      </body>
-    </html>
-  `);
-});
 ```
 
-### Generated Specification Example
+### What Gets Generated
 
-```json
-{
-  "openapi": "3.1.0",
-  "info": {
-    "title": "Project Management API",
-    "version": "1.0.0"
-  },
-  "paths": {
-    "/api/projects": {
-      "post": {
-        "operationId": "createProject",
-        "summary": "Create a new project",
-        "tags": ["Projects"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 100,
-                    "description": "Project name"
-                  },
-                  "description": {
-                    "type": "string",
-                    "description": "Project description"
-                  },
-                  "priority": {
-                    "type": "string",
-                    "enum": ["low", "medium", "high"],
-                    "default": "medium"
-                  }
-                },
-                "required": ["name"]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Project created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": { "type": "string", "format": "uuid" },
-                    "name": { "type": "string" },
-                    "description": { "type": "string", "nullable": true },
-                    "createdAt": { "type": "string", "format": "date-time" }
-                  },
-                  "required": ["id", "name", "createdAt"]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error"
-          }
-        }
-      },
-      "get": {
-        "operationId": "listProjects",
-        "summary": "List all projects",
-        "tags": ["Projects"],
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "integer", "minimum": 1, "default": 1 }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "string", "enum": ["active", "archived"] }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of projects"
-          }
-        }
-      }
-    },
-    "/api/projects/{projectId}": {
-      "get": {
-        "operationId": "getProject",
-        "summary": "Get project by ID",
-        "tags": ["Projects"],
-        "parameters": [
-          {
-            "name": "projectId",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string", "format": "uuid" }
-          }
-        ],
-        "responses": {
-          "200": { "description": "Project found" },
-          "404": { "description": "Project not found" }
-        }
-      }
-    }
-  },
-  "components": {
-    "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
-      }
-    }
-  },
-  "security": [{ "bearerAuth": [] }],
-  "tags": [{ "name": "Projects", "description": "Project management operations" }]
-}
-```
+- **Paths** from route `path` (`:param` → `{param}` conversion)
+- **Operations** grouped by path, one per HTTP method
+- **operationId** from `docs.operationId` or auto-generated from router key
+- **Parameters** from `route.request.params` (path), `route.request.query`, `route.request.headers`
+- **Request body** from `route.request.body`, with metadata from `route._meta.body` (description, contentType, required)
+- **Responses** from `route.responses` (per-status descriptions and schemas)
+- **Tags** collected from all routes + custom tags from config
 
 ---
 
 ## Complete Example
 
-Here's a complete example showing all three outputs:
-
 ### 1. Define Schemas (`infra/schemas/project.schema.ts`)
 
 ```typescript
 import { z } from 'zod';
-import { zodSchema } from '@cosmneo/onion-lasagna/http/schema/zod';
+import { zodSchema } from '@cosmneo/onion-lasagna-zod';
 
-// Request schemas
 export const createProjectBodySchema = zodSchema(
   z.object({
-    name: z.string().min(1).max(100).describe('Project name'),
-    description: z.string().max(1000).optional().describe('Project description'),
+    name: z.string().min(1).max(100),
+    description: z.string().max(1000).optional(),
   }),
 );
 
@@ -1013,34 +737,26 @@ export const listProjectsQuerySchema = zodSchema(
 );
 
 export const projectIdParamsSchema = zodSchema(
-  z.object({
-    projectId: z.string().uuid(),
-  }),
+  z.object({ projectId: z.string().uuid() }),
 );
 
-// Response schemas
 export const projectResponseSchema = zodSchema(
   z.object({
     id: z.string().uuid(),
     name: z.string(),
     description: z.string().nullable(),
     createdAt: z.string().datetime(),
-    updatedAt: z.string().datetime(),
   }),
 );
 
 export const projectListResponseSchema = zodSchema(
   z.object({
-    items: z.array(projectResponseSchema._schema), // Reuse inner schema
+    items: z.array(projectResponseSchema._schema),
     total: z.number(),
     page: z.number(),
     limit: z.number(),
   }),
 );
-
-// Export types
-export type CreateProjectBody = typeof createProjectBodySchema._output;
-export type ProjectResponse = typeof projectResponseSchema._output;
 ```
 
 ### 2. Define Routes (`client/routes.ts`)
@@ -1063,11 +779,7 @@ const createProject = defineRoute({
     201: { description: 'Created', schema: projectResponseSchema },
     400: { description: 'Validation error' },
   },
-  docs: {
-    operationId: 'createProject',
-    summary: 'Create project',
-    tags: ['Projects'],
-  },
+  docs: { summary: 'Create project', tags: ['Projects'] },
 });
 
 const listProjects = defineRoute({
@@ -1077,11 +789,7 @@ const listProjects = defineRoute({
   responses: {
     200: { description: 'Success', schema: projectListResponseSchema },
   },
-  docs: {
-    operationId: 'listProjects',
-    summary: 'List projects',
-    tags: ['Projects'],
-  },
+  docs: { summary: 'List projects', tags: ['Projects'] },
 });
 
 const getProject = defineRoute({
@@ -1092,11 +800,7 @@ const getProject = defineRoute({
     200: { description: 'Found', schema: projectResponseSchema },
     404: { description: 'Not found' },
   },
-  docs: {
-    operationId: 'getProject',
-    summary: 'Get project',
-    tags: ['Projects'],
-  },
+  docs: { summary: 'Get project', tags: ['Projects'] },
 });
 
 export const projectRouter = defineRouter({
@@ -1119,40 +823,31 @@ export const createProjectClient = (baseUrl: string) =>
     baseUrl,
     headers: { 'Content-Type': 'application/json' },
   });
-
-export type ProjectClient = ReturnType<typeof createProjectClient>;
 ```
 
 ### 4. Create Server Routes (`server/routes.ts`)
 
 ```typescript
-import { createServerRoutes } from '@cosmneo/onion-lasagna/http/server';
+import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
 import { projectRouter } from '../client/routes';
 import { projectService } from './services/project.service';
 
-export const routes = createServerRoutes(projectRouter, {
-  'projects.create': {
-    handler: async (req, ctx) => {
-      const project = await projectService.create(req.body);
-      return { status: 201, body: project };
-    },
-  },
-  'projects.list': {
-    handler: async (req, ctx) => {
-      const result = await projectService.list(req.query);
-      return { status: 200, body: result };
-    },
-  },
-  'projects.get': {
-    handler: async (req, ctx) => {
-      const project = await projectService.findById(req.pathParams.projectId);
-      if (!project) {
-        return { status: 404, body: { error: 'Not found' } };
-      }
-      return { status: 200, body: project };
-    },
-  },
-});
+export const routes = serverRoutes(projectRouter)
+  .handleWithUseCase('projects.create', {
+    requestMapper: (req) => req.body,
+    useCase: createProjectUseCase,
+    responseMapper: (output) => ({ status: 201 as const, body: output }),
+  })
+  .handle('projects.list', async (req) => ({
+    status: 200,
+    body: await projectService.list(req.query),
+  }))
+  .handle('projects.get', async (req) => {
+    const project = await projectService.findById(req.pathParams.projectId);
+    if (!project) throw new NotFoundError({ message: 'Not found' });
+    return { status: 200, body: project };
+  })
+  .build();
 ```
 
 ### 5. Generate OpenAPI (`server/openapi.ts`)
@@ -1162,10 +857,7 @@ import { generateOpenAPI } from '@cosmneo/onion-lasagna/http/openapi';
 import { projectRouter } from '../client/routes';
 
 export const openApiSpec = generateOpenAPI(projectRouter, {
-  info: {
-    title: 'Project API',
-    version: '1.0.0',
-  },
+  info: { title: 'Project API', version: '1.0.0' },
   servers: [{ url: 'http://localhost:3000', description: 'Dev' }],
 });
 ```
@@ -1174,28 +866,15 @@ export const openApiSpec = generateOpenAPI(projectRouter, {
 
 ```typescript
 import { Hono } from 'hono';
+import { registerHonoRoutes, onionErrorHandler } from '@cosmneo/onion-lasagna-hono';
 import { routes } from './routes';
 import { openApiSpec } from './openapi';
 
 const app = new Hono();
 
-// Register routes
-for (const route of routes) {
-  const method = route.method.toLowerCase() as 'get' | 'post' | 'put' | 'delete';
-  app[method](route.path, async (c) => {
-    const response = await route.handler({
-      method: c.req.method,
-      url: c.req.url,
-      headers: Object.fromEntries(c.req.raw.headers),
-      body: await c.req.json().catch(() => undefined),
-      query: Object.fromEntries(new URL(c.req.url).searchParams),
-      params: c.req.param(),
-    });
-    return c.json(response.body, response.status as any);
-  });
-}
+app.onError(onionErrorHandler());
+registerHonoRoutes(app, routes);
 
-// OpenAPI endpoint
 app.get('/openapi.json', (c) => c.json(openApiSpec));
 
 export default app;
@@ -1211,11 +890,7 @@ The unified route system provides:
 2. **Type safety** - Full TypeScript inference across client and server
 3. **Auto-validation** - Request validation before handlers, no manual checks
 4. **OpenAPI generation** - Documentation from the same schemas
-5. **Schema-agnostic** - Works with Zod, TypeBox, or custom adapters
-
-The auto-validation specifically ensures:
-
-- All incoming data is validated against schemas
-- Handlers receive typed, guaranteed-valid data
-- Validation errors are returned consistently
-- No validation code duplication
+5. **Schema-agnostic** - Works with Zod, TypeBox, Valibot, ArkType, or custom adapters
+6. **Auto operationId** - Generated from router key path when not specified
+7. **Router defaults** - Apply context schemas and tags to all child routes
+8. **Flexible field input** - Bare schemas or `{ schema, description?, contentType? }` objects

@@ -54,7 +54,7 @@ describe('Hono register-routes', () => {
     ];
 
     const app = new Hono();
-    app.onError(onionErrorHandler);
+    app.onError(onionErrorHandler());
     registerHonoRoutes(app, routes);
 
     it('handles GET requests with path params', async () => {
@@ -111,7 +111,7 @@ describe('Hono register-routes', () => {
     ];
 
     const app = new Hono();
-    app.onError(onionErrorHandler);
+    app.onError(onionErrorHandler());
     registerHonoRoutes(app, routes, { prefix: '/api/v1' });
 
     it('prepends prefix to all routes', async () => {
@@ -141,7 +141,7 @@ describe('Hono register-routes', () => {
     ];
 
     const app = new Hono();
-    app.onError(onionErrorHandler);
+    app.onError(onionErrorHandler());
     registerHonoRoutes(app, routes, {
       contextExtractor: (c) => ({
         requestId: c.req.header('x-request-id'),
@@ -179,7 +179,7 @@ describe('Hono register-routes', () => {
     ];
 
     const app = new Hono();
-    app.onError(onionErrorHandler);
+    app.onError(onionErrorHandler());
     registerHonoRoutes(app, routes);
 
     it('maps NotFoundError to 404', async () => {
@@ -217,7 +217,7 @@ describe('Hono register-routes', () => {
     ];
 
     const app = new Hono();
-    app.onError(onionErrorHandler);
+    app.onError(onionErrorHandler());
     registerHonoRoutes(app, routes);
 
     it('passes query parameters to handlers', async () => {
@@ -243,7 +243,7 @@ describe('Hono register-routes', () => {
     ];
 
     const app = new Hono();
-    app.onError(onionErrorHandler);
+    app.onError(onionErrorHandler());
     registerHonoRoutes(app, routes);
 
     it('handles PUT requests', async () => {
