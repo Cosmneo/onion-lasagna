@@ -1,0 +1,46 @@
+{
+  "name": "@cosmneo/onion-lasagna-axios",
+  "version": "0.2.0",
+  "description": "Axios adapter for onion-lasagna client",
+  "type": "module",
+  "license": "MIT",
+  "author": "Cosmneo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cosmneo/onion-lasagna.git",
+    "directory": "packages/clients/onion-lasagna-axios"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "devDependencies": {
+    "axios": "^1",
+    "tsup": "^8.5.1",
+    "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "axios": "^1"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "prepublishOnly": "bun run build"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
