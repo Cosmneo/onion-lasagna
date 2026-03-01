@@ -109,7 +109,7 @@ jobs:
           body: |
             ## @cosmneo/* v${{ env.VERSION }}
 
-            All 14 packages published at version `${{ env.VERSION }}`:
+            All 18 packages published at version `${{ env.VERSION }}`:
 
             | Package | Install |
             |---------|---------|
@@ -125,8 +125,12 @@ jobs:
             | `@cosmneo/onion-lasagna-express` | `bun add @cosmneo/onion-lasagna-express` |
             | `@cosmneo/onion-lasagna-nestjs` | `bun add @cosmneo/onion-lasagna-nestjs` |
             | `@cosmneo/onion-lasagna-client` | `bun add @cosmneo/onion-lasagna-client` |
+            | `@cosmneo/onion-lasagna-axios` | `bun add @cosmneo/onion-lasagna-axios` |
             | `@cosmneo/onion-lasagna-saga` | `bun add @cosmneo/onion-lasagna-saga` |
             | `@cosmneo/onion-lasagna-react-query` | `bun add @cosmneo/onion-lasagna-react-query` |
+            | `@cosmneo/onion-lasagna-vue-query` | `bun add @cosmneo/onion-lasagna-vue-query` |
+            | `@cosmneo/onion-lasagna-svelte-query` | `bun add @cosmneo/onion-lasagna-svelte-query` |
+            | `@cosmneo/onion-lasagna-swr` | `bun add @cosmneo/onion-lasagna-swr` |
 
             See [CHANGELOG](https://github.com/Cosmneo/onion-lasagna/blob/main/packages/onion-lasagna/CHANGELOG.md) for details.
           draft: false

@@ -34,8 +34,12 @@ const PACKAGE_DIRS = [
   'packages/servers/onion-lasagna-express',
   'packages/servers/onion-lasagna-nestjs',
   'packages/clients/onion-lasagna-client',
+  'packages/clients/onion-lasagna-axios',
   'packages/patterns/onion-lasagna-saga',
   'packages/clients/onion-lasagna-react-query',
+  'packages/clients/onion-lasagna-vue-query',
+  'packages/clients/onion-lasagna-svelte-query',
+  'packages/clients/onion-lasagna-swr',
 ] as const;
 
 // ============================================================================
