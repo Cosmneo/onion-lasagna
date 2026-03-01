@@ -1,0 +1,447 @@
+/**
+ * @fileoverview Tests for createSvelteQueryHooks factory.
+ * Mocks @tanstack/svelte-query to test hook wiring without Svelte.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { z } from 'zod';
+import { defineRoute, defineRouter } from '@cosmneo/onion-lasagna/http/route';
+import { zodSchema } from '@cosmneo/onion-lasagna-zod';
+
+// ============================================================================
+// Mock @tanstack/svelte-query
+// ============================================================================
+
+const mockCreateQuery = vi.fn();
+const mockCreateMutation = vi.fn();
+
+vi.mock('@tanstack/svelte-query', () => ({
+  createQuery: (...args: unknown[]) => mockCreateQuery(...args),
+  createMutation: (...args: unknown[]) => mockCreateMutation(...args),
+}));
+
+// Must import after vi.mock
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+let createSvelteQueryHooks: typeof import('../create-svelte-query-hooks').createSvelteQueryHooks;
+
+beforeEach(async () => {
+  vi.resetAllMocks();
+  mockCreateQuery.mockReturnValue({ data: undefined, isLoading: true });
+  mockCreateMutation.mockReturnValue({ mutate: vi.fn(), isLoading: false });
+
+  const mod = await import('../create-svelte-query-hooks');
+  createSvelteQueryHooks = mod.createSvelteQueryHooks;
+});
+
+// ============================================================================
+// Test Routes
+// ============================================================================
+
+const listUsersRoute = defineRoute({
+  method: 'GET',
+  path: '/users',
+  request: {
+    query: {
+      schema: zodSchema(z.object({ page: z.number().optional() })),
+    },
+  },
+  responses: { 200: { description: 'Success' } },
+});
+
+const getUserRoute = defineRoute({
+  method: 'GET',
+  path: '/users/:userId',
+  responses: { 200: { description: 'Success' } },
+});
+
+const createUserRoute = defineRoute({
+  method: 'POST',
+  path: '/users',
+  request: {
+    body: { schema: zodSchema(z.object({ name: z.string() })) },
+  },
+  responses: { 201: { description: 'Created' } },
+});
+
+const deleteUserRoute = defineRoute({
+  method: 'DELETE',
+  path: '/users/:userId',
+  responses: { 204: { description: 'No Content' } },
+});
+
+const headUsersRoute = defineRoute({
+  method: 'HEAD',
+  path: '/users',
+  responses: { 200: { description: 'Success' } },
+});
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+describe('createSvelteQueryHooks', () => {
+  const config = { baseUrl: 'http://localhost:3000' };
+
+  describe('hook structure', () => {
+    it('returns hooks and queryKeys', () => {
+      const result = createSvelteQueryHooks({ list: listUsersRoute }, config);
+
+      expect(result).toHaveProperty('hooks');
+      expect(result).toHaveProperty('queryKeys');
+    });
+
+    it('creates createQuery for GET routes', () => {
+      const { hooks } = createSvelteQueryHooks({ list: listUsersRoute, get: getUserRoute }, config);
+
+      expect(hooks).toHaveProperty('list');
+      expect(hooks['list']).toHaveProperty('createQuery');
+      expect(typeof (hooks['list'] as Record<string, unknown>)['createQuery']).toBe('function');
+    });
+
+    it('creates createQuery for HEAD routes', () => {
+      const { hooks } = createSvelteQueryHooks({ head: headUsersRoute }, config);
+
+      expect(hooks['head']).toHaveProperty('createQuery');
+    });
+
+    it('creates createMutation for POST routes', () => {
+      const { hooks } = createSvelteQueryHooks({ create: createUserRoute }, config);
+
+      expect(hooks['create']).toHaveProperty('createMutation');
+      expect(typeof (hooks['create'] as Record<string, unknown>)['createMutation']).toBe(
+        'function',
+      );
+    });
+
+    it('creates createMutation for DELETE routes', () => {
+      const { hooks } = createSvelteQueryHooks({ remove: deleteUserRoute }, config);
+
+      expect(hooks['remove']).toHaveProperty('createMutation');
+    });
+
+    it('preserves nested structure', () => {
+      const { hooks } = createSvelteQueryHooks(
+        {
+          users: {
+            list: listUsersRoute,
+            get: getUserRoute,
+            create: createUserRoute,
+            remove: deleteUserRoute,
+          },
+        },
+        config,
+      );
+
+      const users = hooks['users'] as Record<string, Record<string, unknown>>;
+      expect(users['list']).toHaveProperty('createQuery');
+      expect(users['get']).toHaveProperty('createQuery');
+      expect(users['create']).toHaveProperty('createMutation');
+      expect(users['remove']).toHaveProperty('createMutation');
+    });
+
+    it('handles deeply nested routers', () => {
+      const { hooks } = createSvelteQueryHooks(
+        {
+          api: {
+            v1: {
+              users: {
+                list: listUsersRoute,
+              },
+            },
+          },
+        },
+        config,
+      );
+
+      const api = hooks['api'] as Record<string, unknown>;
+      const v1 = api['v1'] as Record<string, unknown>;
+      const users = v1['users'] as Record<string, Record<string, unknown>>;
+      expect(users['list']).toHaveProperty('createQuery');
+    });
+  });
+
+  describe('createQuery behavior', () => {
+    it('calls createQuery with correct queryKey for route without input', () => {
+      const { hooks } = createSvelteQueryHooks({ list: listUsersRoute }, config);
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery();
+
+      expect(mockCreateQuery).toHaveBeenCalledTimes(1);
+      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['queryKey']).toEqual(['list']);
+      expect(typeof callArgs['queryFn']).toBe('function');
+    });
+
+    it('appends input to queryKey', () => {
+      const { hooks } = createSvelteQueryHooks({ get: getUserRoute }, config);
+
+      const hook = hooks['get'] as { createQuery: (...args: unknown[]) => unknown };
+      const input = { pathParams: { userId: '123' } };
+      hook.createQuery(input);
+
+      expect(mockCreateQuery).toHaveBeenCalledTimes(1);
+      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['queryKey']).toEqual(['get', { pathParams: { userId: '123' } }]);
+    });
+
+    it('passes additional options through', () => {
+      const { hooks } = createSvelteQueryHooks({ list: listUsersRoute }, config);
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery(undefined, { staleTime: 5000, enabled: false });
+
+      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['staleTime']).toBe(5000);
+      expect(callArgs['enabled']).toBe(false);
+    });
+
+    it('builds correct queryKey for nested routes', () => {
+      const { hooks } = createSvelteQueryHooks(
+        {
+          users: {
+            list: listUsersRoute,
+            get: getUserRoute,
+          },
+        },
+        config,
+      );
+
+      const users = hooks['users'] as Record<
+        string,
+        { createQuery: (...args: unknown[]) => unknown }
+      >;
+      users['list']!.createQuery();
+      users['get']!.createQuery({ pathParams: { userId: '456' } });
+
+      const listCallArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(listCallArgs['queryKey']).toEqual(['users', 'list']);
+
+      const getCallArgs = mockCreateQuery.mock.calls[1]![0] as Record<string, unknown>;
+      expect(getCallArgs['queryKey']).toEqual(['users', 'get', { pathParams: { userId: '456' } }]);
+    });
+  });
+
+  describe('createMutation behavior', () => {
+    it('calls createMutation with mutationFn', () => {
+      const { hooks } = createSvelteQueryHooks({ create: createUserRoute }, config);
+
+      const hook = hooks['create'] as { createMutation: (...args: unknown[]) => unknown };
+      hook.createMutation();
+
+      expect(mockCreateMutation).toHaveBeenCalledTimes(1);
+      const callArgs = mockCreateMutation.mock.calls[0]![0] as Record<string, unknown>;
+      expect(typeof callArgs['mutationFn']).toBe('function');
+    });
+
+    it('passes additional mutation options through', () => {
+      const onSuccess = vi.fn();
+
+      const { hooks } = createSvelteQueryHooks({ create: createUserRoute }, config);
+
+      const hook = hooks['create'] as { createMutation: (...args: unknown[]) => unknown };
+      hook.createMutation({ onSuccess });
+
+      const callArgs = mockCreateMutation.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['onSuccess']).toBe(onSuccess);
+    });
+  });
+
+  describe('RouterDefinition handling', () => {
+    it('handles defineRouter output', () => {
+      const router = defineRouter({
+        users: {
+          list: listUsersRoute,
+          create: createUserRoute,
+        },
+      });
+
+      const { hooks, queryKeys } = createSvelteQueryHooks(router, config);
+
+      const users = hooks['users'] as Record<string, Record<string, unknown>>;
+      expect(users['list']).toHaveProperty('createQuery');
+      expect(users['create']).toHaveProperty('createMutation');
+
+      const usersKeys = queryKeys['users'] as (() => readonly string[]) & Record<string, unknown>;
+      expect(usersKeys()).toEqual(['users']);
+    });
+  });
+
+  describe('queryKeys integration', () => {
+    it('returns query keys matching hook key paths', () => {
+      const { queryKeys } = createSvelteQueryHooks(
+        {
+          users: {
+            list: listUsersRoute,
+            get: getUserRoute,
+          },
+        },
+        config,
+      );
+
+      const usersKeys = queryKeys['users'] as (() => readonly string[]) & Record<string, unknown>;
+      expect(usersKeys()).toEqual(['users']);
+
+      const listKeyFn = usersKeys['list'] as () => readonly unknown[];
+      expect(listKeyFn()).toEqual(['users', 'list']);
+
+      const getKeyFn = usersKeys['get'] as (input?: unknown) => readonly unknown[];
+      expect(getKeyFn({ pathParams: { userId: '123' } })).toEqual([
+        'users',
+        'get',
+        { pathParams: { userId: '123' } },
+      ]);
+    });
+  });
+
+  describe('useEnabled', () => {
+    it('disables query when useEnabled returns false', () => {
+      const { hooks } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => false },
+      );
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery();
+
+      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['enabled']).toBe(false);
+    });
+
+    it('enables query when useEnabled returns true', () => {
+      const { hooks } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => true },
+      );
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery();
+
+      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['enabled']).toBe(true);
+    });
+
+    it('composes with per-query enabled (both must be true)', () => {
+      const { hooks } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => true },
+      );
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery(undefined, { enabled: false });
+
+      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['enabled']).toBe(false);
+    });
+
+    it('composes with per-query enabled (useEnabled false overrides)', () => {
+      const { hooks } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => false },
+      );
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery(undefined, { enabled: true });
+
+      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['enabled']).toBe(false);
+    });
+
+    it('defaults to enabled when useEnabled is not provided', () => {
+      const { hooks } = createSvelteQueryHooks({ list: listUsersRoute }, config);
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery();
+
+      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['enabled']).toBe(true);
+    });
+
+    it('does not affect mutations', () => {
+      const { hooks } = createSvelteQueryHooks(
+        { create: createUserRoute },
+        { ...config, useEnabled: () => false },
+      );
+
+      const hook = hooks['create'] as { createMutation: (...args: unknown[]) => unknown };
+      hook.createMutation();
+
+      expect(mockCreateMutation).toHaveBeenCalledTimes(1);
+      const callArgs = mockCreateMutation.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs).not.toHaveProperty('enabled');
+    });
+
+    it('preserves other options when composing enabled', () => {
+      const { hooks } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => true },
+      );
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery(undefined, { staleTime: 5000, enabled: true });
+
+      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['staleTime']).toBe(5000);
+      expect(callArgs['enabled']).toBe(true);
+    });
+  });
+
+  describe('queryKeyPrefix', () => {
+    it('prefixes query keys in hooks', () => {
+      const { hooks } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, queryKeyPrefix: 'my-api' },
+      );
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery();
+
+      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['queryKey']).toEqual(['my-api', 'list']);
+    });
+
+    it('prefixes query keys with input', () => {
+      const { hooks } = createSvelteQueryHooks(
+        { get: getUserRoute },
+        { ...config, queryKeyPrefix: 'my-api' },
+      );
+
+      const hook = hooks['get'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery({ pathParams: { userId: '1' } });
+
+      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['queryKey']).toEqual(['my-api', 'get', { pathParams: { userId: '1' } }]);
+    });
+
+    it('prefixes queryKeys object', () => {
+      const { queryKeys } = createSvelteQueryHooks(
+        { users: { list: listUsersRoute } },
+        { ...config, queryKeyPrefix: 'my-api' },
+      );
+
+      const usersKeys = queryKeys['users'] as (() => readonly string[]) & Record<string, unknown>;
+      expect(usersKeys()).toEqual(['my-api', 'users']);
+
+      const listKeyFn = usersKeys['list'] as () => readonly unknown[];
+      expect(listKeyFn()).toEqual(['my-api', 'users', 'list']);
+    });
+
+    it('prevents cache collisions between separate router instances', () => {
+      const { queryKeys: keysA } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, queryKeyPrefix: 'users-api' },
+      );
+      const { queryKeys: keysB } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, queryKeyPrefix: 'products-api' },
+      );
+
+      const listA = keysA['list'] as () => readonly unknown[];
+      const listB = keysB['list'] as () => readonly unknown[];
+
+      expect(listA()).toEqual(['users-api', 'list']);
+      expect(listB()).toEqual(['products-api', 'list']);
+      expect(listA()).not.toEqual(listB());
+    });
+  });
+});
