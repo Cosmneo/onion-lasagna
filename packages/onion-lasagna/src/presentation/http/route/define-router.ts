@@ -132,10 +132,7 @@ function applyRouterDefaults(routes: RouterConfig, defaults: RouterDefaults): Ro
 /**
  * Applies router-level defaults to a single route definition.
  */
-function applyDefaultsToRoute(
-  route: RouteDefinition,
-  defaults: RouterDefaults,
-): RouteDefinition {
+function applyDefaultsToRoute(route: RouteDefinition, defaults: RouterDefaults): RouteDefinition {
   const needsContext = defaults.context && !route.request.context;
   const needsTags = defaults.tags && defaults.tags.length > 0;
 

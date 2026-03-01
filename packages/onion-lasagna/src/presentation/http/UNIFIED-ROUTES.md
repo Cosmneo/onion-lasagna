@@ -166,10 +166,7 @@ A route definition captures everything about an endpoint. The `defineRoute` func
 
 ```typescript
 import { defineRoute } from '@cosmneo/onion-lasagna/http/route';
-import {
-  createProjectBodySchema,
-  projectResponseSchema,
-} from '../infra/schemas/project.schema';
+import { createProjectBodySchema, projectResponseSchema } from '../infra/schemas/project.schema';
 
 export const createProjectRoute = defineRoute({
   method: 'POST',
@@ -342,7 +339,7 @@ const api = defineRouter(
     basePath: '/api/v1',
     defaults: {
       context: zodSchema(executionContextSchema), // Applied to routes without own context
-      tags: ['Users'],                            // Merged into each route's docs.tags
+      tags: ['Users'], // Merged into each route's docs.tags
     },
   },
 );
@@ -413,8 +410,8 @@ const api = createClient(projectManagementRouter, {
 // Usage — fully typed!
 const project = await api.projects.create({
   body: {
-    name: 'My Project',   // ✓ Required, string
-    description: 'Desc',  // ✓ Optional, string
+    name: 'My Project', // ✓ Required, string
+    description: 'Desc', // ✓ Optional, string
   },
 });
 // project is typed as ProjectResponse
@@ -443,9 +440,9 @@ try {
   });
 } catch (error) {
   if (error instanceof ClientError) {
-    console.log(error.status);        // 404
-    console.log(error.statusText);    // 'Not Found'
-    console.log(error.body);          // Error response body
+    console.log(error.status); // 404
+    console.log(error.statusText); // 'Not Found'
+    console.log(error.body); // Error response body
     console.log(error.isClientError); // true (4xx)
     console.log(error.isServerError); // false (5xx)
   }
@@ -484,9 +481,9 @@ const { mutate } = hooks.projects.create.useMutation({
 });
 
 // Query keys for cache invalidation
-queryKeys.projects();                              // ['projects-api', 'projects']
-queryKeys.projects.list();                         // ['projects-api', 'projects', 'list']
-queryKeys.projects.get({ pathParams: { id } });    // ['projects-api', 'projects', 'get', ...]
+queryKeys.projects(); // ['projects-api', 'projects']
+queryKeys.projects.list(); // ['projects-api', 'projects', 'list']
+queryKeys.projects.get({ pathParams: { id } }); // ['projects-api', 'projects', 'get', ...]
 ```
 
 ---
@@ -582,10 +579,10 @@ When your handler is called, you receive a `ValidatedRequest` with fully typed p
 
 ```typescript
 interface ValidatedRequest<TRoute extends RouteDefinition> {
-  readonly body: TRoute['_types']['body'];           // Validated body type
-  readonly query: TRoute['_types']['query'];         // Validated query type
+  readonly body: TRoute['_types']['body']; // Validated body type
+  readonly query: TRoute['_types']['query']; // Validated query type
   readonly pathParams: TRoute['_types']['pathParams']; // Validated path params type
-  readonly headers: TRoute['_types']['headers'];     // Validated headers type
+  readonly headers: TRoute['_types']['headers']; // Validated headers type
   readonly raw: {
     readonly method: string;
     readonly url: string;
@@ -619,8 +616,9 @@ app.onError(onionErrorHandler());
 
 // Register all routes from the builder
 registerHonoRoutes(app, routes, {
-  prefix: '/api/v1',          // Optional URL prefix
-  contextExtractor: (c) => ({ // Optional context from Hono's Context
+  prefix: '/api/v1', // Optional URL prefix
+  contextExtractor: (c) => ({
+    // Optional context from Hono's Context
     requestId: c.get('requestId'),
     user: c.get('user'),
   }),
@@ -736,9 +734,7 @@ export const listProjectsQuerySchema = zodSchema(
   }),
 );
 
-export const projectIdParamsSchema = zodSchema(
-  z.object({ projectId: z.string().uuid() }),
-);
+export const projectIdParamsSchema = zodSchema(z.object({ projectId: z.string().uuid() }));
 
 export const projectResponseSchema = zodSchema(
   z.object({

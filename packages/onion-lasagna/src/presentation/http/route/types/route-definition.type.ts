@@ -120,7 +120,11 @@ export type SchemaFieldInput<T extends SchemaAdapter = SchemaAdapter> = T | Sche
  * @internal
  */
 export interface RouteFieldMeta {
-  readonly body?: { readonly description?: string; readonly contentType?: string; readonly required?: boolean };
+  readonly body?: {
+    readonly description?: string;
+    readonly contentType?: string;
+    readonly required?: boolean;
+  };
   readonly query?: { readonly description?: string };
   readonly params?: { readonly description?: string };
   readonly headers?: { readonly description?: string };
@@ -161,16 +165,15 @@ export type ResponsesDefinition = Readonly<Record<number, ResponseFieldConfig>>;
  * Extracts the success response SchemaAdapter from a ResponsesDefinition.
  * Cascades through 200 → 201 → 202 → 204.
  */
-export type ExtractSuccessSchema<T> =
-  T extends { 200: { schema: infer S extends SchemaAdapter } }
+export type ExtractSuccessSchema<T> = T extends { 200: { schema: infer S extends SchemaAdapter } }
+  ? S
+  : T extends { 201: { schema: infer S extends SchemaAdapter } }
     ? S
-    : T extends { 201: { schema: infer S extends SchemaAdapter } }
+    : T extends { 202: { schema: infer S extends SchemaAdapter } }
       ? S
-      : T extends { 202: { schema: infer S extends SchemaAdapter } }
+      : T extends { 204: { schema: infer S extends SchemaAdapter } }
         ? S
-        : T extends { 204: { schema: infer S extends SchemaAdapter } }
-          ? S
-          : undefined;
+        : undefined;
 
 // ============================================================================
 // Route Request Definition
@@ -289,7 +292,16 @@ export interface RouteDefinition<
  * Infers the request body type from a route definition.
  */
 export type InferRouteBody<T> =
-  T extends RouteDefinition<HttpMethod, string, infer TBody, unknown, unknown, unknown, unknown, unknown>
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    infer TBody,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown
+  >
     ? TBody
     : never;
 
@@ -297,7 +309,16 @@ export type InferRouteBody<T> =
  * Infers the query params type from a route definition.
  */
 export type InferRouteQuery<T> =
-  T extends RouteDefinition<HttpMethod, string, unknown, infer TQuery, unknown, unknown, unknown, unknown>
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    unknown,
+    infer TQuery,
+    unknown,
+    unknown,
+    unknown,
+    unknown
+  >
     ? TQuery
     : never;
 
@@ -305,7 +326,16 @@ export type InferRouteQuery<T> =
  * Infers the path params type from a route definition.
  */
 export type InferRoutePathParams<T> =
-  T extends RouteDefinition<HttpMethod, string, unknown, unknown, infer TPathParams, unknown, unknown, unknown>
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    unknown,
+    unknown,
+    infer TPathParams,
+    unknown,
+    unknown,
+    unknown
+  >
     ? TPathParams
     : never;
 
@@ -313,7 +343,16 @@ export type InferRoutePathParams<T> =
  * Infers the headers type from a route definition.
  */
 export type InferRouteHeaders<T> =
-  T extends RouteDefinition<HttpMethod, string, unknown, unknown, unknown, infer THeaders, unknown, unknown>
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    unknown,
+    unknown,
+    unknown,
+    infer THeaders,
+    unknown,
+    unknown
+  >
     ? THeaders
     : never;
 
@@ -321,7 +360,16 @@ export type InferRouteHeaders<T> =
  * Infers the context type from a route definition.
  */
 export type InferRouteContext<T> =
-  T extends RouteDefinition<HttpMethod, string, unknown, unknown, unknown, unknown, infer TContext, unknown>
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    infer TContext,
+    unknown
+  >
     ? TContext
     : never;
 
@@ -329,7 +377,16 @@ export type InferRouteContext<T> =
  * Infers the response type from a route definition.
  */
 export type InferRouteResponse<T> =
-  T extends RouteDefinition<HttpMethod, string, unknown, unknown, unknown, unknown, unknown, infer TResponse>
+  T extends RouteDefinition<
+    HttpMethod,
+    string,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    infer TResponse
+  >
     ? TResponse
     : never;
 
@@ -337,7 +394,16 @@ export type InferRouteResponse<T> =
  * Extracts the method from a route definition.
  */
 export type InferRouteMethod<T> =
-  T extends RouteDefinition<infer TMethod, string, unknown, unknown, unknown, unknown, unknown, unknown>
+  T extends RouteDefinition<
+    infer TMethod,
+    string,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown
+  >
     ? TMethod
     : never;
 
@@ -345,6 +411,15 @@ export type InferRouteMethod<T> =
  * Extracts the path from a route definition.
  */
 export type InferRoutePath<T> =
-  T extends RouteDefinition<HttpMethod, infer TPath, unknown, unknown, unknown, unknown, unknown, unknown>
+  T extends RouteDefinition<
+    HttpMethod,
+    infer TPath,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown
+  >
     ? TPath
     : never;

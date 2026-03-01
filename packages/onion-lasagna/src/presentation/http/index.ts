@@ -184,8 +184,4 @@ export {
   isErrorType,
   hasValidationErrors,
 } from './shared/error-mapping';
-export type {
-  ErrorItem,
-  ErrorResponseBody,
-  MappedErrorResponse,
-} from './shared/types';
+export type { ErrorItem, ErrorResponseBody, MappedErrorResponse } from './shared/types';

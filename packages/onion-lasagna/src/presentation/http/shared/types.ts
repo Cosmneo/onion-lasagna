@@ -53,4 +53,3 @@ export interface MappedErrorResponse {
    */
   readonly body: ErrorResponseBody;
 }
-
