@@ -16,6 +16,12 @@ export default defineConfig({
     'http/server/index': 'src/presentation/http/server/index.ts',
     'http/shared/index': 'src/presentation/http/shared/index.ts',
     'http/openapi/index': 'src/presentation/http/openapi/index.ts',
+    // Event Handler System
+    'events/index': 'src/presentation/events/index.ts',
+    'events/handler/index': 'src/presentation/events/handler/index.ts',
+    'events/server/index': 'src/presentation/events/server/index.ts',
+    'events/shared/index': 'src/presentation/events/shared/index.ts',
+    'events/asyncapi/index': 'src/presentation/events/asyncapi/index.ts',
   },
   dts: true,
   format: ['esm', 'cjs'],

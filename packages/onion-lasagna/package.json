@@ -38,7 +38,7 @@
     "CHANGELOG.md",
     "LICENSE"
   ],
-  "sideEffects": false,
+  "sideEffects": ["./dist/**/*.js", "./dist/**/*.cjs"],
   "devDependencies": {
     "@types/node": "^25.0.3",
     "@vitest/coverage-v8": "^4.0.16",
@@ -126,6 +126,36 @@
       "import": "./dist/http/openapi/index.js",
       "require": "./dist/http/openapi/index.cjs",
       "default": "./dist/http/openapi/index.js"
+    },
+    "./events": {
+      "types": "./dist/events/index.d.ts",
+      "import": "./dist/events/index.js",
+      "require": "./dist/events/index.cjs",
+      "default": "./dist/events/index.js"
+    },
+    "./events/handler": {
+      "types": "./dist/events/handler/index.d.ts",
+      "import": "./dist/events/handler/index.js",
+      "require": "./dist/events/handler/index.cjs",
+      "default": "./dist/events/handler/index.js"
+    },
+    "./events/server": {
+      "types": "./dist/events/server/index.d.ts",
+      "import": "./dist/events/server/index.js",
+      "require": "./dist/events/server/index.cjs",
+      "default": "./dist/events/server/index.js"
+    },
+    "./events/shared": {
+      "types": "./dist/events/shared/index.d.ts",
+      "import": "./dist/events/shared/index.js",
+      "require": "./dist/events/shared/index.cjs",
+      "default": "./dist/events/shared/index.js"
+    },
+    "./events/asyncapi": {
+      "types": "./dist/events/asyncapi/index.d.ts",
+      "import": "./dist/events/asyncapi/index.js",
+      "require": "./dist/events/asyncapi/index.cjs",
+      "default": "./dist/events/asyncapi/index.js"
     }
   },
   "publishConfig": {
