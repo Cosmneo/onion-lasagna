@@ -19,9 +19,7 @@ import type { SchemaAdapter } from '../../../http/schema/types';
  */
 export type EventRouterEntry =
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  | EventHandlerDefinition<string, any, any>
-  | EventRouterConfig
-  | EventRouterDefinition;
+  EventHandlerDefinition<string, any, any> | EventRouterConfig | EventRouterDefinition;
 
 /**
  * Configuration for an event router (group of event handlers).
@@ -66,12 +64,7 @@ export interface EventRouterDefinition<T extends EventRouterConfig = EventRouter
  * Checks if a value is an EventHandlerDefinition.
  */
 export function isEventHandlerDefinition(value: unknown): value is EventHandlerDefinition {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'eventType' in value &&
-    '_types' in value
-  );
+  return typeof value === 'object' && value !== null && 'eventType' in value && '_types' in value;
 }
 
 /**

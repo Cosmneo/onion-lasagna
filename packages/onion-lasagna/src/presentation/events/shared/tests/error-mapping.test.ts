@@ -37,9 +37,7 @@ describe('mapErrorToEventResult', () => {
     });
 
     it('maps UseCaseError to dlq', () => {
-      const result = mapErrorToEventResult(
-        new UseCaseError({ message: 'Business rule violated' }),
-      );
+      const result = mapErrorToEventResult(new UseCaseError({ message: 'Business rule violated' }));
       expect(result.outcome).toBe('dlq');
       expect(result).toHaveProperty('reason', 'Business rule violated');
     });
@@ -52,39 +50,29 @@ describe('mapErrorToEventResult', () => {
     });
 
     it('maps UnprocessableError to dlq', () => {
-      const result = mapErrorToEventResult(
-        new UnprocessableError({ message: 'Cannot process' }),
-      );
+      const result = mapErrorToEventResult(new UnprocessableError({ message: 'Cannot process' }));
       expect(result.outcome).toBe('dlq');
     });
 
     it('maps AccessDeniedError to dlq', () => {
-      const result = mapErrorToEventResult(
-        new AccessDeniedError({ message: 'No access' }),
-      );
+      const result = mapErrorToEventResult(new AccessDeniedError({ message: 'No access' }));
       expect(result.outcome).toBe('dlq');
     });
   });
 
   describe('Retry errors (transient failures)', () => {
     it('maps NotFoundError to retry', () => {
-      const result = mapErrorToEventResult(
-        new NotFoundError({ message: 'Not found yet' }),
-      );
+      const result = mapErrorToEventResult(new NotFoundError({ message: 'Not found yet' }));
       expect(result.outcome).toBe('retry');
     });
 
     it('maps ConflictError to retry', () => {
-      const result = mapErrorToEventResult(
-        new ConflictError({ message: 'Concurrent write' }),
-      );
+      const result = mapErrorToEventResult(new ConflictError({ message: 'Concurrent write' }));
       expect(result.outcome).toBe('retry');
     });
 
     it('maps InfraError to retry', () => {
-      const result = mapErrorToEventResult(
-        new InfraError({ message: 'DB connection lost' }),
-      );
+      const result = mapErrorToEventResult(new InfraError({ message: 'DB connection lost' }));
       expect(result.outcome).toBe('retry');
     });
   });

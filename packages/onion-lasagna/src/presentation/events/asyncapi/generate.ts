@@ -93,7 +93,9 @@ export function generateAsyncAPI<T extends EventRouterConfig>(
       (operation as { deprecated: boolean }).deprecated = true;
     }
     if (handler.docs.tags && handler.docs.tags.length > 0) {
-      (operation as { tags: readonly AsyncAPITag[] }).tags = handler.docs.tags.map((t) => ({ name: t }));
+      (operation as { tags: readonly AsyncAPITag[] }).tags = handler.docs.tags.map((t) => ({
+        name: t,
+      }));
       for (const tag of handler.docs.tags) {
         allTags.add(tag);
       }
@@ -110,9 +112,7 @@ export function generateAsyncAPI<T extends EventRouterConfig>(
     }
   }
 
-  const info = tags.length > 0
-    ? { ...config.info, tags }
-    : config.info;
+  const info = tags.length > 0 ? { ...config.info, tags } : config.info;
 
   // Build the specification
   const spec: AsyncAPISpec = {
@@ -140,7 +140,12 @@ export function generateAsyncAPI<T extends EventRouterConfig>(
 function buildMessage(
   eventType: string,
   payload: unknown,
-  docs: { readonly summary?: string; readonly description?: string; readonly tags?: readonly string[]; readonly deprecated?: boolean },
+  docs: {
+    readonly summary?: string;
+    readonly description?: string;
+    readonly tags?: readonly string[];
+    readonly deprecated?: boolean;
+  },
 ): AsyncAPIMessage {
   const message: AsyncAPIMessage = {
     name: eventType,

@@ -4,11 +4,7 @@
  * @module events/server/types
  */
 
-import type {
-  EventHandlerDefinition,
-  EventRouterConfig,
-  EventRouterKeys,
-} from '../handler/types';
+import type { EventHandlerDefinition, EventRouterConfig, EventRouterKeys } from '../handler/types';
 import type { EventResult } from '../shared/types';
 
 // Re-export UseCasePort from HTTP — same interface, no duplication
@@ -169,7 +165,10 @@ export type EventMiddlewareFunction = (
  * Configuration mapping handler keys to handler configs.
  */
 // TInput/TOutput are user-defined per handler - any is required for heterogeneous configs
-export type EventRoutesConfig<T extends EventRouterConfig> = Record<EventRouterKeys<T>, EventHandlerConfig<any, any, any>>;
+export type EventRoutesConfig<T extends EventRouterConfig> = Record<
+  EventRouterKeys<T>,
+  EventHandlerConfig<any, any, any>
+>;
 
 /**
  * Options for creating event routes.

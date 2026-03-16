@@ -88,9 +88,7 @@ describe('eventRoutes builder', () => {
         })
         .build();
 
-      const result = await routes[0]!.handler(
-        createRawEvent({ payload: { ticketId: 'T-001' } }),
-      );
+      const result = await routes[0]!.handler(createRawEvent({ payload: { ticketId: 'T-001' } }));
 
       expect(result).toEqual({ outcome: 'ack' });
       expect(useCase.execute).toHaveBeenCalledWith({ id: 'T-001' });
@@ -186,9 +184,7 @@ describe('eventRoutes builder', () => {
         .handle('created', async () => ({ outcome: 'ack' as const }))
         .build();
 
-      const result = await routes[0]!.handler(
-        createRawEvent({ payload: { ticketId: 123 } }),
-      );
+      const result = await routes[0]!.handler(createRawEvent({ payload: { ticketId: 123 } }));
 
       expect(result.outcome).toBe('dlq');
     });
@@ -202,9 +198,7 @@ describe('eventRoutes builder', () => {
 
       const handlerFn = vi.fn().mockResolvedValue({ outcome: 'ack' as const });
 
-      const routes = eventRoutes(router)
-        .handle('created', handlerFn)
-        .build();
+      const routes = eventRoutes(router).handle('created', handlerFn).build();
 
       await routes[0]!.handler(createRawEvent({ payload: { ticketId: 'T-001' } }));
 
@@ -225,9 +219,7 @@ describe('eventRoutes builder', () => {
         .handle('created', async () => ({ outcome: 'ack' as const }))
         .build({ validatePayload: false });
 
-      const result = await routes[0]!.handler(
-        createRawEvent({ payload: { ticketId: 123 } }),
-      );
+      const result = await routes[0]!.handler(createRawEvent({ payload: { ticketId: 123 } }));
 
       expect(result.outcome).toBe('ack');
     });

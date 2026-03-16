@@ -86,11 +86,7 @@ export function defineEventHandler<
   TContext extends SchemaAdapter | undefined = undefined,
 >(
   input: DefineEventHandlerInput<TEventType, TPayload, TContext>,
-): EventHandlerDefinition<
-  TEventType,
-  ResolvePayload<TPayload>,
-  ResolveContext<TContext>
-> {
+): EventHandlerDefinition<TEventType, ResolvePayload<TPayload>, ResolveContext<TContext>> {
   const definition = {
     eventType: input.eventType,
     payload: input.payload ?? undefined,

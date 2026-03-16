@@ -53,7 +53,9 @@ export function createEventRoutesInternal<T extends EventRouterConfig>(
 
   for (const { key, handler: handlerDef } of collectedHandlers) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handlerConfig = handlers[key] as AnyEventHandlerConfig<EventHandlerDefinition, any, any> | undefined;
+    const handlerConfig = handlers[key] as
+      | AnyEventHandlerConfig<EventHandlerDefinition, any, any>
+      | undefined;
 
     if (!handlerConfig) {
       if (resolvedOptions.allowPartial) {
