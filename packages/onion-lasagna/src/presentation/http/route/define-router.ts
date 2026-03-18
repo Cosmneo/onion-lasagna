@@ -316,10 +316,176 @@ export function mergeRouters<
   r8: RouterInput<T8>,
 ): RouterDefinition<DeepMergeAll<[T1, T2, T3, T4, T5, T6, T7, T8]>>;
 
-export function mergeRouters<T1 extends RouterConfig, T2 extends RouterConfig, T3 extends RouterConfig, T4 extends RouterConfig, T5 extends RouterConfig, T6 extends RouterConfig, T7 extends RouterConfig, T8 extends RouterConfig, T9 extends RouterConfig>(r1: RouterInput<T1>, r2: RouterInput<T2>, r3: RouterInput<T3>, r4: RouterInput<T4>, r5: RouterInput<T5>, r6: RouterInput<T6>, r7: RouterInput<T7>, r8: RouterInput<T8>, r9: RouterInput<T9>): RouterDefinition<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<T1, T2>, T3>, T4>, T5>, T6>, T7>, T8>, T9>>;
-export function mergeRouters<T1 extends RouterConfig, T2 extends RouterConfig, T3 extends RouterConfig, T4 extends RouterConfig, T5 extends RouterConfig, T6 extends RouterConfig, T7 extends RouterConfig, T8 extends RouterConfig, T9 extends RouterConfig, T10 extends RouterConfig>(r1: RouterInput<T1>, r2: RouterInput<T2>, r3: RouterInput<T3>, r4: RouterInput<T4>, r5: RouterInput<T5>, r6: RouterInput<T6>, r7: RouterInput<T7>, r8: RouterInput<T8>, r9: RouterInput<T9>, r10: RouterInput<T10>): RouterDefinition<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<T1, T2>, T3>, T4>, T5>, T6>, T7>, T8>, T9>, T10>>;
-export function mergeRouters<T1 extends RouterConfig, T2 extends RouterConfig, T3 extends RouterConfig, T4 extends RouterConfig, T5 extends RouterConfig, T6 extends RouterConfig, T7 extends RouterConfig, T8 extends RouterConfig, T9 extends RouterConfig, T10 extends RouterConfig, T11 extends RouterConfig>(r1: RouterInput<T1>, r2: RouterInput<T2>, r3: RouterInput<T3>, r4: RouterInput<T4>, r5: RouterInput<T5>, r6: RouterInput<T6>, r7: RouterInput<T7>, r8: RouterInput<T8>, r9: RouterInput<T9>, r10: RouterInput<T10>, r11: RouterInput<T11>): RouterDefinition<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<T1, T2>, T3>, T4>, T5>, T6>, T7>, T8>, T9>, T10>, T11>>;
-export function mergeRouters<T1 extends RouterConfig, T2 extends RouterConfig, T3 extends RouterConfig, T4 extends RouterConfig, T5 extends RouterConfig, T6 extends RouterConfig, T7 extends RouterConfig, T8 extends RouterConfig, T9 extends RouterConfig, T10 extends RouterConfig, T11 extends RouterConfig, T12 extends RouterConfig>(r1: RouterInput<T1>, r2: RouterInput<T2>, r3: RouterInput<T3>, r4: RouterInput<T4>, r5: RouterInput<T5>, r6: RouterInput<T6>, r7: RouterInput<T7>, r8: RouterInput<T8>, r9: RouterInput<T9>, r10: RouterInput<T10>, r11: RouterInput<T11>, r12: RouterInput<T12>): RouterDefinition<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<T1, T2>, T3>, T4>, T5>, T6>, T7>, T8>, T9>, T10>, T11>, T12>>;
+export function mergeRouters<
+  T1 extends RouterConfig,
+  T2 extends RouterConfig,
+  T3 extends RouterConfig,
+  T4 extends RouterConfig,
+  T5 extends RouterConfig,
+  T6 extends RouterConfig,
+  T7 extends RouterConfig,
+  T8 extends RouterConfig,
+  T9 extends RouterConfig,
+>(
+  r1: RouterInput<T1>,
+  r2: RouterInput<T2>,
+  r3: RouterInput<T3>,
+  r4: RouterInput<T4>,
+  r5: RouterInput<T5>,
+  r6: RouterInput<T6>,
+  r7: RouterInput<T7>,
+  r8: RouterInput<T8>,
+  r9: RouterInput<T9>,
+): RouterDefinition<
+  DeepMergeTwo<
+    DeepMergeTwo<
+      DeepMergeTwo<
+        DeepMergeTwo<
+          DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<T1, T2>, T3>, T4>, T5>,
+          T6
+        >,
+        T7
+      >,
+      T8
+    >,
+    T9
+  >
+>;
+export function mergeRouters<
+  T1 extends RouterConfig,
+  T2 extends RouterConfig,
+  T3 extends RouterConfig,
+  T4 extends RouterConfig,
+  T5 extends RouterConfig,
+  T6 extends RouterConfig,
+  T7 extends RouterConfig,
+  T8 extends RouterConfig,
+  T9 extends RouterConfig,
+  T10 extends RouterConfig,
+>(
+  r1: RouterInput<T1>,
+  r2: RouterInput<T2>,
+  r3: RouterInput<T3>,
+  r4: RouterInput<T4>,
+  r5: RouterInput<T5>,
+  r6: RouterInput<T6>,
+  r7: RouterInput<T7>,
+  r8: RouterInput<T8>,
+  r9: RouterInput<T9>,
+  r10: RouterInput<T10>,
+): RouterDefinition<
+  DeepMergeTwo<
+    DeepMergeTwo<
+      DeepMergeTwo<
+        DeepMergeTwo<
+          DeepMergeTwo<
+            DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<T1, T2>, T3>, T4>, T5>,
+            T6
+          >,
+          T7
+        >,
+        T8
+      >,
+      T9
+    >,
+    T10
+  >
+>;
+export function mergeRouters<
+  T1 extends RouterConfig,
+  T2 extends RouterConfig,
+  T3 extends RouterConfig,
+  T4 extends RouterConfig,
+  T5 extends RouterConfig,
+  T6 extends RouterConfig,
+  T7 extends RouterConfig,
+  T8 extends RouterConfig,
+  T9 extends RouterConfig,
+  T10 extends RouterConfig,
+  T11 extends RouterConfig,
+>(
+  r1: RouterInput<T1>,
+  r2: RouterInput<T2>,
+  r3: RouterInput<T3>,
+  r4: RouterInput<T4>,
+  r5: RouterInput<T5>,
+  r6: RouterInput<T6>,
+  r7: RouterInput<T7>,
+  r8: RouterInput<T8>,
+  r9: RouterInput<T9>,
+  r10: RouterInput<T10>,
+  r11: RouterInput<T11>,
+): RouterDefinition<
+  DeepMergeTwo<
+    DeepMergeTwo<
+      DeepMergeTwo<
+        DeepMergeTwo<
+          DeepMergeTwo<
+            DeepMergeTwo<
+              DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<T1, T2>, T3>, T4>, T5>,
+              T6
+            >,
+            T7
+          >,
+          T8
+        >,
+        T9
+      >,
+      T10
+    >,
+    T11
+  >
+>;
+export function mergeRouters<
+  T1 extends RouterConfig,
+  T2 extends RouterConfig,
+  T3 extends RouterConfig,
+  T4 extends RouterConfig,
+  T5 extends RouterConfig,
+  T6 extends RouterConfig,
+  T7 extends RouterConfig,
+  T8 extends RouterConfig,
+  T9 extends RouterConfig,
+  T10 extends RouterConfig,
+  T11 extends RouterConfig,
+  T12 extends RouterConfig,
+>(
+  r1: RouterInput<T1>,
+  r2: RouterInput<T2>,
+  r3: RouterInput<T3>,
+  r4: RouterInput<T4>,
+  r5: RouterInput<T5>,
+  r6: RouterInput<T6>,
+  r7: RouterInput<T7>,
+  r8: RouterInput<T8>,
+  r9: RouterInput<T9>,
+  r10: RouterInput<T10>,
+  r11: RouterInput<T11>,
+  r12: RouterInput<T12>,
+): RouterDefinition<
+  DeepMergeTwo<
+    DeepMergeTwo<
+      DeepMergeTwo<
+        DeepMergeTwo<
+          DeepMergeTwo<
+            DeepMergeTwo<
+              DeepMergeTwo<
+                DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<DeepMergeTwo<T1, T2>, T3>, T4>, T5>,
+                T6
+              >,
+              T7
+            >,
+            T8
+          >,
+          T9
+        >,
+        T10
+      >,
+      T11
+    >,
+    T12
+  >
+>;
 
 // Variadic fallback for 13+
 export function mergeRouters(
