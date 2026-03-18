@@ -1,6 +1,6 @@
 {
   "name": "@cosmneo/onion-lasagna",
-  "version": "0.2.1",
+  "version": "0.3.1",
   "description": "Enterprise-grade TypeScript library for building backend applications with hexagonal/onion architecture",
   "type": "module",
   "license": "MIT",
@@ -38,7 +38,10 @@
     "CHANGELOG.md",
     "LICENSE"
   ],
-  "sideEffects": ["./dist/**/*.js", "./dist/**/*.cjs"],
+  "sideEffects": [
+    "./dist/**/*.js",
+    "./dist/**/*.cjs"
+  ],
   "devDependencies": {
     "@types/node": "^25.0.3",
     "@vitest/coverage-v8": "^4.0.16",

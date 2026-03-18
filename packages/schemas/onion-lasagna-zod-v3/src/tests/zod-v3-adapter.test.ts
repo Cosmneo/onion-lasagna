@@ -149,7 +149,7 @@ describe('zodV3Schema', () => {
       const schema = zodV3Schema(
         z.discriminatedUnion('type', [
           z.object({ type: z.literal('text'), content: z.string() }),
-          z.object({ type: z.literal('image'), url: z.string().url() }),
+          z.object({ type: z.literal('image'), url: z.url() }),
         ]),
       );
 
