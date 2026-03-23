@@ -1,6 +1,6 @@
 {
   "name": "@cosmneo/onion-lasagna",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Enterprise-grade TypeScript library for building backend applications with hexagonal/onion architecture",
   "type": "module",
   "license": "MIT",
@@ -159,6 +159,36 @@
       "import": "./dist/events/asyncapi/index.js",
       "require": "./dist/events/asyncapi/index.cjs",
       "default": "./dist/events/asyncapi/index.js"
+    },
+    "./graphql": {
+      "types": "./dist/graphql/index.d.ts",
+      "import": "./dist/graphql/index.js",
+      "require": "./dist/graphql/index.cjs",
+      "default": "./dist/graphql/index.js"
+    },
+    "./graphql/field": {
+      "types": "./dist/graphql/field/index.d.ts",
+      "import": "./dist/graphql/field/index.js",
+      "require": "./dist/graphql/field/index.cjs",
+      "default": "./dist/graphql/field/index.js"
+    },
+    "./graphql/server": {
+      "types": "./dist/graphql/server/index.d.ts",
+      "import": "./dist/graphql/server/index.js",
+      "require": "./dist/graphql/server/index.cjs",
+      "default": "./dist/graphql/server/index.js"
+    },
+    "./graphql/shared": {
+      "types": "./dist/graphql/shared/index.d.ts",
+      "import": "./dist/graphql/shared/index.js",
+      "require": "./dist/graphql/shared/index.cjs",
+      "default": "./dist/graphql/shared/index.js"
+    },
+    "./graphql/sdl": {
+      "types": "./dist/graphql/sdl/index.d.ts",
+      "import": "./dist/graphql/sdl/index.js",
+      "require": "./dist/graphql/sdl/index.cjs",
+      "default": "./dist/graphql/sdl/index.js"
     }
   },
   "publishConfig": {

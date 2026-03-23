@@ -34,6 +34,8 @@ export type {
   QueryKeyFn,
   QueryKeyNamespace,
   InferQueryKeys,
+  QueryOptionsFn,
+  InferQueryOptions,
   SvelteQueryHooksResult,
   SvelteQueryHooksConfig,
   HookRequestInput,

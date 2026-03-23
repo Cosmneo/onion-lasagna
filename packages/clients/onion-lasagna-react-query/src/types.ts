@@ -12,6 +12,7 @@ import type {
   UseQueryResult,
   UseMutationOptions,
   UseMutationResult,
+  QueryOptions,
 } from '@tanstack/react-query';
 import type {
   RouteDefinition,
@@ -151,6 +152,44 @@ export type InferQueryKeys<T extends RouterConfig> = {
 };
 
 // ============================================================================
+// Query Options Types
+// ============================================================================
+
+/**
+ * Query options function for a single GET/HEAD route.
+ * Returns a `queryOptions({ queryKey, queryFn })` object for use with
+ * `queryClient.ensureQueryData()`, `queryClient.prefetchQuery()`,
+ * or `useSuspenseQuery()` outside of the generated hooks.
+ *
+ * @example Route loader prefetching
+ * ```typescript
+ * export const Route = createFileRoute('/users')({
+ *   loader: ({ context }) =>
+ *     context.queryClient.ensureQueryData(qo.users.list({ query: { page: 1 } })),
+ * })
+ * ```
+ */
+export type QueryOptionsFn<TRoute extends RouteDefinition> =
+  RequiresInput<TRoute> extends true
+    ? (input: HookRequestInput<TRoute>) => QueryOptions<HookResponse<TRoute>, ClientError>
+    : (input?: HookRequestInput<TRoute>) => QueryOptions<HookResponse<TRoute>, ClientError>;
+
+/**
+ * Recursively maps a router config to query options functions.
+ * Only includes GET/HEAD routes (mutations are excluded).
+ */
+export type InferQueryOptions<T extends RouterConfig> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for proper extends check on generic interface
+  [K in keyof T]: T[K] extends RouteDefinition<any, any, any, any, any, any, any, any>
+    ? T[K]['method'] extends QueryMethods
+      ? QueryOptionsFn<T[K]>
+      : never
+    : T[K] extends RouterConfig
+      ? InferQueryOptions<T[K]>
+      : never;
+};
+
+// ============================================================================
 // Factory Result
 // ============================================================================
 
@@ -169,6 +208,12 @@ export interface ReactQueryHooksResult<T extends RouterConfig> {
    * Each key is callable and returns an array for use with `queryClient.invalidateQueries()`.
    */
   readonly queryKeys: PrettifyDeep<InferQueryKeys<T>>;
+
+  /**
+   * Query options functions for use with `ensureQueryData`, `prefetchQuery`, or `useSuspenseQuery`.
+   * Only includes GET/HEAD routes. Each function returns a `queryOptions({ queryKey, queryFn })` object.
+   */
+  readonly queryOptions: PrettifyDeep<InferQueryOptions<T>>;
 }
 
 /**

@@ -164,6 +164,51 @@ export type InferQueryKeys<T extends RouterConfig> = {
 };
 
 // ============================================================================
+// Preload Options Types
+// ============================================================================
+
+/**
+ * Return type from a preload options function.
+ * Contains the SWR key and fetcher for use with `preload(key, fetcher)`.
+ */
+export interface PreloadConfig<TData> {
+  readonly key: readonly unknown[];
+  readonly fetcher: () => Promise<TData>;
+}
+
+/**
+ * Preload options function for a single GET/HEAD route.
+ * Returns `{ key, fetcher }` for use with SWR's `preload()`.
+ *
+ * @example Preload on hover
+ * ```typescript
+ * import { preload } from 'swr';
+ *
+ * const opts = preloadOptions.users.list({ query: { page: 1 } });
+ * preload(opts.key, opts.fetcher);
+ * ```
+ */
+export type PreloadOptionsFn<TRoute extends RouteDefinition> =
+  RequiresInput<TRoute> extends true
+    ? (input: HookRequestInput<TRoute>) => PreloadConfig<HookResponse<TRoute>>
+    : (input?: HookRequestInput<TRoute>) => PreloadConfig<HookResponse<TRoute>>;
+
+/**
+ * Recursively maps a router config to preload options functions.
+ * Only includes GET/HEAD routes (mutations are excluded).
+ */
+export type InferPreloadOptions<T extends RouterConfig> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for proper extends check on generic interface
+  [K in keyof T]: T[K] extends RouteDefinition<any, any, any, any, any, any, any, any>
+    ? T[K]['method'] extends QueryMethods
+      ? PreloadOptionsFn<T[K]>
+      : never
+    : T[K] extends RouterConfig
+      ? InferPreloadOptions<T[K]>
+      : never;
+};
+
+// ============================================================================
 // Factory Result
 // ============================================================================
 
@@ -182,6 +227,19 @@ export interface SWRHooksResult<T extends RouterConfig> {
    * Each key is callable and returns an array for use with SWR's `mutate()`.
    */
   readonly queryKeys: PrettifyDeep<InferQueryKeys<T>>;
+
+  /**
+   * Preload options for use with SWR's `preload(key, fetcher)`.
+   * Only includes GET/HEAD routes.
+   *
+   * @example
+   * ```typescript
+   * import { preload } from 'swr';
+   * const opts = preloadOptions.users.list({ query: { page: 1 } });
+   * preload(opts.key, opts.fetcher);
+   * ```
+   */
+  readonly preloadOptions: PrettifyDeep<InferPreloadOptions<T>>;
 }
 
 /**

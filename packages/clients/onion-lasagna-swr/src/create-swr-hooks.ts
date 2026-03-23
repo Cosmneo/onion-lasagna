@@ -17,7 +17,13 @@ import type {
 import { isRouteDefinition, isRouterDefinition } from '@cosmneo/onion-lasagna/http/route';
 import { createClient } from '@cosmneo/onion-lasagna-client';
 import { buildQueryKeys } from './query-keys';
-import type { SWRHooksResult, SWRHooksConfig, InferHooks, InferQueryKeys } from './types';
+import type {
+  SWRHooksResult,
+  SWRHooksConfig,
+  InferHooks,
+  InferQueryKeys,
+  InferPreloadOptions,
+} from './types';
 
 /**
  * HTTP methods that map to `useSWR`.
@@ -60,13 +66,16 @@ export function createSWRHooks<T extends RouterConfig>(
   // Create the underlying HTTP client
   const client = createClient(router, config);
 
-  // Build hooks proxy and query keys (with optional prefix for cache isolation)
+  // Build hooks proxy, query keys, and preload options (with optional prefix for cache isolation)
   const hooks = buildHooksProxy(routes, client, prefix, config.useEnabled) as PrettifyDeep<
     InferHooks<T>
   >;
   const queryKeys = buildQueryKeys(routes, prefix) as PrettifyDeep<InferQueryKeys<T>>;
+  const po = buildPreloadOptionsProxy(routes, client, prefix) as PrettifyDeep<
+    InferPreloadOptions<T>
+  >;
 
-  return { hooks, queryKeys };
+  return { hooks, queryKeys, preloadOptions: po };
 }
 
 /**
@@ -169,6 +178,62 @@ function createMutationHook(
         options,
       );
     },
+  };
+}
+
+/**
+ * Recursively builds a preload options proxy. Only includes GET/HEAD routes.
+ */
+function buildPreloadOptionsProxy(
+  routes: RouterConfig,
+  client: Record<string, unknown>,
+  keyPath: readonly string[],
+): Record<string, unknown> {
+  const options: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(routes)) {
+    const currentKeyPath = [...keyPath, key];
+    const clientEntry = client[key];
+
+    if (isRouteDefinition(value)) {
+      if (QUERY_METHODS.has(value.method)) {
+        options[key] = createPreloadOptionsFactory(
+          clientEntry as (...args: unknown[]) => Promise<unknown>,
+          currentKeyPath,
+        );
+      }
+    } else if (isRouterDefinition(value)) {
+      options[key] = buildPreloadOptionsProxy(
+        value.routes,
+        clientEntry as Record<string, unknown>,
+        currentKeyPath,
+      );
+    } else if (typeof value === 'object' && value !== null) {
+      options[key] = buildPreloadOptionsProxy(
+        value as RouterConfig,
+        clientEntry as Record<string, unknown>,
+        currentKeyPath,
+      );
+    }
+  }
+
+  return options;
+}
+
+/**
+ * Creates a function that returns `{ key, fetcher }` for a GET/HEAD route.
+ * For use with SWR's `preload(key, fetcher)`.
+ */
+function createPreloadOptionsFactory(
+  clientMethod: (...args: unknown[]) => Promise<unknown>,
+  keyPath: readonly string[],
+): (input?: unknown) => { key: readonly unknown[]; fetcher: () => Promise<unknown> } {
+  return (input?: unknown) => {
+    const key: readonly unknown[] = isEmptyInput(input) ? keyPath : [...keyPath, input];
+    return {
+      key,
+      fetcher: () => clientMethod(input),
+    };
   };
 }
 

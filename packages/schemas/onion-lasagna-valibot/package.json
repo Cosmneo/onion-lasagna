@@ -1,6 +1,6 @@
 {
   "name": "@cosmneo/onion-lasagna-valibot",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Valibot schema adapter for onion-lasagna",
   "type": "module",
   "license": "MIT",
@@ -27,7 +27,7 @@
   "peerDependencies": {
     "valibot": "^1.0.0",
     "@valibot/to-json-schema": "^1.0.0",
-    "@cosmneo/onion-lasagna": ">=0.3.1"
+    "@cosmneo/onion-lasagna": ">=0.4.0"
   },
   "scripts": {
     "build": "tsup",

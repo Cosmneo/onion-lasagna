@@ -7,7 +7,7 @@
  * @module unified/react-query/create-react-query-hooks
  */
 
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, queryOptions } from '@tanstack/react-query';
 import type {
   RouterConfig,
   RouterDefinition,
@@ -21,6 +21,7 @@ import type {
   ReactQueryHooksConfig,
   InferHooks,
   InferQueryKeys,
+  InferQueryOptions,
 } from './types';
 
 /**
@@ -79,13 +80,14 @@ export function createReactQueryHooks<T extends RouterConfig>(
   // Create the underlying HTTP client
   const client = createClient(router, config);
 
-  // Build hooks proxy and query keys (with optional prefix for cache isolation)
+  // Build hooks proxy, query keys, and query options (with optional prefix for cache isolation)
   const hooks = buildHooksProxy(routes, client, prefix, config.useEnabled) as PrettifyDeep<
     InferHooks<T>
   >;
   const queryKeys = buildQueryKeys(routes, prefix) as PrettifyDeep<InferQueryKeys<T>>;
+  const qo = buildQueryOptionsProxy(routes, client, prefix) as PrettifyDeep<InferQueryOptions<T>>;
 
-  return { hooks, queryKeys };
+  return { hooks, queryKeys, queryOptions: qo };
 }
 
 /**
@@ -176,6 +178,63 @@ function createMutationHook(
         ...options,
       });
     },
+  };
+}
+
+/**
+ * Recursively builds a query options proxy, walking the router tree in parallel with the client.
+ * Only includes GET/HEAD routes (mutations are excluded).
+ */
+function buildQueryOptionsProxy(
+  routes: RouterConfig,
+  client: Record<string, unknown>,
+  keyPath: readonly string[],
+): Record<string, unknown> {
+  const options: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(routes)) {
+    const currentKeyPath = [...keyPath, key];
+    const clientEntry = client[key];
+
+    if (isRouteDefinition(value)) {
+      if (QUERY_METHODS.has(value.method)) {
+        options[key] = createQueryOptionsFactory(
+          clientEntry as (...args: unknown[]) => Promise<unknown>,
+          currentKeyPath,
+        );
+      }
+    } else if (isRouterDefinition(value)) {
+      options[key] = buildQueryOptionsProxy(
+        value.routes,
+        clientEntry as Record<string, unknown>,
+        currentKeyPath,
+      );
+    } else if (typeof value === 'object' && value !== null) {
+      options[key] = buildQueryOptionsProxy(
+        value as RouterConfig,
+        clientEntry as Record<string, unknown>,
+        currentKeyPath,
+      );
+    }
+  }
+
+  return options;
+}
+
+/**
+ * Creates a function that returns `queryOptions({ queryKey, queryFn })` for a GET/HEAD route.
+ * Uses the same key/fn logic as `createQueryHook` to ensure cache hits.
+ */
+function createQueryOptionsFactory(
+  clientMethod: (...args: unknown[]) => Promise<unknown>,
+  keyPath: readonly string[],
+): (input?: unknown) => ReturnType<typeof queryOptions> {
+  return (input?: unknown) => {
+    const queryKey: readonly unknown[] = isEmptyInput(input) ? keyPath : [...keyPath, input];
+    return queryOptions({
+      queryKey,
+      queryFn: () => clientMethod(input),
+    });
   };
 }
 
