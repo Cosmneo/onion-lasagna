@@ -4,10 +4,7 @@
  * @module graphql/server/types
  */
 
-import type {
-  GraphQLFieldDefinition,
-  GraphQLOperationType,
-} from '../field/types';
+import type { GraphQLFieldDefinition, GraphQLOperationType } from '../field/types';
 
 // Re-export UseCasePort from HTTP — same interface, no duplication
 export type { UseCasePort } from '../../http/server/types';
@@ -74,10 +71,7 @@ export interface GraphQLHandlerConfig<
    * Maps the validated args to use case input.
    * Both `args` and `ctx` are fully typed based on field schemas.
    */
-  readonly argsMapper: (
-    args: ValidatedArgs<TField>,
-    ctx: TypedGraphQLContext<TField>,
-  ) => TInput;
+  readonly argsMapper: (args: ValidatedArgs<TField>, ctx: TypedGraphQLContext<TField>) => TInput;
 
   /** The use case to execute. */
   readonly useCase: { execute(input?: TInput): Promise<TOutput> };

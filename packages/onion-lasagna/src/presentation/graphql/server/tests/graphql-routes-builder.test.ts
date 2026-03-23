@@ -127,9 +127,7 @@ describe('graphqlRoutes builder', () => {
         .handle('getUser', async () => ({ name: 'Alice' }))
         .build();
 
-      await expect(fields[0]!.handler({ userId: 123 }, {})).rejects.toThrow(
-        ObjectValidationError,
-      );
+      await expect(fields[0]!.handler({ userId: 123 }, {})).rejects.toThrow(ObjectValidationError);
     });
 
     it('passes valid input to handler', async () => {
@@ -198,10 +196,7 @@ describe('graphqlRoutes builder', () => {
 
       await fields[0]!.handler(undefined, { userId: 'U-001' });
 
-      expect(handlerFn).toHaveBeenCalledWith(
-        expect.anything(),
-        { userId: 'U-001' },
-      );
+      expect(handlerFn).toHaveBeenCalledWith(expect.anything(), { userId: 'U-001' });
     });
   });
 
@@ -216,9 +211,7 @@ describe('graphqlRoutes builder', () => {
         .handle('getUser', async () => ({ name: 123 }))
         .build();
 
-      await expect(fields[0]!.handler(undefined, {})).rejects.toThrow(
-        'Output validation failed',
-      );
+      await expect(fields[0]!.handler(undefined, {})).rejects.toThrow('Output validation failed');
     });
 
     it('skips output validation when validateOutput is false', async () => {

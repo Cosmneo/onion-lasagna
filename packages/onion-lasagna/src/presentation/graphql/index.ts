@@ -58,8 +58,4 @@ export type {
   GraphQLValidationErrorItem,
   MappedGraphQLError,
 } from './shared';
-export {
-  mapErrorToGraphQLError,
-  getGraphQLErrorCode,
-  shouldMaskGraphQLError,
-} from './shared';
+export { mapErrorToGraphQLError, getGraphQLErrorCode, shouldMaskGraphQLError } from './shared';

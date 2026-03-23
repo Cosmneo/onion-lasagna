@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { mapErrorToGraphQLError, getGraphQLErrorCode, shouldMaskGraphQLError } from '../error-mapping';
+import {
+  mapErrorToGraphQLError,
+  getGraphQLErrorCode,
+  shouldMaskGraphQLError,
+} from '../error-mapping';
 import { ObjectValidationError } from '../../../../global/exceptions/object-validation.error';
 import { UseCaseError } from '../../../../app/exceptions/use-case.error';
 import { NotFoundError } from '../../../../app/exceptions/not-found.error';
@@ -98,9 +102,7 @@ describe('mapErrorToGraphQLError', () => {
   });
 
   it('maps UseCaseError with message', () => {
-    const result = mapErrorToGraphQLError(
-      new UseCaseError({ message: 'Business rule violated' }),
-    );
+    const result = mapErrorToGraphQLError(new UseCaseError({ message: 'Business rule violated' }));
 
     expect(result.message).toBe('Business rule violated');
     expect(result.extensions.code).toBe('BAD_REQUEST');

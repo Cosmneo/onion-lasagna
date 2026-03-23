@@ -58,10 +58,7 @@ export interface BuilderGraphQLHandlerConfig<
    * Maps the validated args to use case input.
    * Both `args` and `ctx` are fully typed based on field schemas.
    */
-  readonly argsMapper: (
-    args: ValidatedArgs<TField>,
-    ctx: TypedGraphQLContext<TField>,
-  ) => TInput;
+  readonly argsMapper: (args: ValidatedArgs<TField>, ctx: TypedGraphQLContext<TField>) => TInput;
 
   /** The use case to execute. */
   readonly useCase: { execute(input?: TInput): Promise<TOutput> };

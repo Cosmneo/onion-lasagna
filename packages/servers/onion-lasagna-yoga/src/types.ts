@@ -15,7 +15,13 @@ import type {
 import type { MappedGraphQLError } from '@cosmneo/onion-lasagna/graphql/shared';
 
 // Re-export for convenience
-export type { UnifiedGraphQLField, GraphQLHandlerContext, MappedGraphQLError, GraphQLSchemaConfig, GraphQLSchemaDefinition };
+export type {
+  UnifiedGraphQLField,
+  GraphQLHandlerContext,
+  MappedGraphQLError,
+  GraphQLSchemaConfig,
+  GraphQLSchemaDefinition,
+};
 
 /**
  * Options for creating the onion-lasagna Yoga server.

@@ -20,8 +20,4 @@ export type {
   DeepMergeSchemasAll,
 } from './schema-definition.type';
 
-export {
-  isFieldDefinition,
-  isSchemaDefinition,
-  collectFields,
-} from './schema-definition.type';
+export { isFieldDefinition, isSchemaDefinition, collectFields } from './schema-definition.type';

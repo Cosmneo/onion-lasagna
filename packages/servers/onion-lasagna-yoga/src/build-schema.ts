@@ -12,7 +12,10 @@
 
 import type { UnifiedGraphQLField } from '@cosmneo/onion-lasagna/graphql/server';
 import type { SchemaAdapter, JsonSchema } from '@cosmneo/onion-lasagna/http/schema';
-import type { GraphQLSchemaConfig, GraphQLSchemaDefinition } from '@cosmneo/onion-lasagna/graphql/field';
+import type {
+  GraphQLSchemaConfig,
+  GraphQLSchemaDefinition,
+} from '@cosmneo/onion-lasagna/graphql/field';
 import { isSchemaDefinition, collectFields } from '@cosmneo/onion-lasagna/graphql/field';
 import { generateFieldId } from '@cosmneo/onion-lasagna/graphql/field';
 import { GraphQLScalarType, GraphQLError } from 'graphql';
@@ -105,7 +108,10 @@ function buildTypedSchema(
   const collectedFields = collectFields(config);
 
   // Build a map from fieldId → field definition (with schemas)
-  const fieldDefMap = new Map<string, { input?: SchemaAdapter; output?: SchemaAdapter; operation: string }>();
+  const fieldDefMap = new Map<
+    string,
+    { input?: SchemaAdapter; output?: SchemaAdapter; operation: string }
+  >();
   for (const { key, field } of collectedFields) {
     const fieldId = generateFieldId(key);
     fieldDefMap.set(fieldId, {
@@ -292,10 +298,14 @@ function resolvePropertyType(
   const type = rec['type'] as string | undefined;
 
   switch (type) {
-    case 'string': return 'String';
-    case 'integer': return 'Int';
-    case 'number': return 'Float';
-    case 'boolean': return 'Boolean';
+    case 'string':
+      return 'String';
+    case 'integer':
+      return 'Int';
+    case 'number':
+      return 'Float';
+    case 'boolean':
+      return 'Boolean';
     case 'array': {
       const items = rec['items'] as JsonSchema | undefined;
       if (items && typeof items === 'object') {
@@ -345,14 +355,22 @@ function registerNamedType(
   const keyword = kind === 'input' ? 'input' : 'type';
   const lines: string[] = [`${keyword} ${typeName} {`];
   const properties = schema.properties as Record<string, JsonSchema> | undefined;
-  const required = new Set(
-    Array.isArray(schema.required) ? (schema.required as string[]) : [],
-  );
+  const required = new Set(Array.isArray(schema.required) ? (schema.required as string[]) : []);
 
   if (properties) {
     for (const [propName, propSchema] of Object.entries(properties)) {
-      const propType = resolvePropertyType(propSchema, typeName, propName, kind, namedTypes, depth + 1);
-      const isNullable = propSchema && typeof propSchema === 'object' && (propSchema as Record<string, unknown>)['nullable'] === true;
+      const propType = resolvePropertyType(
+        propSchema,
+        typeName,
+        propName,
+        kind,
+        namedTypes,
+        depth + 1,
+      );
+      const isNullable =
+        propSchema &&
+        typeof propSchema === 'object' &&
+        (propSchema as Record<string, unknown>)['nullable'] === true;
       const isRequired = required.has(propName) && !isNullable;
       lines.push(`  ${propName}: ${propType}${isRequired ? '!' : ''}`);
     }
@@ -378,11 +396,16 @@ function registerInputType(
  */
 function scalarType(type: string | undefined): string {
   switch (type) {
-    case 'string': return 'String!';
-    case 'integer': return 'Int!';
-    case 'number': return 'Float!';
-    case 'boolean': return 'Boolean!';
-    default: return 'JSON';
+    case 'string':
+      return 'String!';
+    case 'integer':
+      return 'Int!';
+    case 'number':
+      return 'Float!';
+    case 'boolean':
+      return 'Boolean!';
+    default:
+      return 'JSON';
   }
 }
 
@@ -509,7 +532,11 @@ function createResolver(
       return await field.handler(args.input, context);
     } catch (error) {
       if (onResolverError) {
-        try { onResolverError(error, field.key); } catch { /* don't let logging break the response */ }
+        try {
+          onResolverError(error, field.key);
+        } catch {
+          /* don't let logging break the response */
+        }
       }
       const mapped = mapErrorToGraphQLError(error);
       throw new GraphQLError(mapped.message, {

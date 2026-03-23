@@ -60,7 +60,11 @@ import type { CreateOnionYogaOptions } from './types';
 export function createOnionYoga(
   options: CreateOnionYogaOptions,
 ): YogaServerInstance<Record<string, unknown>, Record<string, unknown>> {
-  const { typeDefs, resolvers } = buildSchemaFromFields(options.fields, options.schema, options.onResolverError);
+  const { typeDefs, resolvers } = buildSchemaFromFields(
+    options.fields,
+    options.schema,
+    options.onResolverError,
+  );
 
   const schema = createSchema({ typeDefs, resolvers });
 
@@ -80,7 +84,11 @@ export function createOnionYoga(
         return await createContext(request);
       } catch (error) {
         if (onError) {
-          try { onError(error, 'context'); } catch { /* don't let logging break the response */ }
+          try {
+            onError(error, 'context');
+          } catch {
+            /* don't let logging break the response */
+          }
         }
         throw error;
       }
@@ -95,10 +103,7 @@ export function createOnionYoga(
   // Depth limiting — enabled by default (maxDepth: 20)
   const maxDepth = options.maxDepth !== false ? (options.maxDepth ?? 20) : undefined;
   if (maxDepth !== undefined) {
-    yogaOptions['plugins'] = [
-      ...(options.plugins ?? []),
-      createDepthLimitPlugin(maxDepth),
-    ];
+    yogaOptions['plugins'] = [...(options.plugins ?? []), createDepthLimitPlugin(maxDepth)];
   } else if (options.plugins && options.plugins.length > 0) {
     yogaOptions['plugins'] = options.plugins;
   }

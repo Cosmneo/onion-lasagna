@@ -103,7 +103,7 @@ function createFieldHandler(
       // Create context
       const context: GraphQLHandlerContext = options?.createContext
         ? options.createContext(rawContext)
-        : (rawContext as GraphQLHandlerContext) ?? { requestId: generateRequestId() };
+        : ((rawContext as GraphQLHandlerContext) ?? { requestId: generateRequestId() });
 
       // Validate context (if schema defined)
       // Context validation failures → UnauthorizedError (401 semantics).
@@ -221,10 +221,7 @@ interface ValidationResultInternal {
 /**
  * Validates input args against the field's input schema.
  */
-function validateInputData(
-  field: GraphQLFieldDefinition,
-  args: unknown,
-): ValidationResultInternal {
+function validateInputData(field: GraphQLFieldDefinition, args: unknown): ValidationResultInternal {
   const schema = field.input as SchemaAdapter | undefined;
   if (!schema) return { success: true, data: args };
 

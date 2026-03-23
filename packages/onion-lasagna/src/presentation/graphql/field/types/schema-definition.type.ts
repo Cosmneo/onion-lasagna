@@ -19,7 +19,7 @@ import type { SchemaAdapter } from '../../../http/schema/types';
  */
 export type GraphQLSchemaEntry =
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  GraphQLFieldDefinition<GraphQLOperationType, any, any, any>
+  | GraphQLFieldDefinition<GraphQLOperationType, any, any, any>
   | GraphQLSchemaConfig
   | GraphQLSchemaDefinition;
 

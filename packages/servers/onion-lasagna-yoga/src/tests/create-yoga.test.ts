@@ -126,11 +126,9 @@ describe('createOnionYoga', () => {
       ],
     });
 
-    const result = await executeQuery(
-      yoga,
-      'query ($input: JSON) { getUser(input: $input) }',
-      { input: 'U-001' },
-    );
+    const result = await executeQuery(yoga, 'query ($input: JSON) { getUser(input: $input) }', {
+      input: 'U-001',
+    });
 
     expect(result.data).toEqual({ getUser: { id: 'U-001', name: 'Alice' } });
   });
@@ -198,9 +196,7 @@ describe('createOnionYoga', () => {
 
     expect(result.errors).toBeDefined();
     expect(result.errors![0]!.message).toBe('User not found');
-    expect(result.errors![0]!.extensions).toEqual(
-      expect.objectContaining({ code: 'NOT_FOUND' }),
-    );
+    expect(result.errors![0]!.extensions).toEqual(expect.objectContaining({ code: 'NOT_FOUND' }));
   });
 
   it('masks domain errors', async () => {

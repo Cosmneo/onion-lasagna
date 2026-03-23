@@ -59,10 +59,6 @@ export function mapToGraphQLError(error: unknown): GraphQLError {
  * });
  * ```
  */
-export function onionMaskError(
-  error: unknown,
-  _message: string,
-  _isDev: boolean,
-): Error {
-  return mapToGraphQLError(error instanceof GraphQLError ? error.originalError ?? error : error);
+export function onionMaskError(error: unknown, _message: string, _isDev: boolean): Error {
+  return mapToGraphQLError(error instanceof GraphQLError ? (error.originalError ?? error) : error);
 }

@@ -84,9 +84,7 @@ export function defineGraphQLSchema<T extends GraphQLSchemaConfig>(
 
   // Apply defaults to fields if context or tags are provided
   const processedFields =
-    defaults?.context || defaults?.tags
-      ? (applySchemaDefaults(fields, defaults) as T)
-      : fields;
+    defaults?.context || defaults?.tags ? (applySchemaDefaults(fields, defaults) as T) : fields;
 
   const definition: GraphQLSchemaDefinition<T> = {
     fields: processedFields,
@@ -219,10 +217,7 @@ function deepMergeConfigs(a: GraphQLSchemaConfig, b: GraphQLSchemaConfig): Graph
 }
 
 // Overloads for 2–8 schemas (clean IDE experience)
-export function mergeGraphQLSchemas<
-  T1 extends GraphQLSchemaConfig,
-  T2 extends GraphQLSchemaConfig,
->(
+export function mergeGraphQLSchemas<T1 extends GraphQLSchemaConfig, T2 extends GraphQLSchemaConfig>(
   s1: SchemaInput<T1>,
   s2: SchemaInput<T2>,
 ): GraphQLSchemaDefinition<DeepMergeSchemas<T1, T2>>;
@@ -336,7 +331,10 @@ export function mergeGraphQLSchemas<
     DeepMergeSchemas<
       DeepMergeSchemas<
         DeepMergeSchemas<
-          DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<T1, T2>, T3>, T4>, T5>,
+          DeepMergeSchemas<
+            DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<T1, T2>, T3>, T4>,
+            T5
+          >,
           T6
         >,
         T7
@@ -374,7 +372,10 @@ export function mergeGraphQLSchemas<
       DeepMergeSchemas<
         DeepMergeSchemas<
           DeepMergeSchemas<
-            DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<T1, T2>, T3>, T4>, T5>,
+            DeepMergeSchemas<
+              DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<T1, T2>, T3>, T4>,
+              T5
+            >,
             T6
           >,
           T7
@@ -417,7 +418,10 @@ export function mergeGraphQLSchemas<
         DeepMergeSchemas<
           DeepMergeSchemas<
             DeepMergeSchemas<
-              DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<T1, T2>, T3>, T4>, T5>,
+              DeepMergeSchemas<
+                DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<T1, T2>, T3>, T4>,
+                T5
+              >,
               T6
             >,
             T7
@@ -465,7 +469,10 @@ export function mergeGraphQLSchemas<
           DeepMergeSchemas<
             DeepMergeSchemas<
               DeepMergeSchemas<
-                DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<T1, T2>, T3>, T4>, T5>,
+                DeepMergeSchemas<
+                  DeepMergeSchemas<DeepMergeSchemas<DeepMergeSchemas<T1, T2>, T3>, T4>,
+                  T5
+                >,
                 T6
               >,
               T7

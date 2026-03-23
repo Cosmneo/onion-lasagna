@@ -91,7 +91,13 @@ export function generateGraphQLSDL<T extends GraphQLSchemaConfig>(
   if (queries.length > 0) {
     lines.push('type Query {');
     for (const { fieldId, field } of queries) {
-      const fieldLine = buildFieldLine(fieldId, field, namedTypes, includeDescriptions, includeDeprecations);
+      const fieldLine = buildFieldLine(
+        fieldId,
+        field,
+        namedTypes,
+        includeDescriptions,
+        includeDeprecations,
+      );
       lines.push(fieldLine);
     }
     lines.push('}');
@@ -102,7 +108,13 @@ export function generateGraphQLSDL<T extends GraphQLSchemaConfig>(
   if (mutations.length > 0) {
     lines.push('type Mutation {');
     for (const { fieldId, field } of mutations) {
-      const fieldLine = buildFieldLine(fieldId, field, namedTypes, includeDescriptions, includeDeprecations);
+      const fieldLine = buildFieldLine(
+        fieldId,
+        field,
+        namedTypes,
+        includeDescriptions,
+        includeDeprecations,
+      );
       lines.push(fieldLine);
     }
     lines.push('}');
@@ -113,7 +125,13 @@ export function generateGraphQLSDL<T extends GraphQLSchemaConfig>(
   if (subscriptions.length > 0) {
     lines.push('type Subscription {');
     for (const { fieldId, field } of subscriptions) {
-      const fieldLine = buildFieldLine(fieldId, field, namedTypes, includeDescriptions, includeDeprecations);
+      const fieldLine = buildFieldLine(
+        fieldId,
+        field,
+        namedTypes,
+        includeDescriptions,
+        includeDeprecations,
+      );
       lines.push(fieldLine);
     }
     lines.push('}');
@@ -180,9 +198,7 @@ function buildFieldLine(
   // Deprecation directive
   if (includeDeprecations && field.docs.deprecated) {
     const reason = field.docs.deprecationReason;
-    signature += reason
-      ? ` @deprecated(reason: "${escapeSDLString(reason)}")`
-      : ' @deprecated';
+    signature += reason ? ` @deprecated(reason: "${escapeSDLString(reason)}")` : ' @deprecated';
   }
 
   if (parts.length > 0) {

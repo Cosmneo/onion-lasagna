@@ -136,7 +136,12 @@ export function defineQuery<
   TContext extends SchemaAdapter | undefined = undefined,
 >(
   config: DefineFieldInput<TInput, TOutput, TContext> = {},
-): GraphQLFieldDefinition<'query', ResolveInput<TInput>, ResolveOutput<TOutput>, ResolveContext<TContext>> {
+): GraphQLFieldDefinition<
+  'query',
+  ResolveInput<TInput>,
+  ResolveOutput<TOutput>,
+  ResolveContext<TContext>
+> {
   return createFieldDefinition('query', config);
 }
 
@@ -162,7 +167,12 @@ export function defineMutation<
   TContext extends SchemaAdapter | undefined = undefined,
 >(
   config: DefineFieldInput<TInput, TOutput, TContext> = {},
-): GraphQLFieldDefinition<'mutation', ResolveInput<TInput>, ResolveOutput<TOutput>, ResolveContext<TContext>> {
+): GraphQLFieldDefinition<
+  'mutation',
+  ResolveInput<TInput>,
+  ResolveOutput<TOutput>,
+  ResolveContext<TContext>
+> {
   return createFieldDefinition('mutation', config);
 }
 
@@ -190,6 +200,11 @@ export function defineSubscription<
   TContext extends SchemaAdapter | undefined = undefined,
 >(
   config: DefineFieldInput<TInput, TOutput, TContext> = {},
-): GraphQLFieldDefinition<'subscription', ResolveInput<TInput>, ResolveOutput<TOutput>, ResolveContext<TContext>> {
+): GraphQLFieldDefinition<
+  'subscription',
+  ResolveInput<TInput>,
+  ResolveOutput<TOutput>,
+  ResolveContext<TContext>
+> {
   return createFieldDefinition('subscription', config);
 }
