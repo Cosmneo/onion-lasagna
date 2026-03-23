@@ -24,7 +24,9 @@ type RequiresInput<TField extends GraphQLFieldDefinition> =
  */
 export type MockGraphQLHandler<TField extends GraphQLFieldDefinition> =
   RequiresInput<TField> extends true
-    ? (input: TField['_types']['input']) => TField['_types']['output'] | Promise<TField['_types']['output']>
+    ? (
+        input: TField['_types']['input'],
+      ) => TField['_types']['output'] | Promise<TField['_types']['output']>
     : (input?: undefined) => TField['_types']['output'] | Promise<TField['_types']['output']>;
 
 /**

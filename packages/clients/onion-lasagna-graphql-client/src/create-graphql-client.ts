@@ -18,9 +18,20 @@ import type {
   GraphQLSchemaDefinition,
   GraphQLFieldDefinition,
 } from '@cosmneo/onion-lasagna/graphql/field';
-import { isFieldDefinition, isSchemaDefinition, generateFieldId as coreGenerateFieldId, collectFields } from '@cosmneo/onion-lasagna/graphql/field';
+import {
+  isFieldDefinition,
+  isSchemaDefinition,
+  generateFieldId as coreGenerateFieldId,
+  collectFields,
+} from '@cosmneo/onion-lasagna/graphql/field';
 import type { SchemaAdapter, JsonSchema } from '@cosmneo/onion-lasagna/http/schema';
-import type { GraphQLClientConfig, InferGraphQLClient, GraphQLResponseError, BatchQueryEntry, BatchQueryFn } from './client-types';
+import type {
+  GraphQLClientConfig,
+  InferGraphQLClient,
+  GraphQLResponseError,
+  BatchQueryEntry,
+  BatchQueryFn,
+} from './client-types';
 import { GraphQLClientError } from './client-types';
 
 /**
@@ -191,9 +202,7 @@ function createFieldMethod(
 
   return async (input?: unknown, options?: { select?: unknown }) => {
     // Use custom select or fall back to all fields
-    const selectionSet = options?.select
-      ? selectionToString(options.select)
-      : defaultSelectionSet;
+    const selectionSet = options?.select ? selectionToString(options.select) : defaultSelectionSet;
 
     // Build the GraphQL query string
     const hasInput = input !== undefined && input !== null;
@@ -249,11 +258,14 @@ export function createBatchQuery(
   config: GraphQLClientConfig,
 ): BatchQueryFn {
   // Pre-compute a lookup map from the schema (queries only)
-  const fieldLookup = new Map<string, {
-    fieldId: string;
-    inputTypeName: string | null;
-    defaultSelection: string;
-  }>();
+  const fieldLookup = new Map<
+    string,
+    {
+      fieldId: string;
+      inputTypeName: string | null;
+      defaultSelection: string;
+    }
+  >();
   const mutationKeys = new Set<string>();
 
   const fields = isSchemaDefinition(schema)
@@ -288,16 +300,11 @@ export function createBatchQuery(
 
       const lookup = fieldLookup.get(entry.fieldKey);
       if (!lookup) {
-        throw new GraphQLClientError(
-          `Unknown field key: "${entry.fieldKey}"`,
-          [],
-        );
+        throw new GraphQLClientError(`Unknown field key: "${entry.fieldKey}"`, []);
       }
 
       const { fieldId, inputTypeName, defaultSelection } = lookup;
-      const selectionSet = entry.select
-        ? selectionToString(entry.select)
-        : defaultSelection;
+      const selectionSet = entry.select ? selectionToString(entry.select) : defaultSelection;
 
       const hasInput = entry.input !== undefined && entry.input !== null;
 
@@ -316,9 +323,7 @@ export function createBatchQuery(
       }
     }
 
-    const varSection = variableDefs.length > 0
-      ? `(${variableDefs.join(', ')})`
-      : '';
+    const varSection = variableDefs.length > 0 ? `(${variableDefs.join(', ')})` : '';
     const query = `query BatchQuery${varSection} { ${fieldParts.join(' ')} }`;
 
     const body: { query: string; variables?: Record<string, unknown> } = { query };
@@ -401,11 +406,7 @@ async function executeGraphQLRequest(
 
   // Check for errors
   if (json.errors && json.errors.length > 0) {
-    const clientError = new GraphQLClientError(
-      json.errors[0]!.message,
-      json.errors,
-      response,
-    );
+    const clientError = new GraphQLClientError(json.errors[0]!.message, json.errors, response);
     if (config.onError) {
       await config.onError(clientError);
     }

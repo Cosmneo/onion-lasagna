@@ -8,13 +8,12 @@
  * @module graphql/client/create-mock-graphql-client
  */
 
-import type { GraphQLSchemaConfig, GraphQLSchemaDefinition } from '@cosmneo/onion-lasagna/graphql/field';
-import { isFieldDefinition, isSchemaDefinition } from '@cosmneo/onion-lasagna/graphql/field';
 import type {
-  MockGraphQLHandlers,
-  MockGraphQLCall,
-  MockGraphQLClientResult,
-} from './types';
+  GraphQLSchemaConfig,
+  GraphQLSchemaDefinition,
+} from '@cosmneo/onion-lasagna/graphql/field';
+import { isFieldDefinition, isSchemaDefinition } from '@cosmneo/onion-lasagna/graphql/field';
+import type { MockGraphQLHandlers, MockGraphQLCall, MockGraphQLClientResult } from './types';
 import type { InferGraphQLClient } from './client-types';
 
 /**
@@ -172,9 +171,7 @@ export function mockGraphQLSequence<T>(
         return responses[responses.length - 1]!(...args);
       case 'throw':
       default:
-        throw new Error(
-          `mockGraphQLSequence: all ${responses.length} responses exhausted`,
-        );
+        throw new Error(`mockGraphQLSequence: all ${responses.length} responses exhausted`);
     }
   };
 }

@@ -4,7 +4,11 @@
 
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { defineQuery, defineMutation, defineGraphQLSchema } from '@cosmneo/onion-lasagna/graphql/field';
+import {
+  defineQuery,
+  defineMutation,
+  defineGraphQLSchema,
+} from '@cosmneo/onion-lasagna/graphql/field';
 import { createMockGraphQLClient, mockGraphQLSequence } from '../create-mock-graphql-client';
 
 // Use a minimal zodSchema for tests (inline, no external dep needed)
@@ -18,7 +22,9 @@ function zodSchema<T extends import('zod').ZodType>(schema: T) {
         issues: result.error.issues.map((i) => ({ path: i.path.map(String), message: i.message })),
       };
     },
-    toJsonSchema() { return {}; },
+    toJsonSchema() {
+      return {};
+    },
     _output: undefined as T['_output'],
     _input: undefined as T['_input'],
     _schema: schema,
@@ -124,10 +130,7 @@ describe('mockGraphQLSequence', () => {
     const schema = defineGraphQLSchema({ getUser });
 
     const { client } = createMockGraphQLClient(schema, {
-      getUser: mockGraphQLSequence([
-        () => ({ name: 'First' }),
-        () => ({ name: 'Second' }),
-      ]),
+      getUser: mockGraphQLSequence([() => ({ name: 'First' }), () => ({ name: 'Second' })]),
     });
 
     expect(await client.getUser()).toEqual({ name: 'First' });

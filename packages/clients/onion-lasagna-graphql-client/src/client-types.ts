@@ -28,7 +28,9 @@ export interface GraphQLClientConfig {
    * Default headers to include in all requests.
    * Can be a static object or a function for dynamic headers.
    */
-  readonly headers?: Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>);
+  readonly headers?:
+    | Record<string, string>
+    | (() => Record<string, string> | Promise<Record<string, string>>);
 
   /**
    * Request interceptor.
@@ -130,10 +132,9 @@ type SelectionValue<T> =
  * - Object selection: `{ id: true, category: { label: true } }` → `{ id: ..., category: { label: ... } }`
  * - Preserves array wrapping on the output type.
  */
-export type ApplySelection<TOutput, S> =
-  TOutput extends readonly (infer E)[]
-    ? ApplyToElement<E, S>[]
-    : ApplyToElement<TOutput, S>;
+export type ApplySelection<TOutput, S> = TOutput extends readonly (infer E)[]
+  ? ApplyToElement<E, S>[]
+  : ApplyToElement<TOutput, S>;
 
 /**
  * Applies selection to a single element (unwrapped from array).
@@ -142,16 +143,16 @@ type ApplyToElement<T, S> =
   // Flat array of keys
   S extends readonly (infer K extends string)[]
     ? Pick<T & Record<string, unknown>, K & keyof T>
-    // Object selection
-    : S extends Record<string, unknown>
-      ? { [K in keyof S & keyof T & string]:
-          S[K] extends true
+    : // Object selection
+      S extends Record<string, unknown>
+      ? {
+          [K in keyof S & keyof T & string]: S[K] extends true
             ? T[K]
             : NonNullable<T[K]> extends readonly unknown[]
               ? ApplySelection<T[K], S[K]>
               : NonNullable<T[K]> extends Record<string, unknown>
                 ? ApplySelection<NonNullable<T[K]>, S[K]> | Extract<T[K], undefined | null>
-                : T[K]
+                : T[K];
         }
       : T;
 
@@ -176,8 +177,9 @@ export interface GraphQLQueryOptions<S> {
  * ```
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type SelectionOf<TField extends GraphQLFieldDefinition<any, any, any, any>> =
-  FieldSelection<OutputElement<TField['_types']['output']>>;
+export type SelectionOf<TField extends GraphQLFieldDefinition<any, any, any, any>> = FieldSelection<
+  OutputElement<TField['_types']['output']>
+>;
 
 // ============================================================================
 // Client Method Types

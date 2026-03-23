@@ -45,7 +45,9 @@ function createMockFetch(responseData: Record<string, unknown>) {
 }
 
 const listTodos = defineQuery({
-  output: zodSchema(z.array(z.object({ id: z.string(), title: z.string(), completed: z.boolean() }))),
+  output: zodSchema(
+    z.array(z.object({ id: z.string(), title: z.string(), completed: z.boolean() })),
+  ),
 });
 
 const getTodo = defineQuery({
@@ -236,9 +238,9 @@ describe('createBatchQuery', () => {
         fetch: vi.fn() as unknown as typeof fetch,
       });
 
-      await expect(
-        batchQuery({ x: { fieldKey: 'createTodo' } }),
-      ).rejects.toThrow('Cannot batch mutation "createTodo". batchQuery only supports query fields.');
+      await expect(batchQuery({ x: { fieldKey: 'createTodo' } })).rejects.toThrow(
+        'Cannot batch mutation "createTodo". batchQuery only supports query fields.',
+      );
     });
 
     it('throws on unknown field key', async () => {
@@ -249,18 +251,18 @@ describe('createBatchQuery', () => {
         fetch: vi.fn() as unknown as typeof fetch,
       });
 
-      await expect(
-        batchQuery({ x: { fieldKey: 'nonExistent' } }),
-      ).rejects.toThrow('Unknown field key: "nonExistent"');
+      await expect(batchQuery({ x: { fieldKey: 'nonExistent' } })).rejects.toThrow(
+        'Unknown field key: "nonExistent"',
+      );
     });
 
     it('throws GraphQLClientError on GraphQL errors', async () => {
       const schema = defineGraphQLSchema({ listTodos });
-      const mockFetch = vi.fn(async () =>
-        new Response(
-          JSON.stringify({ errors: [{ message: 'Something went wrong' }] }),
-          { headers: { 'Content-Type': 'application/json' } },
-        ),
+      const mockFetch = vi.fn(
+        async () =>
+          new Response(JSON.stringify({ errors: [{ message: 'Something went wrong' }] }), {
+            headers: { 'Content-Type': 'application/json' },
+          }),
       );
 
       const batchQuery = createBatchQuery(schema, {
@@ -268,9 +270,9 @@ describe('createBatchQuery', () => {
         fetch: mockFetch as unknown as typeof fetch,
       });
 
-      await expect(
-        batchQuery({ todos: { fieldKey: 'listTodos' } }),
-      ).rejects.toThrow(GraphQLClientError);
+      await expect(batchQuery({ todos: { fieldKey: 'listTodos' } })).rejects.toThrow(
+        GraphQLClientError,
+      );
     });
 
     it('throws GraphQLClientError on network error', async () => {
@@ -284,9 +286,9 @@ describe('createBatchQuery', () => {
         fetch: mockFetch as unknown as typeof fetch,
       });
 
-      await expect(
-        batchQuery({ todos: { fieldKey: 'listTodos' } }),
-      ).rejects.toThrow('Connection refused');
+      await expect(batchQuery({ todos: { fieldKey: 'listTodos' } })).rejects.toThrow(
+        'Connection refused',
+      );
     });
   });
 });

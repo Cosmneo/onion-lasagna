@@ -4,7 +4,11 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
-import { defineQuery, defineMutation, defineGraphQLSchema } from '@cosmneo/onion-lasagna/graphql/field';
+import {
+  defineQuery,
+  defineMutation,
+  defineGraphQLSchema,
+} from '@cosmneo/onion-lasagna/graphql/field';
 import { createGraphQLClient } from '../create-graphql-client';
 
 // Minimal zodSchema for tests
@@ -33,9 +37,7 @@ function zodSchema<T extends import('zod').ZodType>(schema: T) {
 }
 
 // Helper to capture the query string sent by the client
-function createCapturingClient<T extends Record<string, unknown>>(
-  schema: T,
-) {
+function createCapturingClient<T extends Record<string, unknown>>(schema: T) {
   const captured: { query: string; variables?: unknown }[] = [];
 
   const mockFetch = vi.fn(async (_url: string, init: RequestInit) => {
@@ -58,11 +60,15 @@ describe('field selection', () => {
   describe('flat select (array)', () => {
     it('sends only selected fields in the query', async () => {
       const listUsers = defineQuery({
-        output: zodSchema(z.array(z.object({
-          id: z.string(),
-          name: z.string(),
-          email: z.string(),
-        }))),
+        output: zodSchema(
+          z.array(
+            z.object({
+              id: z.string(),
+              name: z.string(),
+              email: z.string(),
+            }),
+          ),
+        ),
       });
       const schema = defineGraphQLSchema({ listUsers });
 
@@ -78,15 +84,17 @@ describe('field selection', () => {
   describe('nested select (object)', () => {
     it('sends nested selection in the query', async () => {
       const getUser = defineQuery({
-        output: zodSchema(z.object({
-          id: z.string(),
-          name: z.string(),
-          address: z.object({
-            city: z.string(),
-            country: z.string(),
-            zip: z.string(),
+        output: zodSchema(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            address: z.object({
+              city: z.string(),
+              country: z.string(),
+              zip: z.string(),
+            }),
           }),
-        })),
+        ),
       });
       const schema = defineGraphQLSchema({ getUser });
 
@@ -103,16 +111,18 @@ describe('field selection', () => {
 
     it('sends deeply nested selection', async () => {
       const getOrg = defineQuery({
-        output: zodSchema(z.object({
-          id: z.string(),
-          owner: z.object({
-            name: z.string(),
-            address: z.object({
-              city: z.string(),
-              country: z.string(),
+        output: zodSchema(
+          z.object({
+            id: z.string(),
+            owner: z.object({
+              name: z.string(),
+              address: z.object({
+                city: z.string(),
+                country: z.string(),
+              }),
             }),
           }),
-        })),
+        ),
       });
       const schema = defineGraphQLSchema({ getOrg });
 
@@ -129,11 +139,13 @@ describe('field selection', () => {
   describe('default selection (no select)', () => {
     it('sends all fields from output schema', async () => {
       const getUser = defineQuery({
-        output: zodSchema(z.object({
-          id: z.string(),
-          name: z.string(),
-          active: z.boolean(),
-        })),
+        output: zodSchema(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            active: z.boolean(),
+          }),
+        ),
       });
       const schema = defineGraphQLSchema({ getUser });
 
@@ -146,13 +158,15 @@ describe('field selection', () => {
 
     it('includes nested object fields by default', async () => {
       const getUser = defineQuery({
-        output: zodSchema(z.object({
-          id: z.string(),
-          profile: z.object({
-            bio: z.string(),
-            avatar: z.string(),
+        output: zodSchema(
+          z.object({
+            id: z.string(),
+            profile: z.object({
+              bio: z.string(),
+              avatar: z.string(),
+            }),
           }),
-        })),
+        ),
       });
       const schema = defineGraphQLSchema({ getUser });
 
@@ -168,11 +182,13 @@ describe('field selection', () => {
     it('sends selected fields for mutation response', async () => {
       const createUser = defineMutation({
         input: zodSchema(z.object({ name: z.string() })),
-        output: zodSchema(z.object({
-          id: z.string(),
-          name: z.string(),
-          createdAt: z.string(),
-        })),
+        output: zodSchema(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            createdAt: z.string(),
+          }),
+        ),
       });
       const schema = defineGraphQLSchema({ createUser });
 
