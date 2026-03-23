@@ -99,6 +99,7 @@ jobs:
         run: bun scripts/publish-all.ts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_OPTIONS: '--max-old-space-size=8192'
           CI: 'true'
 
       - name: Create GitHub Release
