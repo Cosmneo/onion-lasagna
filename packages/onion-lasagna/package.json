@@ -60,8 +60,7 @@
     "lint": "eslint src",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "bun run build"
+    "test:coverage": "vitest run --coverage"
   },
   "exports": {
     ".": {
