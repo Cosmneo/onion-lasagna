@@ -40,6 +40,7 @@ const PUBLISH_ORDER = [
   'packages/servers/onion-lasagna-fastify',
   'packages/servers/onion-lasagna-express',
   'packages/servers/onion-lasagna-nestjs',
+  'packages/servers/onion-lasagna-yoga',
   'packages/clients/onion-lasagna-client',
   'packages/clients/onion-lasagna-axios',
   'packages/patterns/onion-lasagna-saga',

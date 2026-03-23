@@ -110,7 +110,7 @@ jobs:
           body: |
             ## @cosmneo/* v${{ env.VERSION }}
 
-            All 20 packages published at version `${{ env.VERSION }}`:
+            All 21 packages published at version `${{ env.VERSION }}`:
 
             | Package | Install |
             |---------|---------|
@@ -125,6 +125,7 @@ jobs:
             | `@cosmneo/onion-lasagna-fastify` | `bun add @cosmneo/onion-lasagna-fastify` |
             | `@cosmneo/onion-lasagna-express` | `bun add @cosmneo/onion-lasagna-express` |
             | `@cosmneo/onion-lasagna-nestjs` | `bun add @cosmneo/onion-lasagna-nestjs` |
+            | `@cosmneo/onion-lasagna-yoga` | `bun add @cosmneo/onion-lasagna-yoga` |
             | `@cosmneo/onion-lasagna-client` | `bun add @cosmneo/onion-lasagna-client` |
             | `@cosmneo/onion-lasagna-graphql-client` | `bun add @cosmneo/onion-lasagna-graphql-client` |
             | `@cosmneo/onion-lasagna-axios` | `bun add @cosmneo/onion-lasagna-axios` |
