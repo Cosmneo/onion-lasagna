@@ -240,4 +240,119 @@ describe('generateGraphQLSDL', () => {
       expect(sdl).not.toContain('type Mutation');
     });
   });
+
+  describe('nested object outputs', () => {
+    it('emits a named GraphQL type for a nested object property', () => {
+      const get = defineQuery({
+        input: zodSchema(z.object({ id: z.string() })),
+        output: zodSchema(
+          z.object({
+            id: z.string(),
+            address: z.object({
+              country: z.string(),
+              city: z.string().nullable(),
+            }),
+          }),
+        ),
+      });
+
+      const schema = defineGraphQLSchema({ users: { get } });
+      const sdl = generateGraphQLSDL(schema);
+
+      expect(sdl).toContain('usersGet(input: UsersGetInput!): UsersGetOutput');
+      expect(sdl).toContain('type UsersGetOutput {');
+      expect(sdl).toContain('address: UsersGetOutput_Address!');
+      expect(sdl).toContain('type UsersGetOutput_Address {');
+      expect(sdl).toContain('country: String!');
+      expect(sdl).not.toMatch(/address: JSON/);
+    });
+
+    it('names array-of-object element types after the array property', () => {
+      const list = defineQuery({
+        output: zodSchema(
+          z.object({
+            items: z.array(z.object({ id: z.string(), name: z.string() })),
+          }),
+        ),
+      });
+
+      const schema = defineGraphQLSchema({ list });
+      const sdl = generateGraphQLSDL(schema);
+
+      expect(sdl).toContain('items: [ListOutput_Item]!');
+      expect(sdl).toContain('type ListOutput_Item {');
+      expect(sdl).toContain('id: String!');
+    });
+
+    it('emits a nested input type for an object input field', () => {
+      const create = defineMutation({
+        input: zodSchema(
+          z.object({
+            name: z.string(),
+            address: z.object({ country: z.string(), city: z.string() }),
+          }),
+        ),
+        output: zodSchema(z.object({ id: z.string() })),
+      });
+
+      const schema = defineGraphQLSchema({ create });
+      const sdl = generateGraphQLSDL(schema);
+
+      expect(sdl).toContain('input CreateInput {');
+      expect(sdl).toContain('address: CreateInput_Address!');
+      expect(sdl).toContain('input CreateInput_Address {');
+    });
+  });
+
+  describe('discriminated unions', () => {
+    it('emits a GraphQL union with named branches and a literal-derived suffix', () => {
+      const list = defineQuery({
+        input: zodSchema(z.object({ workspaceId: z.string() })),
+        output: zodSchema(
+          z.array(
+            z.discriminatedUnion('kind', [
+              z.object({
+                kind: z.literal('MEMBER'),
+                membershipId: z.string(),
+                userId: z.string(),
+              }),
+              z.object({
+                kind: z.literal('INVITE'),
+                inviteId: z.string(),
+                email: z.string(),
+              }),
+            ]),
+          ),
+        ),
+      });
+
+      const schema = defineGraphQLSchema({ team: { list } });
+      const sdl = generateGraphQLSDL(schema);
+
+      // Union element type, named after the array property singularized.
+      expect(sdl).toMatch(/teamList\(input: TeamListInput!\): \[TeamListOutput_Item\]!?/);
+      // The union itself.
+      expect(sdl).toMatch(
+        /union TeamListOutput_Item = TeamListOutput_Item_Member \| TeamListOutput_Item_Invite/,
+      );
+      // Member type bodies.
+      expect(sdl).toContain('type TeamListOutput_Item_Member {');
+      expect(sdl).toContain('membershipId: String!');
+      expect(sdl).toContain('type TeamListOutput_Item_Invite {');
+      expect(sdl).toContain('inviteId: String!');
+      // No silent JSON fallback for the field.
+      expect(sdl).not.toMatch(/teamList[^\n]*: JSON/);
+    });
+
+    it('falls back to JSON for unions of mixed-type branches', () => {
+      const get = defineQuery({
+        output: zodSchema(z.union([z.string(), z.number()])),
+      });
+
+      const schema = defineGraphQLSchema({ get });
+      const sdl = generateGraphQLSDL(schema);
+
+      expect(sdl).toContain('get: JSON');
+    });
+  });
 });

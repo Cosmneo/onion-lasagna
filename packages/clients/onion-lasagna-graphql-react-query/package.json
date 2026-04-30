@@ -1,6 +1,6 @@
 {
   "name": "@cosmneo/onion-lasagna-graphql-react-query",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "React Query hooks for onion-lasagna GraphQL schemas",
   "type": "module",
   "license": "MIT",
@@ -30,8 +30,8 @@
   "peerDependencies": {
     "@tanstack/react-query": "^5",
     "react": "^18 || ^19",
-    "@cosmneo/onion-lasagna": ">=0.4.0",
-    "@cosmneo/onion-lasagna-graphql-client": ">=0.4.0"
+    "@cosmneo/onion-lasagna": ">=0.4.1",
+    "@cosmneo/onion-lasagna-graphql-client": ">=0.4.1"
   },
   "scripts": {
     "build": "tsup",
