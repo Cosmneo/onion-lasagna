@@ -178,6 +178,100 @@ describe('field selection', () => {
     });
   });
 
+  describe('union/discriminatedUnion output (default selection)', () => {
+    it('emits inline fragments for discriminatedUnion output', async () => {
+      const f = defineQuery({
+        output: zodSchema(
+          z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('a'), a: z.string() }),
+            z.object({ kind: z.literal('b'), b: z.number() }),
+          ]),
+        ),
+      });
+      const schema = defineGraphQLSchema({ f });
+      const { client, captured } = createCapturingClient(schema);
+
+      await (client as Record<string, (i?: unknown) => Promise<unknown>>)['f']?.();
+
+      const query = captured[0]!.query;
+      expect(query).toContain('__typename');
+      expect(query).toContain('... on FOutput_A');
+      expect(query).toContain('... on FOutput_B');
+      // Must not be an empty selection set
+      expect(query).not.toMatch(/\bf\s*\}/);
+      expect(query).not.toMatch(/query\s*\{\s*f\s*\}/);
+    });
+
+    it('emits inline fragments for plain union output (Member naming)', async () => {
+      const getResult = defineQuery({
+        output: zodSchema(z.union([z.object({ x: z.string() }), z.object({ y: z.string() })])),
+      });
+      const schema = defineGraphQLSchema({ getResult });
+      const { client, captured } = createCapturingClient(schema);
+
+      await (client as Record<string, (i?: unknown) => Promise<unknown>>)['getResult']?.();
+
+      const query = captured[0]!.query;
+      expect(query).toContain('__typename');
+      expect(query).toContain('... on GetResultOutput_Member1');
+      expect(query).toContain('... on GetResultOutput_Member2');
+    });
+
+    it('uses pascalized discriminator for UPPER_SNAKE discriminator values', async () => {
+      const f = defineQuery({
+        output: zodSchema(
+          z.discriminatedUnion('type', [
+            z.object({ type: z.literal('OPEN_ACCOUNT'), balance: z.number() }),
+            z.object({ type: z.literal('CLOSE_ACCOUNT'), reason: z.string() }),
+          ]),
+        ),
+      });
+      const schema = defineGraphQLSchema({ f });
+      const { client, captured } = createCapturingClient(schema);
+
+      await (client as Record<string, (i?: unknown) => Promise<unknown>>)['f']?.();
+
+      const query = captured[0]!.query;
+      expect(query).toContain('... on FOutput_OpenAccount');
+      expect(query).toContain('... on FOutput_CloseAccount');
+    });
+
+    it('explicit select still overrides default union selection', async () => {
+      const f = defineQuery({
+        output: zodSchema(
+          z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('a'), a: z.string() }),
+            z.object({ kind: z.literal('b'), b: z.number() }),
+          ]),
+        ),
+      });
+      const schema = defineGraphQLSchema({ f });
+      const { client, captured } = createCapturingClient(schema);
+
+      await (
+        client as Record<string, (i?: unknown, opts?: { select?: unknown }) => Promise<unknown>>
+      )['f']?.(undefined, { select: ['__typename', 'a'] });
+
+      const query = captured[0]!.query;
+      expect(query).toContain('f { __typename a }');
+      expect(query).not.toContain('... on');
+    });
+
+    it('plain object output still uses flat field selection', async () => {
+      const getUser = defineQuery({
+        output: zodSchema(z.object({ id: z.string(), name: z.string() })),
+      });
+      const schema = defineGraphQLSchema({ getUser });
+      const { client, captured } = createCapturingClient(schema);
+
+      await (client as Record<string, (i?: unknown) => Promise<unknown>>)['getUser']?.();
+
+      const query = captured[0]!.query;
+      expect(query).toContain('getUser { id name }');
+      expect(query).not.toContain('__typename');
+    });
+  });
+
   describe('mutation with select', () => {
     it('sends selected fields for mutation response', async () => {
       const createUser = defineMutation({
