@@ -140,4 +140,81 @@ describe('useGraphQLQuery (compound)', () => {
     expect(queryFn).toBeDefined();
     expect(typeof queryFn).toBe('function');
   });
+
+  it('includes select in compound key entries', () => {
+    const schema = defineGraphQLSchema({ listTodos, getTodo });
+    const { useGraphQLQuery } = createGraphQLReactQueryHooks(schema, { url: '/graphql' });
+
+    useGraphQLQuery({
+      todos: { field: 'listTodos', select: ['id'] },
+    });
+
+    const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+    const queryKey = callArgs['queryKey'] as unknown[];
+    const entry = queryKey[1] as Record<string, unknown>;
+    expect(entry['select']).toEqual(['id']);
+  });
+
+  it('two configs differing only by entry select produce different keys', () => {
+    const schema = defineGraphQLSchema({ listTodos });
+    const { useGraphQLQuery } = createGraphQLReactQueryHooks(schema, { url: '/graphql' });
+
+    useGraphQLQuery({ todos: { field: 'listTodos', select: ['id'] } });
+    const keyA = (mockUseQuery.mock.calls[0]![0] as Record<string, unknown>)['queryKey'];
+
+    useGraphQLQuery({ todos: { field: 'listTodos' } });
+    const keyB = (mockUseQuery.mock.calls[1]![0] as Record<string, unknown>)['queryKey'];
+
+    expect(keyA).not.toEqual(keyB);
+  });
+
+  it('scopes compound key with queryKeyScope', () => {
+    const queryKeyScope = vi.fn().mockReturnValue('user-abc');
+    const schema = defineGraphQLSchema({ listTodos });
+    const { useGraphQLQuery } = createGraphQLReactQueryHooks(schema, {
+      url: '/graphql',
+      queryKeyScope,
+    });
+
+    useGraphQLQuery({ todos: { field: 'listTodos' } });
+
+    const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+    const queryKey = callArgs['queryKey'] as unknown[];
+    expect(queryKey[0]).toBe('compound');
+    expect(queryKey[1]).toEqual({ __scope: 'user-abc' });
+  });
+
+  it('different scope values produce different compound keys', () => {
+    const queryKeyScope = vi.fn().mockReturnValueOnce('userA').mockReturnValueOnce('userB');
+    const schema = defineGraphQLSchema({ listTodos });
+    const { useGraphQLQuery } = createGraphQLReactQueryHooks(schema, {
+      url: '/graphql',
+      queryKeyScope,
+    });
+
+    useGraphQLQuery({ todos: { field: 'listTodos' } });
+    const keyA = (mockUseQuery.mock.calls[0]![0] as Record<string, unknown>)['queryKey'];
+
+    useGraphQLQuery({ todos: { field: 'listTodos' } });
+    const keyB = (mockUseQuery.mock.calls[1]![0] as Record<string, unknown>)['queryKey'];
+
+    expect(keyA).not.toEqual(keyB);
+  });
+
+  it('no queryKeyScope produces same compound key as before (regression guard)', () => {
+    const schema = defineGraphQLSchema({ listTodos, getTodo });
+    const { useGraphQLQuery } = createGraphQLReactQueryHooks(schema, { url: '/graphql' });
+
+    useGraphQLQuery({
+      zTodos: { field: 'listTodos' },
+      aTodo: { field: 'getTodo', input: { id: '1' } },
+    });
+
+    const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+    const queryKey = callArgs['queryKey'] as unknown[];
+    expect(queryKey[0]).toBe('compound');
+    // No scope segment — second element should be first sorted alias entry
+    const firstEntry = queryKey[1] as Record<string, unknown>;
+    expect(firstEntry['alias']).toBe('aTodo');
+  });
 });
