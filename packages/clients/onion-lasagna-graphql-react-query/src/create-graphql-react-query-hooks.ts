@@ -72,6 +72,7 @@ export function createGraphQLReactQueryHooks<T extends GraphQLSchemaConfig>(
       client as Record<string, unknown>,
       prefix,
       config.useEnabled,
+      config.queryKeyScope,
     ) as InferGraphQLHooks<T>,
     queryKeys: buildGraphQLQueryKeys(schema, prefix) as InferGraphQLQueryKeys<T>,
     queryOptions: buildQueryOptionsProxy(
@@ -82,6 +83,7 @@ export function createGraphQLReactQueryHooks<T extends GraphQLSchemaConfig>(
     useGraphQLQuery: createCompoundQueryHook(
       batchQueryFn,
       config.useEnabled,
+      config.queryKeyScope,
     ) as UseGraphQLQueryHook<T>,
   };
 }
@@ -94,6 +96,7 @@ function buildHooksProxy(
   client: Record<string, unknown>,
   keyPath: readonly string[],
   useEnabled?: () => boolean,
+  queryKeyScope?: () => unknown,
 ): Record<string, unknown> {
   const hooks: Record<string, unknown> = {};
 
@@ -107,6 +110,7 @@ function buildHooksProxy(
           clientEntry as (...args: unknown[]) => Promise<unknown>,
           currentKeyPath,
           useEnabled,
+          queryKeyScope,
         );
       } else {
         hooks[key] = createMutationHook(clientEntry as (...args: unknown[]) => Promise<unknown>);
@@ -117,6 +121,7 @@ function buildHooksProxy(
         clientEntry as Record<string, unknown>,
         currentKeyPath,
         useEnabled,
+        queryKeyScope,
       );
     } else if (typeof value === 'object' && value !== null) {
       hooks[key] = buildHooksProxy(
@@ -124,6 +129,7 @@ function buildHooksProxy(
         clientEntry as Record<string, unknown>,
         currentKeyPath,
         useEnabled,
+        queryKeyScope,
       );
     }
   }
@@ -138,11 +144,13 @@ function createQueryHook(
   clientMethod: (...args: unknown[]) => Promise<unknown>,
   keyPath: readonly string[],
   useEnabled?: () => boolean,
+  scopeFn?: () => unknown,
 ): Record<string, unknown> {
   return {
     useQuery: (input?: unknown, options?: Record<string, unknown>) => {
-      // Call useEnabled unconditionally (React Hooks rules)
+      // Call useEnabled and scopeFn unconditionally (React Hooks rules)
       const globalEnabled = useEnabled?.() ?? true;
+      const scope = scopeFn?.();
 
       const {
         enabled: userEnabled,
@@ -150,8 +158,7 @@ function createQueryHook(
         ...restOptions
       } = (options ?? {}) as Record<string, unknown>;
 
-      // Build query key — append input only if non-empty
-      const queryKey = isEmptyInput(input) ? keyPath : [...keyPath, input];
+      const queryKey = buildQueryKey(scope, keyPath, input, select);
 
       return useQuery({
         queryKey,
@@ -186,19 +193,26 @@ function createMutationHook(
 function createCompoundQueryHook(
   batchQueryFn: (entries: Record<string, BatchQueryEntry>) => Promise<Record<string, unknown>>,
   useEnabled?: () => boolean,
+  scopeFn?: () => unknown,
 ): (config: CompoundQueryConfig<GraphQLSchemaConfig>, options?: CompoundQueryOptions) => unknown {
   return (config: CompoundQueryConfig<GraphQLSchemaConfig>, options?: CompoundQueryOptions) => {
     const globalEnabled = useEnabled?.() ?? true;
+    // Call scopeFn unconditionally (React Hooks rules), like useEnabled
+    const scope = scopeFn?.();
 
-    // Stable query key: sorted aliases + their field/input
+    const scopeSeg = scope === undefined || scope === null ? [] : [{ __scope: scope }];
+
+    // Stable query key: sorted aliases + their field/input/select
     const queryKey = [
       'compound',
+      ...scopeSeg,
       ...Object.keys(config)
         .sort()
         .map((alias) => ({
           alias,
           field: config[alias]!.field,
           input: config[alias]!.input,
+          select: config[alias]!.select,
         })),
     ];
 
@@ -265,18 +279,44 @@ function buildQueryOptionsProxy(
 /**
  * Creates a function that returns `queryOptions({ queryKey, queryFn })` for a query field.
  * Uses the same key/fn logic as `createQueryHook` to ensure cache hits.
+ *
+ * NOTE: `queryOptions` factories are NOT React hooks (used in route loaders).
+ * `queryKeyScope` (a hook) CANNOT be called here. Callers must pass `scope`
+ * explicitly so the key matches the component hook's key for cache hits.
  */
 function createQueryOptionsFactory(
   clientMethod: (...args: unknown[]) => Promise<unknown>,
   keyPath: readonly string[],
-): (input?: unknown) => ReturnType<typeof queryOptions> {
-  return (input?: unknown) => {
-    const queryKey: readonly unknown[] = isEmptyInput(input) ? keyPath : [...keyPath, input];
+): (
+  input?: unknown,
+  opts?: { select?: unknown; scope?: unknown },
+) => ReturnType<typeof queryOptions> {
+  return (input?: unknown, opts?: { select?: unknown; scope?: unknown }) => {
+    const queryKey = buildQueryKey(opts?.scope, keyPath, input, opts?.select);
     return queryOptions({
       queryKey,
-      queryFn: () => clientMethod(input),
+      queryFn: () => clientMethod(input, opts?.select ? { select: opts.select } : undefined),
     });
   };
+}
+
+/**
+ * Builds a canonical query key from scope, path, input, and select.
+ * Final order: [{__scope}?, ...keyPath, input?, {__select}?]
+ *
+ * - scope null/undefined → no scope segment (keys identical to pre-fix when unused)
+ * - select falsy → no select segment (keys identical to pre-fix when unused)
+ */
+export function buildQueryKey(
+  scope: unknown,
+  keyPath: readonly string[],
+  input: unknown,
+  select: unknown,
+): readonly unknown[] {
+  const scopeSeg = scope === undefined || scope === null ? [] : [{ __scope: scope }];
+  const inputSeg = isEmptyInput(input) ? [] : [input];
+  const selectSeg = select ? [{ __select: select }] : [];
+  return [...scopeSeg, ...keyPath, ...inputSeg, ...selectSeg];
 }
 
 /**

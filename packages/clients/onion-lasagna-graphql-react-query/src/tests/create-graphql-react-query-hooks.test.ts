@@ -17,10 +17,11 @@ const mockUseMutation = vi.fn().mockReturnValue({ mutate: vi.fn(), isLoading: fa
 vi.mock('@tanstack/react-query', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
   useMutation: (...args: unknown[]) => mockUseMutation(...args),
+  queryOptions: (opts: unknown) => opts,
 }));
 
 // Must import AFTER mock
-import { createGraphQLReactQueryHooks } from '../create-graphql-react-query-hooks';
+import { createGraphQLReactQueryHooks, buildQueryKey } from '../create-graphql-react-query-hooks';
 
 function zodSchema<T extends import('zod').ZodType>(schema: T) {
   return {
@@ -214,5 +215,166 @@ describe('createGraphQLReactQueryHooks', () => {
       // queryFn will call clientMethod — we just verify it was set up
       expect(queryFn).toBeDefined();
     });
+  });
+});
+
+describe('buildQueryKey', () => {
+  it('returns only keyPath when scope and select are absent', () => {
+    expect(buildQueryKey(undefined, ['todos', 'list'], undefined, undefined)).toEqual([
+      'todos',
+      'list',
+    ]);
+  });
+
+  it('returns keyPath + input when select and scope absent', () => {
+    expect(buildQueryKey(undefined, ['getTodo'], { id: '1' }, undefined)).toEqual([
+      'getTodo',
+      { id: '1' },
+    ]);
+  });
+
+  it('appends select segment when select is provided', () => {
+    expect(buildQueryKey(undefined, ['todos', 'list'], undefined, ['id'])).toEqual([
+      'todos',
+      'list',
+      { __select: ['id'] },
+    ]);
+  });
+
+  it('prepends scope segment when scope is provided', () => {
+    expect(buildQueryKey('userA', ['todos', 'list'], undefined, undefined)).toEqual([
+      { __scope: 'userA' },
+      'todos',
+      'list',
+    ]);
+  });
+
+  it('includes all segments in correct order: scope, keyPath, input, select', () => {
+    expect(buildQueryKey('userA', ['getTodo'], { id: '1' }, ['id', 'title'])).toEqual([
+      { __scope: 'userA' },
+      'getTodo',
+      { id: '1' },
+      { __select: ['id', 'title'] },
+    ]);
+  });
+
+  it('omits scope segment for null scope', () => {
+    expect(buildQueryKey(null, ['todos', 'list'], undefined, undefined)).toEqual(['todos', 'list']);
+  });
+
+  it('two calls with different select produce different keys', () => {
+    const keyA = buildQueryKey(undefined, ['todos', 'list'], undefined, ['id']);
+    const keyB = buildQueryKey(undefined, ['todos', 'list'], undefined, undefined);
+    expect(keyA).not.toEqual(keyB);
+  });
+
+  it('two calls with different scope produce different keys', () => {
+    const keyA = buildQueryKey('userA', ['todos', 'list'], undefined, undefined);
+    const keyB = buildQueryKey('userB', ['todos', 'list'], undefined, undefined);
+    expect(keyA).not.toEqual(keyB);
+  });
+});
+
+describe('queryKeyScope in useQuery', () => {
+  it('scopes query key by auth scope value', () => {
+    const queryKeyScope = vi.fn().mockReturnValue('user-123');
+    const schema = defineGraphQLSchema({ listTodos });
+    const { hooks } = createGraphQLReactQueryHooks(schema, {
+      url: '/graphql',
+      queryKeyScope,
+    });
+
+    hooks.listTodos.useQuery();
+
+    const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+    expect(callArgs['queryKey']).toEqual([{ __scope: 'user-123' }, 'listTodos']);
+  });
+
+  it('different scope values produce different keys', () => {
+    const queryKeyScope = vi.fn().mockReturnValueOnce('userA').mockReturnValueOnce('userB');
+    const schema = defineGraphQLSchema({ listTodos });
+    const { hooks } = createGraphQLReactQueryHooks(schema, {
+      url: '/graphql',
+      queryKeyScope,
+    });
+
+    hooks.listTodos.useQuery();
+    const callArgsA = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+
+    hooks.listTodos.useQuery();
+    const callArgsB = mockUseQuery.mock.calls[1]![0] as Record<string, unknown>;
+
+    expect(callArgsA['queryKey']).not.toEqual(callArgsB['queryKey']);
+  });
+
+  it('no queryKeyScope produces same key as before (regression guard)', () => {
+    const schema = defineGraphQLSchema({ todos: { list: listTodos } });
+    const { hooks } = createGraphQLReactQueryHooks(schema, { url: '/graphql' });
+
+    hooks.todos.list.useQuery();
+
+    const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+    expect(callArgs['queryKey']).toEqual(['todos', 'list']);
+  });
+
+  it('no select produces same key as before (regression guard)', () => {
+    const schema = defineGraphQLSchema({ getTodo });
+    const { hooks } = createGraphQLReactQueryHooks(schema, { url: '/graphql' });
+
+    hooks.getTodo.useQuery({ id: 'T-001' });
+
+    const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+    expect(callArgs['queryKey']).toEqual(['getTodo', { id: 'T-001' }]);
+  });
+
+  it('same input with different select produces different keys', () => {
+    const schema = defineGraphQLSchema({ listTodos });
+    const { hooks } = createGraphQLReactQueryHooks(schema, { url: '/graphql' });
+
+    hooks.listTodos.useQuery(undefined, { select: ['id'] });
+    const callArgsA = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+
+    hooks.listTodos.useQuery(undefined, {});
+    const callArgsB = mockUseQuery.mock.calls[1]![0] as Record<string, unknown>;
+
+    expect(callArgsA['queryKey']).not.toEqual(callArgsB['queryKey']);
+  });
+});
+
+describe('queryOptions factory with scope and select', () => {
+  it('key with scope and select matches buildQueryKey output', () => {
+    const schema = defineGraphQLSchema({ listTodos });
+    const { queryOptions: qo } = createGraphQLReactQueryHooks(schema, { url: '/graphql' });
+
+    const result = (qo.listTodos as Function)(undefined, {
+      scope: 'user-99',
+      select: ['id'],
+    }) as Record<string, unknown>;
+
+    expect(result['queryKey']).toEqual(buildQueryKey('user-99', ['listTodos'], undefined, ['id']));
+  });
+
+  it('key without scope/select matches hook key (cache hit)', () => {
+    const schema = defineGraphQLSchema({ getTodo });
+    const { queryOptions: qo } = createGraphQLReactQueryHooks(schema, { url: '/graphql' });
+
+    const result = (qo.getTodo as Function)({ id: '5' }) as Record<string, unknown>;
+
+    expect(result['queryKey']).toEqual(
+      buildQueryKey(undefined, ['getTodo'], { id: '5' }, undefined),
+    );
+    expect(result['queryKey']).toEqual(['getTodo', { id: '5' }]);
+  });
+
+  it('key with scope matches hook scope key', () => {
+    const schema = defineGraphQLSchema({ listTodos });
+    const { queryOptions: qo } = createGraphQLReactQueryHooks(schema, { url: '/graphql' });
+
+    const result = (qo.listTodos as Function)(undefined, { scope: 'tenant-42' }) as Record<
+      string,
+      unknown
+    >;
+
+    expect(result['queryKey']).toEqual([{ __scope: 'tenant-42' }, 'listTodos']);
   });
 });

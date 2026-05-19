@@ -263,6 +263,26 @@ export interface GraphQLReactQueryConfig extends GraphQLClientConfig {
    * ```
    */
   readonly useEnabled?: () => boolean;
+
+  /**
+   * Hook returning a value that scopes ALL query keys (e.g. current user/tenant id).
+   * Called inside every useQuery (valid Hooks rules), like `useEnabled`.
+   * Its result is prepended to every generated query key so cached data from one
+   * auth scope is never served to another (logout→login in the same QueryClient).
+   * Return a stable primitive (userId/tenantId) or null when unauthenticated.
+   *
+   * @example Scope by user id
+   * ```typescript
+   * const { hooks } = createGraphQLReactQueryHooks(schema, {
+   *   url: '/graphql',
+   *   queryKeyScope: () => {
+   *     const { userId } = useSession();
+   *     return userId ?? null;
+   *   },
+   * });
+   * ```
+   */
+  readonly queryKeyScope?: () => unknown;
 }
 
 // ============================================================================
