@@ -103,29 +103,93 @@ function generateFieldId(keyPath: readonly string[]): string {
  * Builds a field selection string from an output schema's JSON schema.
  * Returns `{ field1 field2 ... }` for objects, or empty string for scalars/JSON.
  */
-function buildSelectionSet(outputSchema: SchemaAdapter | undefined): string {
+function buildSelectionSet(outputSchema: SchemaAdapter | undefined, fieldId: string): string {
   if (!outputSchema) return '';
 
   const jsonSchema = outputSchema.toJsonSchema();
-  return selectionFromJsonSchema(jsonSchema);
+  return selectionFromJsonSchema(jsonSchema, 0, `${capitalize(fieldId)}Output`);
 }
 
 const MAX_SELECTION_DEPTH = 50;
 
 /**
+ * Find the literal value of a discriminator-style property in an object schema.
+ * Mirrors the same function in generate.ts.
+ */
+function pickDiscriminatorLabel(schema: Record<string, unknown>): string | null {
+  const properties = (schema['properties'] ?? {}) as Record<string, Record<string, unknown>>;
+  for (const propSchema of Object.values(properties)) {
+    if (!propSchema || typeof propSchema !== 'object') continue;
+    const constValue = propSchema['const'];
+    if (typeof constValue === 'string' && constValue.length > 0) {
+      return constValue;
+    }
+    const enumValue = propSchema['enum'];
+    if (
+      Array.isArray(enumValue) &&
+      enumValue.length === 1 &&
+      typeof enumValue[0] === 'string' &&
+      (enumValue[0] as string).length > 0
+    ) {
+      return enumValue[0] as string;
+    }
+  }
+  return null;
+}
+
+/**
+ * Pascal-case a string by uppercasing each segment between non-alnum runs.
+ * Mirrors the same function in generate.ts.
+ */
+function pascalize(str: string): string {
+  return str
+    .split(/[^a-zA-Z0-9]+/g)
+    .filter((part) => part.length > 0)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join('');
+}
+
+/**
  * Recursively builds a GraphQL selection set from a JSON schema.
  * Depth-limited to prevent stack overflow from circular/deep schemas.
  */
-function selectionFromJsonSchema(schema: JsonSchema, depth = 0): string {
+function selectionFromJsonSchema(schema: JsonSchema, depth = 0, unionTypeName?: string): string {
   if (depth > MAX_SELECTION_DEPTH) return '';
   if (!schema || typeof schema !== 'object') return '';
 
   const rec = schema as Record<string, unknown>;
   const type = rec['type'] as string | undefined;
 
-  // Array — look at items
+  // Array — look at items; thread unionTypeName for array-of-union support
   if (type === 'array' && rec['items']) {
-    return selectionFromJsonSchema(rec['items'] as JsonSchema, depth + 1);
+    const itemUnionName = unionTypeName ? `${unionTypeName}_Item` : undefined;
+    return selectionFromJsonSchema(rec['items'] as JsonSchema, depth + 1, itemUnionName);
+  }
+
+  // Union (oneOf / anyOf) — emit inline fragments for each member
+  const oneOf = (rec['oneOf'] ?? rec['anyOf']) as JsonSchema[] | undefined;
+  if (Array.isArray(oneOf) && oneOf.length > 0) {
+    if (!unionTypeName) return '';
+    const parts: string[] = ['__typename'];
+    const seen = new Set<string>();
+    for (let i = 0; i < oneOf.length; i++) {
+      const variant = oneOf[i] as Record<string, unknown> | undefined;
+      if (!variant || typeof variant !== 'object') continue;
+      const variantProps = variant['properties'] as Record<string, JsonSchema> | undefined;
+      if (!variantProps) continue;
+      const discriminator = pickDiscriminatorLabel(variant);
+      let memberName = discriminator
+        ? `${unionTypeName}_${pascalize(discriminator)}`
+        : `${unionTypeName}_Member${i + 1}`;
+      let suffix = 2;
+      while (seen.has(memberName)) {
+        memberName = `${unionTypeName}_${pascalize(discriminator ?? 'Member')}${suffix++}`;
+      }
+      seen.add(memberName);
+      const memberSel = selectionFromJsonSchema(variant as JsonSchema, depth + 1, undefined);
+      if (memberSel) parts.push(`... on ${memberName} ${memberSel}`);
+    }
+    return parts.length > 1 ? `{ ${parts.join(' ')} }` : '';
   }
 
   // Object with properties — build selection
@@ -133,7 +197,7 @@ function selectionFromJsonSchema(schema: JsonSchema, depth = 0): string {
   if (properties) {
     const fields: string[] = [];
     for (const [propName, propSchema] of Object.entries(properties)) {
-      const nested = selectionFromJsonSchema(propSchema, depth + 1);
+      const nested = selectionFromJsonSchema(propSchema, depth + 1, undefined);
       if (nested) {
         fields.push(`${propName} ${nested}`);
       } else {
@@ -194,7 +258,7 @@ function createFieldMethod(
   const operationType = field.operation === 'mutation' ? 'mutation' : 'query';
 
   // Pre-compute the default selection set from the output schema (done once at build time)
-  const defaultSelectionSet = buildSelectionSet(field.output as SchemaAdapter | undefined);
+  const defaultSelectionSet = buildSelectionSet(field.output as SchemaAdapter | undefined, fieldId);
 
   // Pre-compute the input type name if input schema exists
   const hasInputSchema = !!field.input;
@@ -281,7 +345,7 @@ export function createBatchQuery(
     fieldLookup.set(key, {
       fieldId,
       inputTypeName: field.input ? buildInputTypeName(fieldId) : null,
-      defaultSelection: buildSelectionSet(field.output as SchemaAdapter | undefined),
+      defaultSelection: buildSelectionSet(field.output as SchemaAdapter | undefined, fieldId),
     });
   }
 
