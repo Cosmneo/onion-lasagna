@@ -3,8 +3,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import { createOnionYoga } from '../create-yoga';
-import { buildSchemaFromFields } from '../build-schema';
+import { buildSchemaFromFields, relaxOutputNonNull } from '../build-schema';
 import { mapErrorToResponse, mapToGraphQLError } from '../error-handler';
 import type { UnifiedGraphQLField } from '@cosmneo/onion-lasagna/graphql/server';
 import {
@@ -14,6 +15,40 @@ import {
   UnauthorizedError,
   ForbiddenError,
 } from '@cosmneo/onion-lasagna';
+import {
+  defineQuery,
+  defineMutation,
+  defineGraphQLSchema,
+} from '@cosmneo/onion-lasagna/graphql/field';
+
+// ============================================================================
+// Inline zodSchema helper (no @cosmneo/onion-lasagna-zod dep needed in tests)
+// ============================================================================
+
+function zodSchema<T extends z.ZodType>(schema: T) {
+  return {
+    validate(data: unknown) {
+      const result = schema.safeParse(data);
+      if (result.success) return { success: true as const, data: result.data };
+      return {
+        success: false as const,
+        issues: result.error.issues.map((i) => ({ path: i.path.map(String), message: i.message })),
+      };
+    },
+    toJsonSchema() {
+      const { $schema, ...rest } = z.toJSONSchema(schema, {
+        target: 'openapi-3.0',
+        reused: 'inline',
+        unrepresentable: 'any',
+      }) as Record<string, unknown>;
+      void $schema;
+      return rest;
+    },
+    _output: undefined as T['_output'],
+    _input: undefined as T['_input'],
+    _schema: schema,
+  };
+}
 
 // ============================================================================
 // Test Helpers
@@ -46,7 +81,7 @@ async function executeQuery(
 }
 
 // ============================================================================
-// Tests
+// JSON mode tests (existing — must stay green)
 // ============================================================================
 
 describe('buildSchemaFromFields', () => {
@@ -358,5 +393,258 @@ describe('mapToGraphQLError', () => {
     expect(error).toBeInstanceOf(Error);
     expect(error.message).toBe('Not found');
     expect(error.extensions).toEqual(expect.objectContaining({ code: 'NOT_FOUND' }));
+  });
+});
+
+// ============================================================================
+// Typed mode tests
+// ============================================================================
+
+describe('buildSchemaFromFields — typed mode', () => {
+  it('CRITICAL #5: root field returning null does not cause non-nullable error', async () => {
+    // Output schema is a required object but handler returns null
+    const schema = defineGraphQLSchema({
+      usersGet: defineQuery({
+        output: zodSchema(z.object({ id: z.string() })),
+      }),
+    });
+
+    const field = createField({
+      key: 'usersGet',
+      operation: 'query',
+      metadata: { fieldId: 'usersGet' },
+      handler: async () => null,
+    });
+
+    const yoga = createOnionYoga({ fields: [field], schema });
+    const result = await executeQuery(yoga, '{ usersGet { id } }');
+
+    // Must resolve to null without a non-nullable field error
+    expect(result.errors).toBeUndefined();
+    expect((result.data as Record<string, unknown>)['usersGet']).toBeNull();
+  });
+
+  it('CRITICAL #6: required nested prop omitted does not crash parent', async () => {
+    const schema = defineGraphQLSchema({
+      usersGet: defineQuery({
+        output: zodSchema(z.object({ id: z.string(), name: z.string() })),
+      }),
+    });
+
+    const field = createField({
+      key: 'usersGet',
+      operation: 'query',
+      metadata: { fieldId: 'usersGet' },
+      // name is omitted — handler only returns id
+      handler: async () => ({ id: '1' }),
+    });
+
+    const yoga = createOnionYoga({ fields: [field], schema });
+    const result = await executeQuery(yoga, '{ usersGet { id name } }');
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data).toEqual({ usersGet: { id: '1', name: null } });
+  });
+
+  it('HIGH #20: union output emits union SDL, not JSON', () => {
+    const schema = defineGraphQLSchema({
+      statusGet: defineQuery({
+        output: zodSchema(
+          z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('a'), a: z.string() }),
+            z.object({ kind: z.literal('b'), b: z.number() }),
+          ]),
+        ),
+      }),
+    });
+
+    const field = createField({
+      key: 'statusGet',
+      operation: 'query',
+      metadata: { fieldId: 'statusGet' },
+      handler: async () => ({ kind: 'a', a: 'hello' }),
+    });
+
+    const { typeDefs } = buildSchemaFromFields([field], schema);
+
+    expect(typeDefs).toContain('union ');
+    // Should NOT fall back to JSON for the field type
+    expect(typeDefs).not.toMatch(/statusGet\s*:\s*JSON/);
+  });
+
+  it('HIGH #20: union output SDL is correct (union type present, not JSON)', () => {
+    // Runtime union resolution requires __resolveType which is a user-space concern
+    // (the resolver must set __typename). This test validates the SDL is correct.
+    const schema = defineGraphQLSchema({
+      statusGet: defineQuery({
+        output: zodSchema(
+          z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('a'), a: z.string() }),
+            z.object({ kind: z.literal('b'), b: z.number() }),
+          ]),
+        ),
+      }),
+    });
+
+    const field = createField({
+      key: 'statusGet',
+      operation: 'query',
+      metadata: { fieldId: 'statusGet' },
+      handler: async () => ({ kind: 'a', a: 'hello' }),
+    });
+
+    const { typeDefs } = buildSchemaFromFields([field], schema);
+
+    // SDL must contain a union definition, not a JSON fallback
+    expect(typeDefs).toContain('union ');
+    expect(typeDefs).not.toMatch(/statusGet\s*:\s*JSON/);
+    // Member types should be registered
+    expect(typeDefs).toContain('type StatusGetOutput_A');
+    expect(typeDefs).toContain('type StatusGetOutput_B');
+  });
+
+  it('HIGH #21: custom fieldId ≠ generateFieldId(key) — typed SDL and resolver agree', async () => {
+    // Field key is 'users.get' → generateFieldId → 'usersGet'
+    // metadata.fieldId is deliberately different ('usersGetCustom')
+    // In typed mode the SDL is keyed by generateFieldId, so the resolver must also
+    // use generateFieldId(key) to match.
+    const schema = defineGraphQLSchema({
+      'users.get': defineQuery({
+        output: zodSchema(z.object({ id: z.string() })),
+      }),
+    });
+
+    const field = createField({
+      key: 'users.get',
+      operation: 'query',
+      // metadata.fieldId deliberately differs from generateFieldId('users.get')='usersGet'
+      metadata: { fieldId: 'usersGetCustom' },
+      handler: async () => ({ id: 'typed-42' }),
+    });
+
+    const yoga = createOnionYoga({ fields: [field], schema });
+    // SDL field name = generateFieldId('users.get') = 'usersGet'
+    const result = await executeQuery(yoga, '{ usersGet { id } }');
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data).toEqual({ usersGet: { id: 'typed-42' } });
+  });
+
+  it('HIGH #22: enum prop emits String (not JSON), query works', async () => {
+    const schema = defineGraphQLSchema({
+      ticketGet: defineQuery({
+        output: zodSchema(z.object({ status: z.enum(['OPEN', 'CLOSED']), id: z.string() })),
+      }),
+    });
+
+    const field = createField({
+      key: 'ticketGet',
+      operation: 'query',
+      metadata: { fieldId: 'ticketGet' },
+      handler: async () => ({ status: 'OPEN', id: 'T-1' }),
+    });
+
+    const { typeDefs } = buildSchemaFromFields([field], schema);
+
+    // status field should be String (core maps enum→String), not JSON
+    expect(typeDefs).toMatch(/status:\s*String/);
+
+    // Also verify it executes correctly
+    const yoga = createOnionYoga({ fields: [field], schema });
+    const result = await executeQuery(yoga, '{ ticketGet { id status } }');
+    expect(result.errors).toBeUndefined();
+    expect(result.data).toEqual({ ticketGet: { id: 'T-1', status: 'OPEN' } });
+  });
+
+  it('e2e typed mode: mutation with input and output, null field safe', async () => {
+    const schema = defineGraphQLSchema({
+      project: {
+        create: defineMutation({
+          input: zodSchema(z.object({ name: z.string() })),
+          output: zodSchema(z.object({ id: z.string(), name: z.string() })),
+        }),
+      },
+    });
+
+    const field = createField({
+      key: 'project.create',
+      operation: 'mutation',
+      metadata: { fieldId: 'projectCreate' },
+      handler: async (args) => ({ id: 'P-001', name: (args as { name: string }).name }),
+    });
+
+    const yoga = createOnionYoga({ fields: [field], schema });
+    const result = await executeQuery(
+      yoga,
+      'mutation ($input: ProjectCreateInput!) { projectCreate(input: $input) { id name } }',
+      { input: { name: 'Alpha' } },
+    );
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data).toEqual({ projectCreate: { id: 'P-001', name: 'Alpha' } });
+  });
+});
+
+// ============================================================================
+// relaxOutputNonNull unit tests
+// ============================================================================
+
+describe('relaxOutputNonNull', () => {
+  it('drops trailing ! from output type fields', () => {
+    const sdl = `type UsersGetOutput {
+  id: String!
+  name: String!
+}`;
+    const relaxed = relaxOutputNonNull(sdl);
+    expect(relaxed).toContain('id: String');
+    expect(relaxed).not.toContain('id: String!');
+    expect(relaxed).toContain('name: String');
+    expect(relaxed).not.toContain('name: String!');
+  });
+
+  it('does NOT touch input type fields', () => {
+    const sdl = `input UsersGetInput {
+  id: String!
+  name: String!
+}`;
+    const relaxed = relaxOutputNonNull(sdl);
+    expect(relaxed).toContain('id: String!');
+    expect(relaxed).toContain('name: String!');
+  });
+
+  it('does NOT touch root Query / Mutation / Subscription fields', () => {
+    const sdl = `type Query {
+  usersGet: UsersGetOutput
+}
+type Mutation {
+  usersCreate(input: UsersCreateInput!): UsersCreateOutput
+}`;
+    const relaxed = relaxOutputNonNull(sdl);
+    // Root field types are already nullable (no ! to strip); verify input arg ! is preserved
+    expect(relaxed).toContain('usersCreate(input: UsersCreateInput!): UsersCreateOutput');
+  });
+
+  it('preserves inline arg ! while dropping return type !', () => {
+    const sdl = `type SomeOutput {
+  nested(arg: Int!): String!
+}`;
+    const relaxed = relaxOutputNonNull(sdl);
+    expect(relaxed).toContain('(arg: Int!)');
+    expect(relaxed).not.toContain('): String!');
+    expect(relaxed).toContain('): String');
+  });
+
+  it('preserves ! on list item type inside output type', () => {
+    // tags: [String!] — the ! is on the list item, not the field itself
+    // The outer list is nullable (no trailing !) so nothing to strip for the field,
+    // but [String!] item non-null must be preserved.
+    const sdl = `type ArticleOutput {
+  tags: [String!]
+  title: String!
+}`;
+    const relaxed = relaxOutputNonNull(sdl);
+    expect(relaxed).toContain('tags: [String!]');
+    expect(relaxed).toContain('title: String');
+    expect(relaxed).not.toContain('title: String!');
   });
 });

@@ -2,8 +2,9 @@
  * @fileoverview Builds a GraphQL executable schema from UnifiedGraphQLField[].
  *
  * Two modes:
- * - **Typed mode** (when schema definition is provided): Generates proper GraphQL
- *   types from SchemaAdapter's toJsonSchema(), enabling field selection.
+ * - **Typed mode** (when schema definition is provided): Delegates SDL generation
+ *   to core `generateGraphQLSDL`, which correctly handles nullable root fields,
+ *   unions, enums, and nested types.
  * - **JSON mode** (fallback): Uses JSON scalar for all fields — simpler but no
  *   field selection support.
  *
@@ -11,13 +12,13 @@
  */
 
 import type { UnifiedGraphQLField } from '@cosmneo/onion-lasagna/graphql/server';
-import type { SchemaAdapter, JsonSchema } from '@cosmneo/onion-lasagna/http/schema';
 import type {
   GraphQLSchemaConfig,
   GraphQLSchemaDefinition,
 } from '@cosmneo/onion-lasagna/graphql/field';
-import { isSchemaDefinition, collectFields } from '@cosmneo/onion-lasagna/graphql/field';
+import { isSchemaDefinition } from '@cosmneo/onion-lasagna/graphql/field';
 import { generateFieldId } from '@cosmneo/onion-lasagna/graphql/field';
+import { generateGraphQLSDL } from '@cosmneo/onion-lasagna/graphql/sdl';
 import { GraphQLScalarType, GraphQLError } from 'graphql';
 import { mapErrorToGraphQLError } from '@cosmneo/onion-lasagna/graphql/shared';
 
@@ -99,33 +100,121 @@ export function buildSchemaFromFields(
 // Typed Schema Builder
 // ============================================================================
 
+/**
+ * Drops trailing `!` from every field inside output `type` blocks.
+ *
+ * Core's `generateGraphQLSDL` marks required nested props with `!` based on
+ * JSON-schema `required` arrays, which reflect input-validation presence, not
+ * "resolver always returns this field". A resolver omitting a required prop would
+ * crash the parent object. We drop `!` from all output type fields so every nested
+ * field is nullable at the GraphQL layer — resolver null becomes GraphQL null
+ * instead of an error.
+ *
+ * Rules:
+ * - Only touches `type X { ... }` blocks (NOT `input X { ... }` — required
+ *   inputs must stay non-null).
+ * - Never touches root `type Query`, `type Mutation`, `type Subscription` blocks
+ *   (core already emits those without `!`).
+ * - Never touches `union` definitions or `scalar` declarations.
+ * - Never touches inline argument types (those live inside `input` blocks).
+ */
+export function relaxOutputNonNull(sdl: string): string {
+  const ROOT_TYPES = new Set(['Query', 'Mutation', 'Subscription']);
+
+  const lines = sdl.split('\n');
+  const result: string[] = [];
+
+  let insideOutputType = false; // true when inside a non-root, non-input type block
+
+  for (const line of lines) {
+    const trimmed = line.trimStart();
+
+    // Detect block start
+    const typeMatch = /^type\s+(\w+)\s*\{/.exec(trimmed);
+    if (typeMatch) {
+      const typeName = typeMatch[1] ?? '';
+      // Non-root output type block: relax non-null
+      insideOutputType = !ROOT_TYPES.has(typeName);
+      result.push(line);
+      continue;
+    }
+
+    // Detect input / union / scalar block start — do NOT relax
+    if (/^(input|union|scalar|enum|interface)\s/.test(trimmed)) {
+      insideOutputType = false;
+      result.push(line);
+      continue;
+    }
+
+    // Detect block end
+    if (trimmed === '}') {
+      insideOutputType = false;
+      result.push(line);
+      continue;
+    }
+
+    // Inside a non-root output type: strip trailing `!` from field type
+    // but preserve `!` on inline input arg types (those appear inside
+    // parentheses on the same field line, e.g. `field(arg: String!): Type`).
+    if (insideOutputType && trimmed.length > 0 && !trimmed.startsWith('#')) {
+      result.push(relaxFieldLine(line));
+      continue;
+    }
+
+    result.push(line);
+  }
+
+  return result.join('\n');
+}
+
+/**
+ * For a single field line inside an output type, drops the trailing `!` from the
+ * return-type position while leaving argument types (`(arg: X!)`) untouched.
+ *
+ * Examples:
+ *   `  id: String!`            → `  id: String`
+ *   `  tags: [String!]!`       → `  tags: [String!]`   (inner `!` stays for list items)
+ *   `  nested: NestedType!`    → `  nested: NestedType`
+ *   `  field(a: Int!): String!`→ `  field(a: Int!): String`
+ */
+function relaxFieldLine(line: string): string {
+  // Find the return-type portion: everything after the last `:` that is NOT
+  // inside parentheses (argument section).
+  const parenDepth = { depth: 0 };
+  let colonPos = -1;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '(') {
+      parenDepth.depth++;
+    } else if (ch === ')') {
+      parenDepth.depth--;
+    } else if (ch === ':' && parenDepth.depth === 0) {
+      colonPos = i;
+    }
+  }
+
+  if (colonPos === -1) return line;
+
+  const before = line.slice(0, colonPos + 1);
+  const after = line.slice(colonPos + 1);
+
+  // Drop the trailing `!` from the type expression (after stripping directives
+  // like `@deprecated`). We only drop the outermost `!` — the one that makes
+  // the field non-null. Inner `!` on list item types are intentional.
+  // Pattern: strip trailing `!` that appears before any trailing directive or whitespace.
+  const relaxed = after.replace(/!(\s*(?:@\w[^\n]*)?\s*)$/, '$1');
+
+  return before + relaxed;
+}
+
 function buildTypedSchema(
   fields: readonly UnifiedGraphQLField[],
   schema: GraphQLSchemaConfig | GraphQLSchemaDefinition,
   onResolverError?: (error: unknown, fieldKey: string) => void,
 ): BuiltSchema {
   const config = isSchemaDefinition(schema) ? schema.fields : schema;
-  const collectedFields = collectFields(config);
 
-  // Build a map from fieldId → field definition (with schemas)
-  const fieldDefMap = new Map<
-    string,
-    { input?: SchemaAdapter; output?: SchemaAdapter; operation: string }
-  >();
-  for (const { key, field } of collectedFields) {
-    const fieldId = generateFieldId(key);
-    fieldDefMap.set(fieldId, {
-      input: field.input as SchemaAdapter | undefined,
-      output: field.output as SchemaAdapter | undefined,
-      operation: field.operation,
-    });
-  }
-
-  // Track named types to emit
-  const namedTypes = new Map<string, string>();
-  const sdlLines: string[] = ['scalar JSON'];
-
-  // Partition by operation
+  // Partition fields by operation for resolver-map building
   const queries: UnifiedGraphQLField[] = [];
   const mutations: UnifiedGraphQLField[] = [];
   const subscriptions: UnifiedGraphQLField[] = [];
@@ -136,281 +225,41 @@ function buildTypedSchema(
     else if (field.operation === 'subscription') subscriptions.push(field);
   }
 
-  // Query type
-  sdlLines.push('');
-  sdlLines.push('type Query {');
-  if (queries.length > 0) {
-    for (const field of queries) {
-      const fieldId = field.metadata.fieldId ?? field.key;
-      const def = fieldDefMap.get(fieldId);
-      sdlLines.push(buildFieldSignature(fieldId, def, namedTypes));
-    }
-  } else {
-    sdlLines.push('  _health: Boolean');
-  }
-  sdlLines.push('}');
+  // Delegate SDL generation to the core generator.
+  // `preamble: 'scalar JSON'` is required: core may produce fields typed as `JSON`
+  // (for unrepresentable shapes) but never declares the scalar itself.
+  let typeDefs = generateGraphQLSDL(config, {
+    preamble: 'scalar JSON',
+    includeDescriptions: true,
+    includeDeprecations: true,
+  });
 
-  // Mutation type
-  if (mutations.length > 0) {
-    sdlLines.push('');
-    sdlLines.push('type Mutation {');
-    for (const field of mutations) {
-      const fieldId = field.metadata.fieldId ?? field.key;
-      const def = fieldDefMap.get(fieldId);
-      sdlLines.push(buildFieldSignature(fieldId, def, namedTypes));
-    }
-    sdlLines.push('}');
+  // Relax `!` on nested output type fields (CRITICAL #6).
+  // Core marks required nested props non-null based on JSON-schema `required`,
+  // but that means "present in input validation", not "resolver always returns it".
+  typeDefs = relaxOutputNonNull(typeDefs);
+
+  // Edge case: generateGraphQLSDL emits no `type Query` when zero query fields,
+  // but GraphQL requires a root Query type.
+  if (!typeDefs.includes('type Query')) {
+    typeDefs = typeDefs.trimEnd() + '\ntype Query {\n  _health: Boolean\n}\n';
   }
 
-  // Subscription type
-  if (subscriptions.length > 0) {
-    sdlLines.push('');
-    sdlLines.push('type Subscription {');
-    for (const field of subscriptions) {
-      const fieldId = field.metadata.fieldId ?? field.key;
-      const def = fieldDefMap.get(fieldId);
-      sdlLines.push(buildFieldSignature(fieldId, def, namedTypes));
-    }
-    sdlLines.push('}');
-  }
+  // In typed mode, resolver keys must match SDL field names, which core generates
+  // via generateFieldId(key). We pass that mapper so HIGH #21 is fixed.
+  const fieldIdFor = (f: UnifiedGraphQLField) => generateFieldId(f.key);
 
-  // Emit named types
-  for (const [, typeBody] of namedTypes) {
-    sdlLines.push('');
-    sdlLines.push(typeBody);
-  }
-
-  // Build resolvers (same as JSON mode — resolvers return plain objects,
-  // GraphQL handles field selection from the type system)
   return {
-    typeDefs: sdlLines.join('\n'),
-    resolvers: buildResolverMap(fields, queries, mutations, subscriptions, onResolverError),
+    typeDefs,
+    resolvers: buildResolverMap(
+      fields,
+      queries,
+      mutations,
+      subscriptions,
+      onResolverError,
+      fieldIdFor,
+    ),
   };
-}
-
-/**
- * Builds a single field signature like `  todosList: [Todo!]!` or `  todosCreate(input: TodosCreateInput!): Todo!`
- */
-function buildFieldSignature(
-  fieldId: string,
-  def: { input?: SchemaAdapter; output?: SchemaAdapter } | undefined,
-  namedTypes: Map<string, string>,
-): string {
-  // Output type
-  let outputType = 'JSON';
-  if (def?.output) {
-    const jsonSchema = def.output.toJsonSchema();
-    outputType = jsonSchemaToGraphQLType(jsonSchema, capitalize(fieldId), 'type', namedTypes);
-  }
-
-  // Input args
-  if (def?.input) {
-    const inputJsonSchema = def.input.toJsonSchema();
-    const inputTypeName = `${capitalize(fieldId)}Input`;
-    registerInputType(inputTypeName, inputJsonSchema, namedTypes);
-    return `  ${fieldId}(input: ${inputTypeName}!): ${outputType}`;
-  }
-
-  return `  ${fieldId}: ${outputType}`;
-}
-
-/**
- * Converts a JSON schema to a GraphQL type reference, registering named types as needed.
- */
-function jsonSchemaToGraphQLType(
-  schema: JsonSchema,
-  baseName: string,
-  kind: 'type' | 'input',
-  namedTypes: Map<string, string>,
-): string {
-  if (!schema || typeof schema !== 'object') return 'JSON';
-
-  const type = schema.type as string | undefined;
-
-  switch (type) {
-    case 'string':
-      return 'String!';
-    case 'integer':
-      return 'Int!';
-    case 'number':
-      return 'Float!';
-    case 'boolean':
-      return 'Boolean!';
-    case 'array': {
-      const items = schema.items as JsonSchema | undefined;
-      if (items && typeof items === 'object') {
-        const itemRec = items as Record<string, unknown>;
-        const itemType = itemRec['type'];
-        if (itemType === 'object' || itemRec['properties']) {
-          // Array of objects — register a named type for the item
-          const itemTypeName = baseName.endsWith('s') ? baseName.slice(0, -1) : `${baseName}Item`;
-          registerNamedType(itemTypeName, items, kind, namedTypes);
-          return `[${itemTypeName}!]!`;
-        }
-        // Array of primitives
-        const innerType = scalarType(itemRec['type'] as string | undefined);
-        return `[${innerType}]!`;
-      }
-      return '[JSON]!';
-    }
-    case 'object': {
-      if (schema.properties) {
-        registerNamedType(baseName, schema, kind, namedTypes);
-        return `${baseName}!`;
-      }
-      return 'JSON';
-    }
-    default: {
-      // No explicit type but has properties — treat as object
-      if (schema.properties) {
-        registerNamedType(baseName, schema, kind, namedTypes);
-        return `${baseName}!`;
-      }
-      return 'JSON';
-    }
-  }
-}
-
-/**
- * Resolves a property's GraphQL type, recursively registering named types for nested objects.
- *
- * @param propSchema - JSON schema for the property
- * @param parentTypeName - Name of the parent type (used to derive nested type names)
- * @param propName - Property name (used to derive nested type names)
- * @param kind - Whether this is an output 'type' or 'input'
- * @param namedTypes - Map to register new named types into
- * @returns GraphQL type string without `!` suffix (caller adds based on required)
- */
-const MAX_TYPE_DEPTH = 50;
-
-function resolvePropertyType(
-  propSchema: JsonSchema,
-  parentTypeName: string,
-  propName: string,
-  kind: 'type' | 'input',
-  namedTypes: Map<string, string>,
-  depth = 0,
-): string {
-  if (depth > MAX_TYPE_DEPTH) return 'JSON';
-  if (!propSchema || typeof propSchema !== 'object') return 'JSON';
-
-  const rec = propSchema as Record<string, unknown>;
-  const type = rec['type'] as string | undefined;
-
-  switch (type) {
-    case 'string':
-      return 'String';
-    case 'integer':
-      return 'Int';
-    case 'number':
-      return 'Float';
-    case 'boolean':
-      return 'Boolean';
-    case 'array': {
-      const items = rec['items'] as JsonSchema | undefined;
-      if (items && typeof items === 'object') {
-        const itemRec = items as Record<string, unknown>;
-        if (itemRec['type'] === 'object' || itemRec['properties']) {
-          const nestedName = `${parentTypeName}${capitalize(propName)}Item`;
-          registerNamedType(nestedName, items, kind, namedTypes, depth + 1);
-          return `[${nestedName}!]`;
-        }
-        return `[${resolvePropertyType(items, parentTypeName, propName, kind, namedTypes, depth + 1)}]`;
-      }
-      return '[JSON]';
-    }
-    case 'object': {
-      if (rec['properties']) {
-        const nestedName = `${parentTypeName}${capitalize(propName)}`;
-        registerNamedType(nestedName, propSchema, kind, namedTypes, depth + 1);
-        return nestedName;
-      }
-      return 'JSON';
-    }
-    default: {
-      if (rec['properties']) {
-        const nestedName = `${parentTypeName}${capitalize(propName)}`;
-        registerNamedType(nestedName, propSchema, kind, namedTypes, depth + 1);
-        return nestedName;
-      }
-      return 'JSON';
-    }
-  }
-}
-
-/**
- * Registers a named output `type` or `input` type from a JSON schema.
- * Recursively registers nested object types.
- */
-function registerNamedType(
-  typeName: string,
-  schema: JsonSchema,
-  kind: 'type' | 'input',
-  namedTypes: Map<string, string>,
-  depth = 0,
-): void {
-  if (namedTypes.has(typeName)) return;
-  if (depth > MAX_TYPE_DEPTH) return;
-
-  const keyword = kind === 'input' ? 'input' : 'type';
-  const lines: string[] = [`${keyword} ${typeName} {`];
-  const properties = schema.properties as Record<string, JsonSchema> | undefined;
-  const required = new Set(Array.isArray(schema.required) ? (schema.required as string[]) : []);
-
-  if (properties) {
-    for (const [propName, propSchema] of Object.entries(properties)) {
-      const propType = resolvePropertyType(
-        propSchema,
-        typeName,
-        propName,
-        kind,
-        namedTypes,
-        depth + 1,
-      );
-      const isNullable =
-        propSchema &&
-        typeof propSchema === 'object' &&
-        (propSchema as Record<string, unknown>)['nullable'] === true;
-      const isRequired = required.has(propName) && !isNullable;
-      lines.push(`  ${propName}: ${propType}${isRequired ? '!' : ''}`);
-    }
-  }
-
-  lines.push('}');
-  namedTypes.set(typeName, lines.join('\n'));
-}
-
-/**
- * Registers an input type from a JSON schema.
- */
-function registerInputType(
-  typeName: string,
-  schema: JsonSchema,
-  namedTypes: Map<string, string>,
-): void {
-  registerNamedType(typeName, schema, 'input', namedTypes);
-}
-
-/**
- * Maps a JSON schema type string to a GraphQL scalar with `!`.
- */
-function scalarType(type: string | undefined): string {
-  switch (type) {
-    case 'string':
-      return 'String!';
-    case 'integer':
-      return 'Int!';
-    case 'number':
-      return 'Float!';
-    case 'boolean':
-      return 'Boolean!';
-    default:
-      return 'JSON';
-  }
-}
-
-function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 // ============================================================================
@@ -481,8 +330,14 @@ function buildResolverMap(
   mutations: UnifiedGraphQLField[],
   subscriptions: UnifiedGraphQLField[],
   onResolverError?: (error: unknown, fieldKey: string) => void,
+  // When provided, keys resolvers by this function (typed mode: generateFieldId).
+  // When absent, falls back to field.metadata.fieldId ?? field.key (JSON mode).
+  fieldIdFor?: (f: UnifiedGraphQLField) => string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Record<string, any> {
+  const resolveId = (f: UnifiedGraphQLField) =>
+    fieldIdFor ? fieldIdFor(f) : (f.metadata.fieldId ?? f.key);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resolvers: Record<string, any> = {
     JSON: GraphQLJSON,
@@ -491,8 +346,7 @@ function buildResolverMap(
   resolvers['Query'] = {};
   if (queries.length > 0) {
     for (const field of queries) {
-      const fieldId = field.metadata.fieldId ?? field.key;
-      resolvers['Query'][fieldId] = createResolver(field, onResolverError);
+      resolvers['Query'][resolveId(field)] = createResolver(field, onResolverError);
     }
   } else {
     resolvers['Query']['_health'] = () => true;
@@ -501,16 +355,14 @@ function buildResolverMap(
   if (mutations.length > 0) {
     resolvers['Mutation'] = {};
     for (const field of mutations) {
-      const fieldId = field.metadata.fieldId ?? field.key;
-      resolvers['Mutation'][fieldId] = createResolver(field, onResolverError);
+      resolvers['Mutation'][resolveId(field)] = createResolver(field, onResolverError);
     }
   }
 
   if (subscriptions.length > 0) {
     resolvers['Subscription'] = {};
     for (const field of subscriptions) {
-      const fieldId = field.metadata.fieldId ?? field.key;
-      resolvers['Subscription'][fieldId] = {
+      resolvers['Subscription'][resolveId(field)] = {
         subscribe: createResolver(field, onResolverError),
       };
     }
