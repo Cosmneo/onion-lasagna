@@ -3,24 +3,6 @@ import { InfraError } from '../exceptions/infra.error';
 /** @internal Function signature for wrapped methods. */
 type UnknownFn = (...args: unknown[]) => unknown;
 
-/** @internal Symbol to mark methods that have been wrapped on a prototype. */
-const WRAPPED_METHODS_SYMBOL = Symbol.for('onion-lasagna:wrapped-methods');
-
-/** @internal Get or create the set of wrapped method names for a prototype. */
-function getWrappedMethods(proto: object): Set<string> {
-  const existing = (proto as Record<symbol, Set<string>>)[WRAPPED_METHODS_SYMBOL];
-  if (existing) return existing;
-
-  const newSet = new Set<string>();
-  Object.defineProperty(proto, WRAPPED_METHODS_SYMBOL, {
-    value: newSet,
-    writable: false,
-    enumerable: false,
-    configurable: false,
-  });
-  return newSet;
-}
-
 /**
  * Abstract base class for outbound adapters (secondary/driven ports).
  *
@@ -79,7 +61,8 @@ export abstract class BaseOutboundAdapter {
 
   /**
    * Walks the prototype chain and wraps all methods with error handling.
-   * Uses prototype-level Symbol markers to prevent re-wrapping across instances.
+   * Uses a local per-construction `seen` set so each instance is fully wrapped
+   * regardless of how many other instances have been created before it.
    * @internal
    */
   private wrapAllSubclassMethods(): void {
@@ -109,19 +92,18 @@ export abstract class BaseOutboundAdapter {
       });
     };
 
-    // Collect all method names that need wrapping (checking prototype-level markers)
+    // Collect all method names that need wrapping.
+    // `seen` is local to this construction so derived-class overrides win and
+    // each name is wrapped exactly once per instance — no shared mutable state.
     const methodsToWrap: { name: string; fn: UnknownFn }[] = [];
+    const seen = new Set<string>();
 
     // Walk the prototype chain until this base class.
     let proto: object | null = Object.getPrototypeOf(this);
     while (proto && proto !== BaseOutboundAdapter.prototype && proto !== Object.prototype) {
-      const wrappedOnProto = getWrappedMethods(proto);
-
       for (const key of Object.getOwnPropertyNames(proto)) {
         if (key === 'constructor') continue;
-
-        // Check if already wrapped at prototype level (across all instances)
-        if (wrappedOnProto.has(key)) continue;
+        if (seen.has(key)) continue;
 
         const descriptor = Object.getOwnPropertyDescriptor(proto, key);
         if (!descriptor) continue;
@@ -131,7 +113,7 @@ export abstract class BaseOutboundAdapter {
         if (typeof descriptor.value !== 'function') continue;
 
         methodsToWrap.push({ name: key, fn: descriptor.value as UnknownFn });
-        wrappedOnProto.add(key);
+        seen.add(key);
       }
 
       proto = Object.getPrototypeOf(proto);

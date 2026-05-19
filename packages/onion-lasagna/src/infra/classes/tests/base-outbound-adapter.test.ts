@@ -3,89 +3,86 @@ import { BaseOutboundAdapter } from '../base-outbound-adapter.class';
 import { InfraError } from '../../exceptions/infra.error';
 import { DbError } from '../../exceptions/db.error';
 
-// Factory functions to create fresh classes for each test
-// This is needed because BaseOutboundAdapter uses prototype-level markers
-function createTestRepository() {
-  class TestRepository extends BaseOutboundAdapter {
-    // Required: BaseOutboundAdapter has protected constructor
-    // eslint-disable-next-line @typescript-eslint/no-useless-constructor
-    constructor() {
-      super();
-    }
+// Module-scope classes — no per-test factory workaround needed since the
+// prototype-dedup bug has been fixed (each instance is independently wrapped).
 
-    async findById(id: string): Promise<{ id: string; name: string } | null> {
-      if (id === 'not-found') return null;
-      return { id, name: 'Test Entity' };
-    }
-
-    async findAll(): Promise<{ id: string }[]> {
-      return [{ id: '1' }, { id: '2' }];
-    }
-
-    syncMethod(value: string): string {
-      return `processed: ${value}`;
-    }
-
-    async failingMethod(): Promise<void> {
-      throw new Error('Database connection lost');
-    }
-
-    syncFailingMethod(): string {
-      throw new Error('Sync operation failed');
-    }
+class TestRepository extends BaseOutboundAdapter {
+  async findById(id: string): Promise<{ id: string; name: string } | null> {
+    if (id === 'not-found') return null;
+    return { id, name: 'Test Entity' };
   }
-  return new TestRepository();
+
+  async findAll(): Promise<{ id: string }[]> {
+    return [{ id: '1' }, { id: '2' }];
+  }
+
+  syncMethod(value: string): string {
+    return `processed: ${value}`;
+  }
+
+  async failingMethod(): Promise<void> {
+    throw new Error('Database connection lost');
+  }
+
+  syncFailingMethod(): string {
+    throw new Error('Sync operation failed');
+  }
 }
 
-function createCustomErrorRepository() {
-  class CustomErrorRepository extends BaseOutboundAdapter {
-    // eslint-disable-next-line @typescript-eslint/no-useless-constructor
-    constructor() {
-      super();
-    }
-
-    protected override createInfraError(error: unknown, methodName: string): InfraError {
-      return new DbError({
-        message: `Database error in ${methodName}`,
-        cause: error,
-      });
-    }
-
-    async query(): Promise<void> {
-      throw new Error('Query failed');
-    }
+class CustomErrorRepository extends BaseOutboundAdapter {
+  protected override createInfraError(error: unknown, methodName: string): InfraError {
+    return new DbError({
+      message: `Database error in ${methodName}`,
+      cause: error,
+    });
   }
-  return new CustomErrorRepository();
+
+  async query(): Promise<void> {
+    throw new Error('Query failed');
+  }
 }
 
-function createRepositoryWithGetter() {
-  class RepositoryWithGetter extends BaseOutboundAdapter {
-    // eslint-disable-next-line @typescript-eslint/no-useless-constructor
-    constructor() {
-      super();
-    }
+class RepositoryWithGetter extends BaseOutboundAdapter {
+  private _data = 'initial';
 
-    private _data = 'initial';
-
-    get data(): string {
-      return this._data;
-    }
-
-    set data(value: string) {
-      this._data = value;
-    }
-
-    async fetchData(): Promise<string> {
-      return this._data;
-    }
+  get data(): string {
+    return this._data;
   }
-  return new RepositoryWithGetter();
+
+  set data(value: string) {
+    this._data = value;
+  }
+
+  async fetchData(): Promise<string> {
+    return this._data;
+  }
+}
+
+// Used for multi-instance regression tests at module scope.
+class BoomRepo extends BaseOutboundAdapter {
+  async boom(): Promise<void> {
+    throw new Error('raw');
+  }
+
+  syncBoom(): string {
+    throw new Error('raw sync');
+  }
+}
+
+class BoomRepoCustomError extends BaseOutboundAdapter {
+  protected override createInfraError(error: unknown, methodName: string): InfraError {
+    return new DbError({ message: `Database error in ${methodName}`, cause: error });
+  }
+
+  async boom(): Promise<void> {
+    throw new Error('raw');
+  }
 }
 
 describe('BaseOutboundAdapter', () => {
   describe('successful operations', () => {
     it('should execute async methods successfully', async () => {
-      const repo = createTestRepository();
+      const repo = new TestRepository();
 
       const result = await repo.findById('123');
 
@@ -93,7 +90,7 @@ describe('BaseOutboundAdapter', () => {
     });
 
     it('should execute sync methods successfully', () => {
-      const repo = createTestRepository();
+      const repo = new TestRepository();
 
       const result = repo.syncMethod('input');
 
@@ -101,7 +98,7 @@ describe('BaseOutboundAdapter', () => {
     });
 
     it('should return null from async methods', async () => {
-      const repo = createTestRepository();
+      const repo = new TestRepository();
 
       const result = await repo.findById('not-found');
 
@@ -109,7 +106,7 @@ describe('BaseOutboundAdapter', () => {
     });
 
     it('should return arrays from async methods', async () => {
-      const repo = createTestRepository();
+      const repo = new TestRepository();
 
       const result = await repo.findAll();
 
@@ -119,19 +116,19 @@ describe('BaseOutboundAdapter', () => {
 
   describe('error wrapping', () => {
     it('should wrap async errors in InfraError', async () => {
-      const repo = createTestRepository();
+      const repo = new TestRepository();
 
       await expect(repo.failingMethod()).rejects.toThrow(InfraError);
     });
 
     it('should wrap sync errors in InfraError', () => {
-      const repo = createTestRepository();
+      const repo = new TestRepository();
 
       expect(() => repo.syncFailingMethod()).toThrow(InfraError);
     });
 
     it('should preserve original error as cause', async () => {
-      const repo = createTestRepository();
+      const repo = new TestRepository();
 
       try {
         await repo.failingMethod();
@@ -143,7 +140,7 @@ describe('BaseOutboundAdapter', () => {
     });
 
     it('should include method name in error message', async () => {
-      const repo = createTestRepository();
+      const repo = new TestRepository();
 
       try {
         await repo.failingMethod();
@@ -155,13 +152,13 @@ describe('BaseOutboundAdapter', () => {
 
   describe('custom error factory', () => {
     it('should use custom createInfraError when overridden', async () => {
-      const repo = createCustomErrorRepository();
+      const repo = new CustomErrorRepository();
 
       await expect(repo.query()).rejects.toThrow(DbError);
     });
 
     it('should include method name in custom error', async () => {
-      const repo = createCustomErrorRepository();
+      const repo = new CustomErrorRepository();
 
       try {
         await repo.query();
@@ -174,14 +171,14 @@ describe('BaseOutboundAdapter', () => {
 
   describe('getters and setters', () => {
     it('should not wrap getters', () => {
-      const repo = createRepositoryWithGetter();
+      const repo = new RepositoryWithGetter();
 
       // Should work without throwing
       expect(repo.data).toBe('initial');
     });
 
     it('should not wrap setters', () => {
-      const repo = createRepositoryWithGetter();
+      const repo = new RepositoryWithGetter();
 
       // Should work without throwing
       repo.data = 'updated';
@@ -189,7 +186,7 @@ describe('BaseOutboundAdapter', () => {
     });
 
     it('should wrap regular methods alongside getters', async () => {
-      const repo = createRepositoryWithGetter();
+      const repo = new RepositoryWithGetter();
       repo.data = 'test data';
 
       const result = await repo.fetchData();
@@ -201,11 +198,6 @@ describe('BaseOutboundAdapter', () => {
   describe('promise handling', () => {
     it('should handle rejected promises', async () => {
       class RejectingRepo extends BaseOutboundAdapter {
-        // eslint-disable-next-line @typescript-eslint/no-useless-constructor
-        constructor() {
-          super();
-        }
-
         async rejectingMethod(): Promise<string> {
           return Promise.reject(new Error('Rejected'));
         }
@@ -218,11 +210,6 @@ describe('BaseOutboundAdapter', () => {
 
     it('should handle promise that resolves then throws', async () => {
       class DelayedErrorRepo extends BaseOutboundAdapter {
-        // eslint-disable-next-line @typescript-eslint/no-useless-constructor
-        constructor() {
-          super();
-        }
-
         async delayedError(): Promise<string> {
           await new Promise((resolve) => setTimeout(resolve, 10));
           throw new Error('Delayed error');
@@ -232,6 +219,45 @@ describe('BaseOutboundAdapter', () => {
       const repo = new DelayedErrorRepo();
 
       await expect(repo.delayedError()).rejects.toThrow(InfraError);
+    });
+  });
+
+  describe('multi-instance regression — prototype-dedup bug fix', () => {
+    it('second instance of a module-scope class wraps async errors in InfraError', async () => {
+      // First instance (would have triggered prototype-dedup in the buggy version)
+      const _first = new BoomRepo();
+      const second = new BoomRepo();
+
+      const err = await second.boom().catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(InfraError);
+      expect((err as InfraError).cause).toBeInstanceOf(Error);
+      expect(((err as InfraError).cause as Error).message).toBe('raw');
+    });
+
+    it('five instances all wrap async errors in InfraError', async () => {
+      const instances = Array.from({ length: 5 }, () => new BoomRepo());
+
+      for (const inst of instances) {
+        const err = await inst.boom().catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(InfraError);
+      }
+    });
+
+    it('second instance wraps sync errors in InfraError', () => {
+      const _first = new BoomRepo();
+      const second = new BoomRepo();
+
+      expect(() => second.syncBoom()).toThrow(InfraError);
+    });
+
+    it('custom createInfraError override applies on the second instance', async () => {
+      const _first = new BoomRepoCustomError();
+      const second = new BoomRepoCustomError();
+
+      const err = await second.boom().catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(DbError);
     });
   });
 });
