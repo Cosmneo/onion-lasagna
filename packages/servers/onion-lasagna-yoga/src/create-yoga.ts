@@ -10,6 +10,7 @@
 import { createYoga, createSchema } from 'graphql-yoga';
 import type { YogaServerInstance } from 'graphql-yoga';
 import { buildSchemaFromFields } from './build-schema';
+import { mapContextErrorToGraphQLError } from './error-handler';
 import type { CreateOnionYogaOptions } from './types';
 
 /**
@@ -90,7 +91,10 @@ export function createOnionYoga(
             /* don't let logging break the response */
           }
         }
-        throw error;
+        // Map the onion error taxonomy to a GraphQLError with an HTTP status.
+        // Without this, Yoga treats a bare context throw as unexpected → 500,
+        // so auth failures become indistinguishable from a server crash.
+        throw mapContextErrorToGraphQLError(error);
       }
     };
   }

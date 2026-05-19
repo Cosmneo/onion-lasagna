@@ -7,7 +7,13 @@ import { createOnionYoga } from '../create-yoga';
 import { buildSchemaFromFields } from '../build-schema';
 import { mapErrorToResponse, mapToGraphQLError } from '../error-handler';
 import type { UnifiedGraphQLField } from '@cosmneo/onion-lasagna/graphql/server';
-import { UseCaseError, NotFoundError, DomainError } from '@cosmneo/onion-lasagna';
+import {
+  UseCaseError,
+  NotFoundError,
+  DomainError,
+  UnauthorizedError,
+  ForbiddenError,
+} from '@cosmneo/onion-lasagna';
 
 // ============================================================================
 // Test Helpers
@@ -219,6 +225,113 @@ describe('createOnionYoga', () => {
     expect(result.errors![0]!.extensions).toEqual(
       expect.objectContaining({ code: 'INTERNAL_ERROR' }),
     );
+  });
+});
+
+describe('createOnionYoga — context resolver errors', () => {
+  function rawFetch(yoga: ReturnType<typeof createOnionYoga>): Promise<Response> {
+    return yoga.fetch('http://localhost:4000/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: '{ __typename }' }),
+    });
+  }
+
+  it('maps UnauthorizedError thrown in createContext to HTTP 401', async () => {
+    const yoga = createOnionYoga({
+      fields: [createField({ operation: 'query', metadata: { fieldId: 'hello' } })],
+      createContext: async () => {
+        throw new UnauthorizedError({ message: 'Invalid token' });
+      },
+    });
+
+    const response = await rawFetch(yoga);
+    expect(response.status).toBe(401);
+
+    const body = (await response.json()) as {
+      errors?: Array<{ message: string; extensions?: { code?: string } }>;
+    };
+    expect(body.errors?.[0]?.message).toBe('Invalid token');
+    expect(body.errors?.[0]?.extensions?.code).toBe('FORBIDDEN');
+  });
+
+  it('maps ForbiddenError thrown in createContext to HTTP 403', async () => {
+    const yoga = createOnionYoga({
+      fields: [createField({ operation: 'query', metadata: { fieldId: 'hello' } })],
+      createContext: async () => {
+        throw new ForbiddenError({ message: 'Not allowed' });
+      },
+    });
+
+    const response = await rawFetch(yoga);
+    expect(response.status).toBe(403);
+  });
+
+  it('maps NotFoundError thrown in createContext to HTTP 404', async () => {
+    const yoga = createOnionYoga({
+      fields: [createField({ operation: 'query', metadata: { fieldId: 'hello' } })],
+      createContext: async () => {
+        throw new NotFoundError({ message: 'Tenant not found' });
+      },
+    });
+
+    const response = await rawFetch(yoga);
+    expect(response.status).toBe(404);
+  });
+
+  it('masks DomainError thrown in createContext as HTTP 500', async () => {
+    const yoga = createOnionYoga({
+      fields: [createField({ operation: 'query', metadata: { fieldId: 'hello' } })],
+      createContext: async () => {
+        throw new DomainError({ message: 'secret internal detail' });
+      },
+    });
+
+    const response = await rawFetch(yoga);
+    expect(response.status).toBe(500);
+
+    const body = (await response.json()) as {
+      errors?: Array<{ message: string; extensions?: { code?: string } }>;
+    };
+    expect(body.errors?.[0]?.message).toBe('An unexpected error occurred');
+    expect(body.errors?.[0]?.extensions?.code).toBe('INTERNAL_ERROR');
+  });
+
+  it('still returns HTTP 200 when createContext succeeds', async () => {
+    const yoga = createOnionYoga({
+      fields: [
+        createField({
+          operation: 'query',
+          metadata: { fieldId: 'whoami' },
+          handler: async (_args, ctx) => (ctx as { userId: string }).userId,
+        }),
+      ],
+      createContext: async () => ({ userId: 'U-1' }),
+    });
+
+    const response = await yoga.fetch('http://localhost:4000/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: '{ whoami }' }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ data: { whoami: 'U-1' } });
+  });
+
+  it('invokes onResolverError before mapping the context error', async () => {
+    const seen: Array<{ key: string }> = [];
+    const yoga = createOnionYoga({
+      fields: [createField({ operation: 'query', metadata: { fieldId: 'hello' } })],
+      createContext: async () => {
+        throw new UnauthorizedError({ message: 'nope' });
+      },
+      onResolverError: (_error, fieldKey) => {
+        seen.push({ key: fieldKey });
+      },
+    });
+
+    await rawFetch(yoga);
+    expect(seen).toEqual([{ key: 'context' }]);
   });
 });
 
