@@ -11,6 +11,7 @@ import {
   mapErrorToGraphQLError,
   type MappedGraphQLError,
 } from '@cosmneo/onion-lasagna/graphql/shared';
+import { getHttpStatusCode } from '@cosmneo/onion-lasagna/http/shared';
 
 /**
  * Maps an error to a GraphQL-compatible error structure.
@@ -61,4 +62,36 @@ export function mapToGraphQLError(error: unknown): GraphQLError {
  */
 export function onionMaskError(error: unknown, _message: string, _isDev: boolean): Error {
   return mapToGraphQLError(error instanceof GraphQLError ? (error.originalError ?? error) : error);
+}
+
+/**
+ * Maps an error thrown from the GraphQL context factory to a GraphQLError
+ * carrying an `extensions.http.status`.
+ *
+ * Unlike resolver errors (which the GraphQL spec surfaces with HTTP 200),
+ * a throw from the context factory aborts the whole request. Yoga only
+ * derives a non-500 HTTP status from `extensions.http.status`; a bare onion
+ * error has none, so Yoga treats it as unexpected and responds 500. Attaching
+ * the onion taxonomy's status here makes auth/not-found/etc. surface with the
+ * correct HTTP status (401/403/404/...).
+ *
+ * Status is classified via `getHttpStatusCode`, which matches by a stable
+ * discriminant (error name) in addition to `instanceof`, so it stays correct
+ * even when `@cosmneo/onion-lasagna` is duplicated across package boundaries.
+ *
+ * @param error - The error thrown by the context factory
+ * @returns GraphQLError with onion code extensions and `extensions.http.status`
+ */
+export function mapContextErrorToGraphQLError(error: unknown): GraphQLError {
+  if (error instanceof GraphQLError) {
+    return error;
+  }
+
+  const mapped = mapErrorToGraphQLError(error);
+  return new GraphQLError(mapped.message, {
+    extensions: {
+      ...mapped.extensions,
+      http: { status: getHttpStatusCode(error) },
+    },
+  });
 }
