@@ -220,5 +220,56 @@ describe('BaseValueObject', () => {
       const retrievedValue = vo.value;
       expect(retrievedValue).toEqual(originalValue);
     });
+
+    // C01-1: object-valued VOs must not leak mutable internal state via .value
+    it('mutating the returned .value object should NOT affect the stored value (C01-1)', () => {
+      const vo = ComplexValueObject.create({ name: 'original', items: [1, 2], nested: { value: true } });
+
+      const leaked = vo.value as { name: string; items: number[]; nested: { value: boolean } };
+      leaked.name = 'mutated';
+      leaked.items.push(99);
+      leaked.nested.value = false;
+
+      expect(vo.value.name).toBe('original');
+      expect(vo.value.items).toEqual([1, 2]);
+      expect(vo.value.nested.value).toBe(true);
+    });
+
+    // C01-5: deepEquals/deepClone must not stack-overflow on cyclic input
+    it('equals should degrade gracefully (return false) on cyclic objects (C01-5)', () => {
+      class CyclicVO extends BaseValueObject<Record<string, unknown>> {
+        static create(value: Record<string, unknown>): CyclicVO {
+          return new CyclicVO(value);
+        }
+      }
+      const a: Record<string, unknown> = { x: 1 };
+      a['self'] = a; // cycle
+      const vo1 = CyclicVO.create(a);
+      const b: Record<string, unknown> = { x: 1 };
+      b['self'] = b;
+      const vo2 = CyclicVO.create(b);
+
+      // Must not throw / stack-overflow; result doesn't have to be true
+      expect(() => vo1.equals(vo2)).not.toThrow();
+    });
+  });
+
+  describe('null-safety on equals (MISSED)', () => {
+    // MISSED: BaseValueObject.equals throws when passed null/undefined
+    it('equals(null) should return false without throwing', () => {
+      const vo = TestValueObject.create('hello');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(() => vo.equals(null as any)).not.toThrow();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(vo.equals(null as any)).toBe(false);
+    });
+
+    it('equals(undefined) should return false without throwing', () => {
+      const vo = TestValueObject.create('hello');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(() => vo.equals(undefined as any)).not.toThrow();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(vo.equals(undefined as any)).toBe(false);
+    });
   });
 });

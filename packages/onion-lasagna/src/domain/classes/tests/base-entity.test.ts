@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { BaseEntity } from '../base-entity.class';
-import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../base-value-object.class';
+import { BaseValueObject } from '../base-value-object.class';
 
 // Test ID value object
 class TestId extends BaseValueObject<string> {
   static create(value: string): TestId {
-    return new TestId(value, SKIP_VALUE_OBJECT_VALIDATION);
+    return new TestId(value);
   }
 }
 
@@ -149,6 +149,25 @@ describe('BaseEntity', () => {
 
       expect(entity.name).toBe('New Name');
       expect(entity.active).toBe(false);
+    });
+  });
+
+  // MISSED: null-safety on equals
+  describe('null-safety (MISSED)', () => {
+    it('equals(null) should return false without throwing', () => {
+      const entity = TestEntity.create('123', 'Test');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(() => entity.equals(null as any)).not.toThrow();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(entity.equals(null as any)).toBe(false);
+    });
+
+    it('equals(undefined) should return false without throwing', () => {
+      const entity = TestEntity.create('123', 'Test');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(() => entity.equals(undefined as any)).not.toThrow();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(entity.equals(undefined as any)).toBe(false);
     });
   });
 

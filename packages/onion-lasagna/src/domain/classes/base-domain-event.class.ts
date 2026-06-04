@@ -53,25 +53,42 @@ export abstract class BaseDomainEvent<TPayload = unknown> {
   /**
    * Deep clones an object, handling Date objects specially.
    *
+   * **Supported shapes:** primitives, `Date`, `Array`, and plain objects.
+   * `Map` and `Set` are not cloned — they are copied by reference.
+   *
+   * **Cycle safety:** a `WeakMap` visited-guard prevents infinite recursion;
+   * cyclic references are replaced with the already-cloned counterpart (C01-5).
+   *
    * @param obj - The object to clone
+   * @param visited - Internal cycle-tracking map
    * @returns A deep copy of the object
    */
-  private static deepClone<T>(obj: T): T {
+  private static deepClone<T>(obj: T, visited = new WeakMap<object, unknown>()): T {
     if (obj === null || typeof obj !== 'object') {
       return obj;
     }
 
     if (obj instanceof Date) {
-      return new Date(obj.getTime()) as T;
+      return new Date((obj as Date).getTime()) as T;
+    }
+
+    if (visited.has(obj as object)) {
+      return visited.get(obj as object) as T;
     }
 
     if (Array.isArray(obj)) {
-      return obj.map((item) => BaseDomainEvent.deepClone(item)) as T;
+      const cloned: unknown[] = [];
+      visited.set(obj as object, cloned);
+      for (const item of obj) {
+        cloned.push(BaseDomainEvent.deepClone(item, visited));
+      }
+      return cloned as unknown as T;
     }
 
     const cloned = {} as Record<string, unknown>;
+    visited.set(obj as object, cloned);
     for (const key of Object.keys(obj)) {
-      cloned[key] = BaseDomainEvent.deepClone((obj as Record<string, unknown>)[key]);
+      cloned[key] = BaseDomainEvent.deepClone((obj as Record<string, unknown>)[key], visited);
     }
     return cloned as T;
   }
@@ -79,17 +96,33 @@ export abstract class BaseDomainEvent<TPayload = unknown> {
   /**
    * Recursively freezes an object and all nested objects.
    *
+   * **Cycle safety:** a `WeakSet` visited-guard prevents infinite recursion on
+   * cyclic graphs; already-frozen or already-visited nodes are skipped (C01-5).
+   *
+   * **Performance note:** deep-freezing the payload on event construction is an
+   * O(n) operation where n is the size of the payload object graph. For large or
+   * deeply nested payloads this may be significant. Opt out by constructing the
+   * subclass manually (bypassing `cloneAndFreeze`) if performance is critical.
+   *
    * @param obj - The object to deep freeze
+   * @param visited - Internal cycle-tracking set
    * @returns The frozen object
    */
-  private static deepFreeze<T>(obj: T): T {
+  private static deepFreeze<T>(obj: T, visited = new WeakSet<object>()): T {
     if (obj === null || typeof obj !== 'object') {
       return obj;
     }
 
+    if (visited.has(obj as object)) {
+      return obj;
+    }
+    visited.add(obj as object);
+
     // Freeze arrays and their elements
     if (Array.isArray(obj)) {
-      obj.forEach((item) => BaseDomainEvent.deepFreeze(item));
+      for (const item of obj) {
+        BaseDomainEvent.deepFreeze(item, visited);
+      }
       return Object.freeze(obj) as T;
     }
 
@@ -97,7 +130,7 @@ export abstract class BaseDomainEvent<TPayload = unknown> {
     for (const key of Object.keys(obj)) {
       const value = (obj as Record<string, unknown>)[key];
       if (value !== null && typeof value === 'object') {
-        BaseDomainEvent.deepFreeze(value);
+        BaseDomainEvent.deepFreeze(value, visited);
       }
     }
 
@@ -141,7 +174,8 @@ export abstract class BaseDomainEvent<TPayload = unknown> {
     this._eventId = eventId ?? crypto.randomUUID();
     this._eventName = eventName;
     this._aggregateId = aggregateId;
-    this._occurredOn = occurredOn ?? new Date();
+    // Clone the caller-supplied Date so external mutation doesn't affect the event (C01-2).
+    this._occurredOn = occurredOn ? new Date(occurredOn.getTime()) : new Date();
     this._payload = BaseDomainEvent.cloneAndFreeze(payload);
   }
 
@@ -176,10 +210,11 @@ export abstract class BaseDomainEvent<TPayload = unknown> {
   /**
    * Timestamp when this event occurred.
    *
+   * Returns a clone to prevent callers from mutating the stored timestamp (C01-2).
    * Represents the moment the domain action happened.
    */
   public get occurredOn(): Date {
-    return this._occurredOn;
+    return new Date(this._occurredOn.getTime());
   }
 
   /**
