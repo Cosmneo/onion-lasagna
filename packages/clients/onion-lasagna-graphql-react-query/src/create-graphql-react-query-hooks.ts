@@ -112,9 +112,12 @@ function buildHooksProxy(
           useEnabled,
           queryKeyScope,
         );
-      } else {
+      } else if (value.operation === 'mutation') {
         hooks[key] = createMutationHook(clientEntry as (...args: unknown[]) => Promise<unknown>);
       }
+      // subscription fields are intentionally omitted: subscriptions are not supported
+      // by the React Query adapter (they require a WebSocket/SSE transport, not a one-shot
+      // HTTP request). Omitting them prevents silent masquerading as mutations.
     } else if (isSchemaDefinition(value)) {
       hooks[key] = buildHooksProxy(
         value.fields,
@@ -155,16 +158,23 @@ function createQueryHook(
       const {
         enabled: userEnabled,
         select,
+        // Strip library-controlled fields so a JS/untyped caller cannot clobber them (P04-3)
+        queryKey: _queryKey,
+        queryFn: _queryFn,
         ...restOptions
       } = (options ?? {}) as Record<string, unknown>;
 
       const queryKey = buildQueryKey(scope, keyPath, input, select);
 
       return useQuery({
-        queryKey,
-        queryFn: () => clientMethod(input, select ? { select } : undefined),
+        // Spread user options first so library-controlled fields win (P04-3)
         ...restOptions,
         enabled: globalEnabled && ((userEnabled as boolean | undefined) ?? true),
+        // Library-controlled fields set AFTER the spread so they cannot be clobbered
+        queryKey,
+        // Accept React Query's AbortSignal and forward it into the client (P04-2)
+        queryFn: ({ signal }: { signal: AbortSignal }) =>
+          clientMethod(input, { ...(select ? { select } : {}), signal }),
       });
     },
   };
@@ -178,9 +188,14 @@ function createMutationHook(
 ): Record<string, unknown> {
   return {
     useMutation: (options?: Record<string, unknown>) => {
+      // Strip library-controlled field so a JS/untyped caller cannot clobber it (P04-3)
+      const { mutationFn: _mutationFn, ...restOptions } = (options ?? {}) as Record<string, unknown>;
+
       return useMutation({
+        // Spread user options first so library-controlled field wins (P04-3)
+        ...restOptions,
+        // Library-controlled field set AFTER the spread so it cannot be clobbered
         mutationFn: (input: unknown) => clientMethod(input),
-        ...(options ?? {}),
       });
     },
   };

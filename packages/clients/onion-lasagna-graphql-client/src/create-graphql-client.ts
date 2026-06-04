@@ -253,7 +253,7 @@ function createFieldMethod(
   keyPath: readonly string[],
   field: GraphQLFieldDefinition,
   config: GraphQLClientConfig,
-): (input?: unknown, options?: { select?: unknown }) => Promise<unknown> {
+): (input?: unknown, options?: { select?: unknown; signal?: AbortSignal }) => Promise<unknown> {
   const fieldId = generateFieldId(keyPath);
   const operationType = field.operation === 'mutation' ? 'mutation' : 'query';
 
@@ -264,7 +264,7 @@ function createFieldMethod(
   const hasInputSchema = !!field.input;
   const inputTypeName = hasInputSchema ? buildInputTypeName(fieldId) : null;
 
-  return async (input?: unknown, options?: { select?: unknown }) => {
+  return async (input?: unknown, options?: { select?: unknown; signal?: AbortSignal }) => {
     // Use custom select or fall back to all fields
     const selectionSet = options?.select ? selectionToString(options.select) : defaultSelectionSet;
 
@@ -288,7 +288,7 @@ function createFieldMethod(
       body.variables = { input };
     }
 
-    const json = await executeGraphQLRequest(config, body);
+    const json = await executeGraphQLRequest(config, body, options?.signal);
     return json.data?.[fieldId];
   };
 }
@@ -413,10 +413,13 @@ export function createBatchQuery(
 /**
  * Executes a GraphQL HTTP request and returns the parsed response.
  * Shared by both single-field methods and batch queries.
+ *
+ * @param signal - Optional AbortSignal forwarded from the caller (e.g., React Query's queryFn context).
  */
 async function executeGraphQLRequest(
   config: GraphQLClientConfig,
   body: { query: string; variables?: Record<string, unknown> },
+  signal?: AbortSignal,
 ): Promise<{ data?: Record<string, unknown>; errors?: GraphQLResponseError[] }> {
   const fetchFn = config.fetch ?? fetch;
 
@@ -429,11 +432,12 @@ async function executeGraphQLRequest(
   }
   headers['Content-Type'] = 'application/json';
 
-  // Build request init
+  // Build request init — include signal if provided so the caller (e.g. React Query) can abort
   let init: RequestInit = {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
   };
 
   // Apply request interceptor
