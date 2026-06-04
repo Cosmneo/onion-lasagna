@@ -63,10 +63,10 @@ describe('serverRoutes build() exhaustiveness', () => {
   });
 
   it('build is MissingHandlersError when a route is unhandled', () => {
-    const _incompleteBuilder = serverRoutes(twoRouteRouter).handle(
-      'a',
-      async () => ({ status: 200 as const, body: null }),
-    );
+    const _incompleteBuilder = serverRoutes(twoRouteRouter).handle('a', async () => ({
+      status: 200 as const,
+      body: null,
+    }));
 
     // The type of `build` on an incomplete builder must satisfy MissingHandlersError<...>
     // If this expectation fails at compile time, the exhaustiveness guard was removed.
@@ -74,10 +74,10 @@ describe('serverRoutes build() exhaustiveness', () => {
   });
 
   it('build is NOT callable (type error) when a route is unhandled', () => {
-    const _incompleteBuilder = serverRoutes(twoRouteRouter).handle(
-      'a',
-      async () => ({ status: 200 as const, body: null }),
-    );
+    const _incompleteBuilder = serverRoutes(twoRouteRouter).handle('a', async () => ({
+      status: 200 as const,
+      body: null,
+    }));
 
     // This line is type-checked by tsc (in typecheck mode) but never executed at runtime.
     // tsc will report an error here if `build` becomes callable (i.e., the exhaustiveness
@@ -90,10 +90,10 @@ describe('serverRoutes build() exhaustiveness', () => {
   });
 
   it('the ___missingRoutes property names the unhandled route', () => {
-    const _incompleteBuilder = serverRoutes(twoRouteRouter).handle(
-      'a',
-      async () => ({ status: 200 as const, body: null }),
-    );
+    const _incompleteBuilder = serverRoutes(twoRouteRouter).handle('a', async () => ({
+      status: 200 as const,
+      body: null,
+    }));
 
     type BuildType = typeof _incompleteBuilder.build;
     type Missing = BuildType extends MissingHandlersError<infer M> ? M : never;
@@ -150,19 +150,17 @@ describe('eventRoutes build() exhaustiveness', () => {
   });
 
   it('build is MissingHandlersError when a handler is not wired', () => {
-    const _incompleteBuilder = eventRoutes(twoHandlerRouter).handle(
-      'a',
-      async () => ({ outcome: 'ack' as const }),
-    );
+    const _incompleteBuilder = eventRoutes(twoHandlerRouter).handle('a', async () => ({
+      outcome: 'ack' as const,
+    }));
 
     expectTypeOf(_incompleteBuilder.build).toMatchTypeOf<EventMissingHandlersError<string>>();
   });
 
   it('build is NOT callable (type error) when a handler is not wired', () => {
-    const _incompleteBuilder = eventRoutes(twoHandlerRouter).handle(
-      'a',
-      async () => ({ outcome: 'ack' as const }),
-    );
+    const _incompleteBuilder = eventRoutes(twoHandlerRouter).handle('a', async () => ({
+      outcome: 'ack' as const,
+    }));
 
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     (false as boolean) &&
@@ -171,10 +169,9 @@ describe('eventRoutes build() exhaustiveness', () => {
   });
 
   it('the ___missingHandlers property names the unwired handler', () => {
-    const _incompleteBuilder = eventRoutes(twoHandlerRouter).handle(
-      'a',
-      async () => ({ outcome: 'ack' as const }),
-    );
+    const _incompleteBuilder = eventRoutes(twoHandlerRouter).handle('a', async () => ({
+      outcome: 'ack' as const,
+    }));
 
     type BuildType = typeof _incompleteBuilder.build;
     type Missing = BuildType extends EventMissingHandlersError<infer M> ? M : never;

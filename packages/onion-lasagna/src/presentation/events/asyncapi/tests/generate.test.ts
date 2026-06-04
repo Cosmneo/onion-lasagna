@@ -233,7 +233,8 @@ describe('generateAsyncAPI', () => {
         },
       );
 
-      const infoTags = (spec.info as { tags?: { name: string; description?: string }[] }).tags ?? [];
+      const infoTags =
+        (spec.info as { tags?: { name: string; description?: string }[] }).tags ?? [];
       expect(infoTags.filter((t) => t.name === 'ticket')).toHaveLength(1);
       expect(infoTags.find((t) => t.name === 'ticket')?.description).toBe('Ticket events');
     });

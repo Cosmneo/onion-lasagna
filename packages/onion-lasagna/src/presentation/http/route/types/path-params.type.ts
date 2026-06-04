@@ -13,17 +13,64 @@
  * followed by zero or more letters, digits, or underscores — matching the
  * regex `[a-zA-Z_][a-zA-Z0-9_]*` that the runtime helpers enforce.
  */
-type IsIdentifier<S extends string> =
-  S extends `${infer First}${string}`
-    ? First extends
-        | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm'
-        | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z'
-        | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M'
-        | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z'
-        | '_'
-      ? true
-      : false
-    : false;
+type IsIdentifier<S extends string> = S extends `${infer First}${string}`
+  ? First extends
+      | 'a'
+      | 'b'
+      | 'c'
+      | 'd'
+      | 'e'
+      | 'f'
+      | 'g'
+      | 'h'
+      | 'i'
+      | 'j'
+      | 'k'
+      | 'l'
+      | 'm'
+      | 'n'
+      | 'o'
+      | 'p'
+      | 'q'
+      | 'r'
+      | 's'
+      | 't'
+      | 'u'
+      | 'v'
+      | 'w'
+      | 'x'
+      | 'y'
+      | 'z'
+      | 'A'
+      | 'B'
+      | 'C'
+      | 'D'
+      | 'E'
+      | 'F'
+      | 'G'
+      | 'H'
+      | 'I'
+      | 'J'
+      | 'K'
+      | 'L'
+      | 'M'
+      | 'N'
+      | 'O'
+      | 'P'
+      | 'Q'
+      | 'R'
+      | 'S'
+      | 'T'
+      | 'U'
+      | 'V'
+      | 'W'
+      | 'X'
+      | 'Y'
+      | 'Z'
+      | '_'
+    ? true
+    : false
+  : false;
 
 /**
  * Extracts parameter names from a path template string.

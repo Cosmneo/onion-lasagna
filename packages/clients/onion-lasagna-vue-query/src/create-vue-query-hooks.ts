@@ -176,8 +176,7 @@ function createQueryHook(
         },
         // queryFn also resolves input at call-time so it uses the current value.
         // P07-2: thread the AbortSignal provided by Vue Query to the underlying client method.
-        queryFn: ({ signal }: { signal?: AbortSignal }) =>
-          clientMethod(toValue(input), { signal }),
+        queryFn: ({ signal }: { signal?: AbortSignal }) => clientMethod(toValue(input), { signal }),
         // P07-1: enabled is a getter — read useEnabled() and toValue(userEnabled)
         // INSIDE the function so vue-query re-tracks them on every evaluation.
         enabled: () => (useEnabled?.() ?? true) && (toValue(userEnabled) ?? true),

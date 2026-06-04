@@ -98,9 +98,8 @@ export interface QueryRouteHooks<TRoute extends RouteDefinition> {
  * When the route requires no input, `void` is used so `trigger()` (no-arg call) typechecks.
  * When input is required, the full `HookRequestInput` is used.
  */
-type MutationExtraArg<TRoute extends RouteDefinition> = RequiresInput<TRoute> extends true
-  ? HookRequestInput<TRoute>
-  : void | HookRequestInput<TRoute>;
+type MutationExtraArg<TRoute extends RouteDefinition> =
+  RequiresInput<TRoute> extends true ? HookRequestInput<TRoute> : void | HookRequestInput<TRoute>;
 
 /**
  * Hooks for POST/PUT/PATCH/DELETE routes (mutations).

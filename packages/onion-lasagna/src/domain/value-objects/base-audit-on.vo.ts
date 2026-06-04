@@ -63,7 +63,10 @@ export class BaseAuditOnVo extends BaseValueObject<{
   static now(): BaseAuditOnVo {
     const now = new Date();
     // Clone to ensure each field holds an independent Date instance (C01-3).
-    return new BaseAuditOnVo({ createdAt: new Date(now.getTime()), updatedAt: new Date(now.getTime()) });
+    return new BaseAuditOnVo({
+      createdAt: new Date(now.getTime()),
+      updatedAt: new Date(now.getTime()),
+    });
   }
 
   /** When the entity was created. Returns a clone to prevent mutation. */

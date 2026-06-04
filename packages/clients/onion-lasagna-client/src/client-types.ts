@@ -198,8 +198,14 @@ export type ClientResponse<TRoute extends RouteDefinition> =
 export type ClientMethod<TRoute extends RouteDefinition> =
   // Check if input is required
   RequiresInput<TRoute> extends true
-    ? (input: ClientRequestInput<TRoute>, options?: ClientCallOptions) => Promise<ClientResponse<TRoute>>
-    : (input?: ClientRequestInput<TRoute>, options?: ClientCallOptions) => Promise<ClientResponse<TRoute>>;
+    ? (
+        input: ClientRequestInput<TRoute>,
+        options?: ClientCallOptions,
+      ) => Promise<ClientResponse<TRoute>>
+    : (
+        input?: ClientRequestInput<TRoute>,
+        options?: ClientCallOptions,
+      ) => Promise<ClientResponse<TRoute>>;
 
 /**
  * Checks if a route requires input (has body, params, or required query).

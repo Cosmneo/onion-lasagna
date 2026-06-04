@@ -223,7 +223,11 @@ describe('BaseValueObject', () => {
 
     // C01-1: object-valued VOs must not leak mutable internal state via .value
     it('mutating the returned .value object should NOT affect the stored value (C01-1)', () => {
-      const vo = ComplexValueObject.create({ name: 'original', items: [1, 2], nested: { value: true } });
+      const vo = ComplexValueObject.create({
+        name: 'original',
+        items: [1, 2],
+        nested: { value: true },
+      });
 
       const leaked = vo.value as { name: string; items: number[]; nested: { value: boolean } };
       leaked.name = 'mutated';

@@ -403,8 +403,7 @@ function createRouteMethod(
           error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
 
         // An abort is "external" if it came from caller's signal (not our timeout)
-        const isExternalAbort =
-          isAbortError && Boolean(externalSignal?.aborted) && !didTimeout;
+        const isExternalAbort = isAbortError && Boolean(externalSignal?.aborted) && !didTimeout;
 
         let errorMessage: string;
         let errorStatus: string;

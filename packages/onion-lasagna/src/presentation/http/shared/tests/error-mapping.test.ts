@@ -220,7 +220,9 @@ describe('error-mapping', () => {
 
     // C04-1 / C15-1 — DbError message must not leak
     it('masks DbError — raw DB driver text does not appear in response', () => {
-      const error = new DbError({ message: 'FATAL: password authentication failed for user "app"' });
+      const error = new DbError({
+        message: 'FATAL: password authentication failed for user "app"',
+      });
       const body = createErrorResponseBody(error);
       expect(body.message).toBe('An unexpected error occurred');
       expect(body.errorCode).toBe('INTERNAL_ERROR');

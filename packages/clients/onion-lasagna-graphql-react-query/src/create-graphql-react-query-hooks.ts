@@ -189,7 +189,10 @@ function createMutationHook(
   return {
     useMutation: (options?: Record<string, unknown>) => {
       // Strip library-controlled field so a JS/untyped caller cannot clobber it (P04-3)
-      const { mutationFn: _mutationFn, ...restOptions } = (options ?? {}) as Record<string, unknown>;
+      const { mutationFn: _mutationFn, ...restOptions } = (options ?? {}) as Record<
+        string,
+        unknown
+      >;
 
       return useMutation({
         // Spread user options first so library-controlled field wins (P04-3)
