@@ -13,5 +13,15 @@ export default defineConfig({
     },
     testTimeout: 10000,
     hookTimeout: 10000,
+    // Enable tsc-based type checking for files matching *-d.test.ts.
+    // These files use @ts-expect-error to assert that incomplete builders
+    // produce compile-time errors (MissingHandlersError exhaustiveness).
+    // NOTE: This is an experimental vitest feature; it runs tsc alongside
+    // the normal test runner and reports type errors as test failures.
+    typecheck: {
+      enabled: true,
+      checker: 'tsc',
+      include: ['src/**/*-d.test.ts'],
+    },
   },
 });
