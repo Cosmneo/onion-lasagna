@@ -150,10 +150,8 @@ export abstract class BaseOutboundAdapter {
               'function' &&
             typeof (result as { next?: unknown }).next === 'function'
           ) {
-            return wrapAsyncGenerator(
-              result as AsyncGenerator<unknown>,
-              receiver as BaseOutboundAdapter,
-              methodName,
+            return wrapAsyncGenerator(result as AsyncGenerator<unknown>, (error) =>
+              (receiver as BaseOutboundAdapter).createInfraError(error, methodName),
             );
           }
 
@@ -165,10 +163,8 @@ export abstract class BaseOutboundAdapter {
             typeof (result as { next?: unknown }).next === 'function' &&
             typeof (result as { then?: unknown }).then !== 'function'
           ) {
-            return wrapSyncGenerator(
-              result as Generator<unknown>,
-              receiver as BaseOutboundAdapter,
-              methodName,
+            return wrapSyncGenerator(result as Generator<unknown>, (error) =>
+              (receiver as BaseOutboundAdapter).createInfraError(error, methodName),
             );
           }
 
@@ -220,56 +216,35 @@ export abstract class BaseOutboundAdapter {
   }
 }
 
-/** @internal Wraps an AsyncGenerator so each `.next()` rejection is caught. */
-function wrapAsyncGenerator(
+/**
+ * @internal Wraps an AsyncGenerator so any error during iteration is converted to an InfraError.
+ * Implemented as a delegating generator (`yield*`) so the full async-iterator protocol
+ * (next-args, return, throw, return value) is preserved and the result is a real AsyncGenerator.
+ */
+async function* wrapAsyncGenerator(
   gen: AsyncGenerator<unknown>,
-  adapter: BaseOutboundAdapter,
-  methodName: string,
+  makeInfraError: (error: unknown) => InfraError,
 ): AsyncGenerator<unknown> {
-  const wrapped: AsyncGenerator<unknown> = {
-    next(...args) {
-      return gen.next(...args).catch((error: unknown) => {
-        if (error instanceof InfraError) throw error;
-        throw adapter.createInfraError(error, methodName);
-      });
-    },
-    return(value) {
-      return gen.return(value);
-    },
-    throw(error) {
-      return gen.throw(error);
-    },
-    [Symbol.asyncIterator]() {
-      return wrapped;
-    },
-  };
-  return wrapped;
+  try {
+    return yield* gen;
+  } catch (error) {
+    if (error instanceof InfraError) throw error;
+    throw makeInfraError(error);
+  }
 }
 
-/** @internal Wraps a SyncGenerator so each `.next()` throw is caught. */
-function wrapSyncGenerator(
+/**
+ * @internal Wraps a sync Generator so any error during iteration is converted to an InfraError.
+ * Delegates via `yield*` to preserve the full iterator protocol and produce a real Generator.
+ */
+function* wrapSyncGenerator(
   gen: Generator<unknown>,
-  adapter: BaseOutboundAdapter,
-  methodName: string,
+  makeInfraError: (error: unknown) => InfraError,
 ): Generator<unknown> {
-  const wrapped: Generator<unknown> = {
-    next(...args) {
-      try {
-        return gen.next(...args);
-      } catch (error) {
-        if (error instanceof InfraError) throw error;
-        throw adapter.createInfraError(error, methodName);
-      }
-    },
-    return(value) {
-      return gen.return(value);
-    },
-    throw(error) {
-      return gen.throw(error);
-    },
-    [Symbol.iterator]() {
-      return wrapped;
-    },
-  };
-  return wrapped;
+  try {
+    return yield* gen;
+  } catch (error) {
+    if (error instanceof InfraError) throw error;
+    throw makeInfraError(error);
+  }
 }
