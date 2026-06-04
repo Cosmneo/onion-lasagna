@@ -648,6 +648,29 @@ type Mutation {
     expect(relaxed).toContain('title: String');
     expect(relaxed).not.toContain('title: String!');
   });
+
+  it('P01-6: handles single-line output types correctly', () => {
+    // Core never emits single-line types, but user-supplied preambles or tests might.
+    const sdl = `type FooOutput { id: String! name: String! }`;
+    const relaxed = relaxOutputNonNull(sdl);
+    // Non-null should be stripped inside a single-line output type
+    expect(relaxed).not.toContain('id: String!');
+    expect(relaxed).not.toContain('name: String!');
+  });
+
+  it('P01-6: single-line input type fields are not relaxed', () => {
+    const sdl = `input FooInput { id: String! name: String! }`;
+    const relaxed = relaxOutputNonNull(sdl);
+    // Input type fields must remain non-null
+    expect(relaxed).toContain('id: String!');
+    expect(relaxed).toContain('name: String!');
+  });
+
+  it('P01-6: single-line root Query type fields are not relaxed', () => {
+    const sdl = `type Query { getFoo: FooOutput }`;
+    const relaxed = relaxOutputNonNull(sdl);
+    expect(relaxed).toBe(sdl);
+  });
 });
 
 // ============================================================================
@@ -826,5 +849,103 @@ describe('P01-2: typed subscriptions — end-to-end', () => {
     const errMsg = (second!.errors as Array<{ message: string }>)[0]?.message ?? '';
     expect(errMsg).not.toContain('output.');
     expect(errMsg).not.toContain('counter');
+  });
+});
+
+// ============================================================================
+// P01-3: non-resolver phase throws must be masked through onion taxonomy
+// ============================================================================
+
+describe('P01-3: non-resolver phase error masking', () => {
+  /**
+   * Plugin throws during the parse phase.
+   * With maskedErrors:false the raw internal message leaks to the client.
+   * With maskedErrors:{ maskError: onionMaskError } it must be masked.
+   *
+   * We use the depth-limiting plugin (always present) to simulate a
+   * parse-phase throw: a query that exceeds maxDepth triggers a GraphQLError
+   * thrown from inside onParse. With maskedErrors:false that error leaks its
+   * raw message unchanged. With our masking it should still pass through
+   * because GraphQLError with no original error maps to BAD_REQUEST (known
+   * error), which is NOT masked.
+   *
+   * For an *unknown* non-resolver throw we simulate it via a custom plugin.
+   */
+  it('unknown error thrown in a plugin phase is masked (raw message not leaked)', async () => {
+    const SECRET = 'SUPER_SECRET_INTERNAL_PLUGIN_MESSAGE';
+    const badPlugin = {
+      onParse() {
+        return () => {
+          throw new Error(SECRET);
+        };
+      },
+    };
+
+    const yoga = createOnionYoga({
+      fields: [createField({ operation: 'query', metadata: { fieldId: 'hello' } })],
+      plugins: [badPlugin],
+      // Disable depth limiting so our plugin is the only onParse hook
+      maxDepth: false,
+    });
+
+    const result = await executeQuery(yoga, '{ hello }');
+
+    // The response must contain an error (the parse phase threw)
+    expect(result.errors).toBeDefined();
+    expect(result.errors!.length).toBeGreaterThan(0);
+
+    // The raw internal message must NOT appear in any error
+    const allMessages = result.errors!.map((e) => e.message).join(' ');
+    expect(allMessages).not.toContain(SECRET);
+
+    // Must be masked to the generic message
+    expect(result.errors![0]!.message).toBe('An unexpected error occurred');
+  });
+
+  it('DomainError thrown in a plugin phase is masked (raw message not leaked)', async () => {
+    const SECRET = 'DOMAIN_SECRET_DETAIL';
+    const badPlugin = {
+      onParse() {
+        return () => {
+          throw new DomainError({ message: SECRET });
+        };
+      },
+    };
+
+    const yoga = createOnionYoga({
+      fields: [createField({ operation: 'query', metadata: { fieldId: 'hello' } })],
+      plugins: [badPlugin],
+      maxDepth: false,
+    });
+
+    const result = await executeQuery(yoga, '{ hello }');
+
+    expect(result.errors).toBeDefined();
+    const allMessages = result.errors!.map((e) => e.message).join(' ');
+    expect(allMessages).not.toContain(SECRET);
+    expect(result.errors![0]!.message).toBe('An unexpected error occurred');
+  });
+
+  it('NotFoundError thrown in a plugin phase surfaces with its message (known onion error)', async () => {
+    const badPlugin = {
+      onParse() {
+        return () => {
+          throw new NotFoundError({ message: 'Resource does not exist' });
+        };
+      },
+    };
+
+    const yoga = createOnionYoga({
+      fields: [createField({ operation: 'query', metadata: { fieldId: 'hello' } })],
+      plugins: [badPlugin],
+      maxDepth: false,
+    });
+
+    const result = await executeQuery(yoga, '{ hello }');
+
+    expect(result.errors).toBeDefined();
+    // NotFoundError is a known onion error — maps to NOT_FOUND, message preserved
+    expect(result.errors![0]!.message).toBe('Resource does not exist');
+    expect((result.errors![0]!.extensions as Record<string, unknown>)?.['code']).toBe('NOT_FOUND');
   });
 });

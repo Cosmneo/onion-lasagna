@@ -9,5 +9,5 @@ export default defineConfig({
   target: 'es2022',
   minify: false,
   skipNodeModulesBundle: true,
-  external: ['graphql', 'graphql-yoga', 'graphql-scalars', '@cosmneo/onion-lasagna'],
+  external: ['graphql', 'graphql-yoga', '@cosmneo/onion-lasagna'],
 });
