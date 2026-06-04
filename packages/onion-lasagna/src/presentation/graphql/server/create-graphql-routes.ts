@@ -17,7 +17,6 @@ import type {
 } from '../field/types';
 import { isSchemaDefinition, collectFields } from '../field/types';
 import { generateFieldId } from '../field/utils';
-import { mapErrorToGraphQLError } from '../shared/error-mapping';
 import type {
   AnyGraphQLHandlerConfig,
   CreateGraphQLRoutesOptions,
@@ -28,6 +27,7 @@ import type {
 import { isSimpleGraphQLHandlerConfig } from './types';
 import { ObjectValidationError } from '../../../global/exceptions/object-validation.error';
 import { UnauthorizedError } from '../../../app/exceptions/unauthorized.error';
+import { OutputValidationError } from '../../exceptions/output-validation.error';
 
 /**
  * Internal implementation for creating GraphQL routes.
@@ -53,7 +53,7 @@ export function createGraphQLRoutesInternal<T extends GraphQLSchemaConfig>(
   };
 
   for (const { key, field } of collectedFields) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const handlerConfig = handlers[key] as
       | AnyGraphQLHandlerConfig<GraphQLFieldDefinition, any, any>
       | undefined;
@@ -188,17 +188,22 @@ function createFieldHandler(
 
       // Validate output (if enabled and schema defined)
       if (shouldValidateOutput && field.output) {
+        // Subscriptions return an AsyncIterable — validate each yielded item,
+        // not the iterable object itself (which would always fail the schema).
+        if (field.operation === 'subscription' && isAsyncIterable(result)) {
+          return wrapSubscriptionIterable(result, field, key);
+        }
+
         const outputResult = validateOutputData(field, result);
         if (!outputResult.success) {
           const details = outputResult.errors
             ?.map((e) => `${e.path.join('.')}: ${e.message}`)
             .join('; ');
-          throw new ObjectValidationError({
+          // Use OutputValidationError (extends ControllerError) so internal field paths
+          // are MASKED from clients. Input validation intentionally uses ObjectValidationError
+          // (client-facing); output validation must never leak internal schema details.
+          throw new OutputValidationError({
             message: `Output validation failed for field "${key}": ${details}`,
-            validationErrors: (outputResult.errors ?? []).map((e) => ({
-              field: e.path.join('.'),
-              message: e.message,
-            })),
           });
         }
       }
@@ -298,4 +303,47 @@ interface ValidatedArgsInternal {
  */
 function generateRequestId(): string {
   return `gql_${crypto.randomUUID()}`;
+}
+
+// ============================================================================
+// Subscription Helpers
+// ============================================================================
+
+/**
+ * Checks whether a value is an AsyncIterable.
+ * Used to detect subscription return values so we can validate per-yielded-item
+ * rather than validating the iterable object itself.
+ */
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    Symbol.asyncIterator in (value as object)
+  );
+}
+
+/**
+ * Wraps an AsyncIterable so each yielded item is validated against the field's
+ * output schema before being emitted to the subscriber.
+ *
+ * On validation failure, throws `OutputValidationError` (extends ControllerError),
+ * which is masked as INTERNAL_ERROR — internal field paths are never exposed.
+ */
+async function* wrapSubscriptionIterable(
+  iterable: AsyncIterable<unknown>,
+  field: GraphQLFieldDefinition,
+  key: string,
+): AsyncIterable<unknown> {
+  for await (const item of iterable) {
+    const outputResult = validateOutputData(field, item);
+    if (!outputResult.success) {
+      const details = outputResult.errors
+        ?.map((e) => `${e.path.join('.')}: ${e.message}`)
+        .join('; ');
+      throw new OutputValidationError({
+        message: `Subscription output validation failed for field "${key}": ${details}`,
+      });
+    }
+    yield outputResult.data;
+  }
 }

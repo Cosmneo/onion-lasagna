@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
-import { defineQuery, defineMutation } from '../../field/define-field';
+import { defineQuery, defineMutation, defineSubscription } from '../../field/define-field';
 import { defineGraphQLSchema } from '../../field/define-schema';
 import { graphqlRoutes } from '../graphql-routes-builder';
 import { zodSchema } from '../../../http/__test-utils__/zod-schema';
@@ -13,6 +13,8 @@ import { UnauthorizedError } from '../../../../app/exceptions/unauthorized.error
 import { UseCaseError } from '../../../../app/exceptions/use-case.error';
 import { NotFoundError } from '../../../../app/exceptions/not-found.error';
 import { DomainError } from '../../../../domain/exceptions/domain.error';
+import { ControllerError } from '../../../exceptions/controller.error';
+import { OutputValidationError } from '../../../exceptions/output-validation.error';
 
 describe('graphqlRoutes builder', () => {
   describe('handle() with simple function', () => {
@@ -201,7 +203,7 @@ describe('graphqlRoutes builder', () => {
   });
 
   describe('output validation', () => {
-    it('throws ObjectValidationError on invalid output', async () => {
+    it('throws OutputValidationError (not ObjectValidationError) on invalid output', async () => {
       const getUser = defineQuery({
         output: zodSchema(z.object({ name: z.string() })),
       });
@@ -211,7 +213,37 @@ describe('graphqlRoutes builder', () => {
         .handle('getUser', async () => ({ name: 123 }))
         .build();
 
-      await expect(fields[0]!.handler(undefined, {})).rejects.toThrow('Output validation failed');
+      await expect(fields[0]!.handler(undefined, {})).rejects.toThrow(OutputValidationError);
+      // Must NOT be an ObjectValidationError (which is client-facing)
+      await expect(fields[0]!.handler(undefined, {})).rejects.not.toThrow(ObjectValidationError);
+      // Must be a ControllerError subclass (masked as INTERNAL_ERROR)
+      await expect(fields[0]!.handler(undefined, {})).rejects.toThrow(ControllerError);
+    });
+
+    it('masks internal field paths in output validation errors (no info leak)', async () => {
+      const getUser = defineQuery({
+        output: zodSchema(z.object({ internalSecretField: z.string() })),
+      });
+      const schema = defineGraphQLSchema({ getUser });
+
+      const fields = graphqlRoutes(schema)
+        .handle('getUser', async () => ({ internalSecretField: 999 }))
+        .build();
+
+      let thrownError: unknown;
+      try {
+        await fields[0]!.handler(undefined, {});
+      } catch (e) {
+        thrownError = e;
+      }
+
+      expect(thrownError).toBeInstanceOf(OutputValidationError);
+      // The error MUST extend ControllerError so mappers treat it as INTERNAL_ERROR
+      expect(thrownError).toBeInstanceOf(ControllerError);
+      // ObjectValidationError would expose validationErrors with field paths — OutputValidationError must NOT
+      expect(thrownError).not.toBeInstanceOf(ObjectValidationError);
+      // Confirm the class has no validationErrors property (no schema-field leak)
+      expect((thrownError as Record<string, unknown>).validationErrors).toBeUndefined();
     });
 
     it('skips output validation when validateOutput is false', async () => {
@@ -365,6 +397,102 @@ describe('graphqlRoutes builder', () => {
         .build();
 
       expect(fields).toHaveLength(3);
+    });
+  });
+
+  describe('subscription output validation', () => {
+    it('returns an AsyncIterable for valid subscription items', async () => {
+      const onTicket = defineSubscription({
+        output: zodSchema(z.object({ id: z.string(), title: z.string() })),
+      });
+      const schema = defineGraphQLSchema({ onTicket });
+
+      async function* validGenerator() {
+        yield { id: 'T-001', title: 'First ticket' };
+        yield { id: 'T-002', title: 'Second ticket' };
+      }
+
+      const fields = graphqlRoutes(schema)
+        .handle('onTicket', async () => validGenerator())
+        .build();
+
+      const result = await fields[0]!.handler(undefined, {});
+      // Result must be an AsyncIterable (not a plain object)
+      expect(typeof (result as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator]).toBe(
+        'function',
+      );
+
+      const items: unknown[] = [];
+      for await (const item of result as AsyncIterable<unknown>) {
+        items.push(item);
+      }
+      expect(items).toEqual([
+        { id: 'T-001', title: 'First ticket' },
+        { id: 'T-002', title: 'Second ticket' },
+      ]);
+    });
+
+    it('throws OutputValidationError per-item when a yielded subscription item is invalid', async () => {
+      const onTicket = defineSubscription({
+        output: zodSchema(z.object({ id: z.string(), title: z.string() })),
+      });
+      const schema = defineGraphQLSchema({ onTicket });
+
+      async function* invalidGenerator() {
+        yield { id: 'T-001', title: 'Valid' };
+        yield { id: 999, title: 'Second' }; // id is a number, not a string → invalid
+      }
+
+      const fields = graphqlRoutes(schema)
+        .handle('onTicket', async () => invalidGenerator())
+        .build();
+
+      const result = await fields[0]!.handler(undefined, {});
+      expect(typeof (result as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator]).toBe(
+        'function',
+      );
+
+      // Consuming the iterable should throw on the invalid second item
+      let thrownError: unknown;
+      try {
+        for await (const _item of result as AsyncIterable<unknown>) {
+          // consume
+        }
+      } catch (e) {
+        thrownError = e;
+      }
+
+      expect(thrownError).toBeInstanceOf(OutputValidationError);
+      expect(thrownError).toBeInstanceOf(ControllerError);
+      // Must NOT be ObjectValidationError (which would leak field path info)
+      expect(thrownError).not.toBeInstanceOf(ObjectValidationError);
+    });
+
+    it('does not validate the iterable object itself for subscriptions', async () => {
+      // Without the fix, output schema would be validated against the AsyncIterable object
+      // (which has no matching fields), causing all typed subscriptions to fail.
+      const onTicket = defineSubscription({
+        output: zodSchema(z.object({ id: z.string() })),
+      });
+      const schema = defineGraphQLSchema({ onTicket });
+
+      async function* generator() {
+        yield { id: 'T-001' };
+      }
+
+      const fields = graphqlRoutes(schema)
+        .handle('onTicket', async () => generator())
+        .build();
+
+      // Must not throw when calling handler — the iterable itself is NOT validated
+      let thrownError: unknown;
+      try {
+        await fields[0]!.handler(undefined, {});
+      } catch (e) {
+        thrownError = e;
+      }
+
+      expect(thrownError).toBeUndefined();
     });
   });
 });

@@ -18,6 +18,7 @@ import { ForbiddenError } from '../../../app/exceptions/forbidden.error';
 import { UnauthorizedError } from '../../../app/exceptions/unauthorized.error';
 import { InfraError } from '../../../infra/exceptions/infra.error';
 import { AccessDeniedError } from '../../exceptions/access-denied.error';
+import { ControllerError } from '../../exceptions/controller.error';
 import { isErrorType, hasValidationErrors } from '../../http/shared/error-mapping';
 import type { GraphQLErrorCode, MappedGraphQLError, GraphQLValidationErrorItem } from './types';
 
@@ -38,11 +39,14 @@ const MASKED_ERROR: MappedGraphQLError = Object.freeze({
 /**
  * Known internal error type names that should be masked (C04-2 / C15-2).
  * 'PersistenceError' is intentionally absent — it does not exist (C04-4 / C15-2).
+ * Includes OutputValidationError (a ControllerError subclass) so that output
+ * schema failures are never exposed to clients regardless of bundling.
  */
 const INTERNAL_ERROR_TYPES = [
   'DomainError',
   'InfraError',
   'ControllerError',
+  'OutputValidationError',
   'NetworkError',
   'ExternalServiceError',
   'InvariantViolationError',
@@ -97,8 +101,13 @@ export function getGraphQLErrorCode(error: unknown): GraphQLErrorCode {
  * so future subclasses cannot silently bypass masking (C04-2).
  */
 export function shouldMaskGraphQLError(error: unknown): boolean {
-  // Try instanceof first (faster)
-  if (error instanceof DomainError || error instanceof InfraError) {
+  // Try instanceof first (faster).
+  // ControllerError covers all its subclasses (including OutputValidationError).
+  if (
+    error instanceof DomainError ||
+    error instanceof InfraError ||
+    error instanceof ControllerError
+  ) {
     return true;
   }
 

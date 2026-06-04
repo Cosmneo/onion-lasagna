@@ -21,6 +21,7 @@ import { InfraError } from '../../../../infra/exceptions/infra.error';
 import { DbError } from '../../../../infra/exceptions/db.error';
 import { TimeoutError } from '../../../../infra/exceptions/timeout.error';
 import { AccessDeniedError } from '../../../exceptions/access-denied.error';
+import { OutputValidationError } from '../../../exceptions/output-validation.error';
 
 describe('getGraphQLErrorCode', () => {
   it('maps ObjectValidationError to VALIDATION_ERROR', () => {
@@ -122,6 +123,14 @@ describe('shouldMaskGraphQLError', () => {
     expect(shouldMaskGraphQLError(error)).toBe(true);
   });
 
+  it('masks OutputValidationError (extends ControllerError)', () => {
+    expect(
+      shouldMaskGraphQLError(
+        new OutputValidationError({ message: 'output.internalField: Expected string' }),
+      ),
+    ).toBe(true);
+  });
+
   it('does not mask UseCaseError', () => {
     expect(shouldMaskGraphQLError(new UseCaseError({ message: 'bad request' }))).toBe(false);
   });
@@ -178,6 +187,18 @@ describe('mapErrorToGraphQLError', () => {
 
     expect(result.message).toBe('An unexpected error occurred');
     expect(result.extensions.code).toBe('INTERNAL_ERROR');
+  });
+
+  it('masks OutputValidationError and hides internal field paths', () => {
+    const error = new OutputValidationError({
+      message: 'Output validation failed for field "getUser": output.internalSecretField: Expected string',
+    });
+    const result = mapErrorToGraphQLError(error);
+
+    expect(result.message).toBe('An unexpected error occurred');
+    expect(result.extensions.code).toBe('INTERNAL_ERROR');
+    // Must NOT contain the internal field path
+    expect(result.extensions.validationErrors).toBeUndefined();
   });
 
   it('maps NotFoundError with message', () => {
