@@ -30,6 +30,14 @@ import type {
  * JSON Schema generation via `@valibot/to-json-schema`. Valibot's modular
  * architecture ensures only the validators you use are included in the bundle.
  *
+ * ## JSON Schema / transform behaviour
+ *
+ * `@valibot/to-json-schema` generates the **input (wire) shape** of the
+ * schema. When a `v.pipe(v.string(), v.transform(...))` is used, the
+ * generated JSON Schema reflects the input (`string`) rather than the
+ * transformed output. This is the expected behaviour for documenting what
+ * an HTTP client must send.
+ *
  * @param schema - A Valibot schema to wrap
  * @returns A SchemaAdapter that validates using Valibot and generates JSON Schema
  *
@@ -80,7 +88,12 @@ export function valibotSchema<T extends GenericSchema>(
       };
     },
 
-    toJsonSchema(_options?: JsonSchemaOptions): JsonSchema {
+    toJsonSchema(options?: JsonSchemaOptions): JsonSchema {
+      // NOTE: the `options` parameter (refStrategy, basePath, definitions,
+      // includeMetadata) is accepted for interface compatibility but is not
+      // yet honoured by this adapter.
+      void options;
+
       const result = toJsonSchema(schema, {
         errorMode: 'ignore',
       });

@@ -43,6 +43,15 @@ function safeStringify(value: unknown): string | undefined {
  * the schema itself (with optional cleanup). This makes TypeBox the most
  * efficient choice when OpenAPI generation is a priority.
  *
+ * ## JSON Schema / transform behaviour
+ *
+ * TypeBox is unique in that its schemas ARE JSON Schema. There is no
+ * input/output divergence for plain types. When a `Type.Transform()` codec
+ * is used, the Decode/Encode path runs during `validate()`, but the JSON
+ * Schema returned by `toJsonSchema()` still describes the **wire (input)
+ * shape** — there is no separate output-schema concept in TypeBox's JSON
+ * Schema representation.
+ *
  * @typeParam T - A TypeBox schema type
  *
  * @param schema - A TypeBox schema to wrap
@@ -133,10 +142,22 @@ export function typeboxSchema<T extends TSchema>(
       }
     },
 
-    toJsonSchema(_options?: JsonSchemaOptions): JsonSchema {
+    toJsonSchema(options?: JsonSchemaOptions): JsonSchema {
+      // NOTE: the `options` parameter (refStrategy, basePath, definitions,
+      // includeMetadata) is accepted for interface compatibility but is not
+      // yet honoured by this adapter. TypeBox schemas already ARE JSON Schema,
+      // so most options have no meaningful analogue here.
+
       // Deep clone to prevent mutation and strip TypeBox-specific
-      // Symbol-keyed metadata ([Kind], etc.), producing clean JSON Schema
-      return structuredClone(schema) as JsonSchema;
+      // Symbol-keyed metadata ([Kind], etc.), producing clean JSON Schema.
+      // Also strip $schema to avoid conflicts when embedding into an OpenAPI
+      // document (consistent with all other schema adapters).
+      const cloned = structuredClone(schema) as Record<string, unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, unused-imports/no-unused-vars
+      const { $schema, ...schemaWithoutMeta } = cloned;
+      // Suppress unused-variable warning for the options param (intentionally unused for now)
+      void options;
+      return schemaWithoutMeta as JsonSchema;
     },
 
     _output: undefined as Static<T>,

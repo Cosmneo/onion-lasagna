@@ -267,6 +267,16 @@ describe('typeboxSchema', () => {
       expect(symbolKeys).toHaveLength(0);
     });
 
+    it('does not include $schema property', () => {
+      // TypeBox schemas carry a $schema field when built with Type.*; it must be stripped
+      // so downstream OpenAPI assemblers don't get a conflicting $schema declaration.
+      const schema = typeboxSchema(Type.Object({ name: Type.String() }));
+
+      const jsonSchema = schema.toJsonSchema();
+
+      expect(jsonSchema['$schema']).toBeUndefined();
+    });
+
     it('preserves nested object structure', () => {
       const schema = typeboxSchema(
         Type.Object({

@@ -22,6 +22,16 @@ type ZodAny = ZodType<any, any, any>;
  * Uses Zod v4's native `z.toJSONSchema()` for comprehensive JSON Schema
  * conversion supporting all Zod types and features.
  *
+ * ## JSON Schema / transform behaviour
+ *
+ * Zod v4's `z.toJSONSchema()` is called with `unrepresentable: 'any'`, so
+ * schemas that include `.transform()` emit `{}` (an unconstrained schema) for
+ * the transformed portion, because the output type is not representable in
+ * JSON Schema. For example, `z.string().transform(s => new Date(s))` produces
+ * `{}` rather than `{ type: 'string' }`. If you need the input shape in the
+ * OpenAPI document, use `zod-v3` with `effectStrategy: 'input'` or wrap the
+ * transform in a `z.preprocess()` / `z.pipe()`.
+ *
  * @param schema - A Zod schema to wrap
  * @returns A SchemaAdapter that validates using Zod and generates JSON Schema
  *
@@ -61,6 +71,7 @@ type ZodAny = ZodType<any, any, any>;
  * if (result.success) {
  *   console.log(result.data); // Date object
  * }
+ * // Note: toJsonSchema() returns {} for this schema (transform not representable).
  * ```
  *
  * @example With descriptions for OpenAPI
@@ -99,7 +110,12 @@ export function zodSchema<T extends ZodAny>(schema: T): SchemaAdapter<T['_output
       };
     },
 
-    toJsonSchema(_options?: JsonSchemaOptions): JsonSchema {
+    toJsonSchema(options?: JsonSchemaOptions): JsonSchema {
+      // NOTE: the `options` parameter (refStrategy, basePath, definitions,
+      // includeMetadata) is accepted for interface compatibility but is not
+      // yet honoured by this adapter.
+      void options;
+
       // Use Zod v4's native toJSONSchema for comprehensive conversion
       const result = z.toJSONSchema(schema, {
         // Use OpenAPI 3.0 target for direct OpenAPI spec compatibility

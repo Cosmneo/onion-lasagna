@@ -63,6 +63,14 @@ type MiniInput<T extends ZodMiniSchema> = T['_zod']['input'];
  * Functionally identical to `zodSchema()` but accepts `zod/mini` schemas,
  * which provide a smaller bundle size for serverless and edge deployments.
  *
+ * ## JSON Schema / transform behaviour
+ *
+ * Same as `zodSchema()`: Zod v4 Mini's `toJSONSchema()` emits `{}` for
+ * schemas that include a `.transform()`, because the transformed output
+ * type is not representable in JSON Schema. This means `toJsonSchema()`
+ * returns the **wire (input) shape** for plain types, but an unconstrained
+ * `{}` wherever a transform is applied.
+ *
  * @param schema - A `zod/mini` schema to wrap
  * @returns A SchemaAdapter that validates using Zod Mini and generates JSON Schema
  *
@@ -113,7 +121,12 @@ export function zodMiniSchema<T extends ZodMiniSchema>(
       };
     },
 
-    toJsonSchema(_options?: JsonSchemaOptions): JsonSchema {
+    toJsonSchema(options?: JsonSchemaOptions): JsonSchema {
+      // NOTE: the `options` parameter (refStrategy, basePath, definitions,
+      // includeMetadata) is accepted for interface compatibility but is not
+      // yet honoured by this adapter.
+      void options;
+
       const result = zm.toJSONSchema(schema as unknown as zm.ZodMiniType, {
         target: 'openapi-3.0',
         reused: 'inline',
