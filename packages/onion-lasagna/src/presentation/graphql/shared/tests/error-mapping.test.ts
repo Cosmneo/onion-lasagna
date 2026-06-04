@@ -191,7 +191,8 @@ describe('mapErrorToGraphQLError', () => {
 
   it('masks OutputValidationError and hides internal field paths', () => {
     const error = new OutputValidationError({
-      message: 'Output validation failed for field "getUser": output.internalSecretField: Expected string',
+      message:
+        'Output validation failed for field "getUser": output.internalSecretField: Expected string',
     });
     const result = mapErrorToGraphQLError(error);
 

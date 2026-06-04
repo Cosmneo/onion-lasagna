@@ -452,7 +452,10 @@ describe('createReactQueryHooks', () => {
           headers: { 'Content-Type': 'application/json' },
         }),
       );
-      const { hooks } = createReactQueryHooks({ list: listUsersRoute }, { ...config, fetch: mockFetch });
+      const { hooks } = createReactQueryHooks(
+        { list: listUsersRoute },
+        { ...config, fetch: mockFetch },
+      );
 
       const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
       hook.useQuery();
@@ -476,7 +479,10 @@ describe('createReactQueryHooks', () => {
           headers: { 'Content-Type': 'application/json' },
         }),
       );
-      const { hooks } = createReactQueryHooks({ get: getUserRoute }, { ...config, fetch: mockFetch });
+      const { hooks } = createReactQueryHooks(
+        { get: getUserRoute },
+        { ...config, fetch: mockFetch },
+      );
 
       const hook = hooks['get'] as { useQuery: (...args: unknown[]) => unknown };
       hook.useQuery({ pathParams: { userId: '99' } });

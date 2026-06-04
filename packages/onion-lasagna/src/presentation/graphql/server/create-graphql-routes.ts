@@ -54,7 +54,6 @@ export function createGraphQLRoutesInternal<T extends GraphQLSchemaConfig>(
   };
 
   for (const { key, field } of collectedFields) {
-     
     const handlerConfig = handlers[key] as
       | AnyGraphQLHandlerConfig<GraphQLFieldDefinition, any, any>
       | undefined;
@@ -316,11 +315,7 @@ function generateRequestId(): string {
  * rather than validating the iterable object itself.
  */
 function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    Symbol.asyncIterator in (value as object)
-  );
+  return value !== null && typeof value === 'object' && Symbol.asyncIterator in (value as object);
 }
 
 /**

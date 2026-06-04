@@ -148,8 +148,10 @@ function sendResponse(c: Context, response: HandlerResponse): Response {
 
   // C09-2: if a handler explicitly set Content-Type or the body is a string,
   // use c.body() to avoid Hono overriding with application/json.
-  const handlerContentType = response.headers?.['Content-Type'] ?? response.headers?.['content-type'];
-  const explicitContentType = typeof handlerContentType === 'string' ? handlerContentType : undefined;
+  const handlerContentType =
+    response.headers?.['Content-Type'] ?? response.headers?.['content-type'];
+  const explicitContentType =
+    typeof handlerContentType === 'string' ? handlerContentType : undefined;
 
   if (typeof response.body === 'string') {
     // String body: respect handler content-type or default to text/plain

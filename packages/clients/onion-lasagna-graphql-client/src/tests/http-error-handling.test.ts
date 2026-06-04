@@ -104,13 +104,10 @@ describe('HTTP error handling', () => {
 
     it('does NOT throw for a 200 response with no errors (happy path unchanged)', async () => {
       const mockFetch = vi.fn(async () => {
-        return new Response(
-          JSON.stringify({ data: { getUser: { id: '1', name: 'Alice' } } }),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        );
+        return new Response(JSON.stringify({ data: { getUser: { id: '1', name: 'Alice' } } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
       });
 
       const client = makeClient(mockFetch as unknown as typeof fetch);

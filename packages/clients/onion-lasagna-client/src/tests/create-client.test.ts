@@ -1307,7 +1307,11 @@ describe('createClient', () => {
         {
           baseUrl: 'http://localhost:3000',
           fetch: mockFetch,
-          retry: { attempts: 1, delay: 100, retryMethods: ['GET', 'HEAD', 'DELETE', 'PUT', 'OPTIONS', 'POST'] },
+          retry: {
+            attempts: 1,
+            delay: 100,
+            retryMethods: ['GET', 'HEAD', 'DELETE', 'PUT', 'OPTIONS', 'POST'],
+          },
         },
       );
 

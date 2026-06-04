@@ -282,7 +282,7 @@ describe('BaseAuditOnVo additional invariants', () => {
       if (args.length === 0) {
         return new OriginalDate(pastTime.getTime());
       }
-       
+
       return new OriginalDate(...(args as [string]));
     } as unknown as typeof Date;
     MockDate.now = () => pastTime.getTime();

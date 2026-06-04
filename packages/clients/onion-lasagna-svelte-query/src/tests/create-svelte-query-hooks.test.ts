@@ -260,19 +260,13 @@ describe('createSvelteQueryHooks', () => {
       const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
 
       // Initial state: queryKey includes userId '1'
-      expect(getStoreValue(storeArg)['queryKey']).toEqual([
-        'get',
-        { pathParams: { userId: '1' } },
-      ]);
+      expect(getStoreValue(storeArg)['queryKey']).toEqual(['get', { pathParams: { userId: '1' } }]);
 
       // Update the input store
       inputStore.set({ pathParams: { userId: '2' } });
 
       // The options store must re-evaluate with the new key
-      expect(getStoreValue(storeArg)['queryKey']).toEqual([
-        'get',
-        { pathParams: { userId: '2' } },
-      ]);
+      expect(getStoreValue(storeArg)['queryKey']).toEqual(['get', { pathParams: { userId: '2' } }]);
     });
 
     it('queryFn uses current input when input store changes', () => {
@@ -714,7 +708,10 @@ describe('createSvelteQueryHooks', () => {
   describe('P05-4: queryFn and mutationFn invoke client with correct input', () => {
     it('queryFn calls fetch with the correct URL for a path-param route', async () => {
       const mockFetch = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
       );
       const { hooks } = createSvelteQueryHooks(
         { get: getUserRoute },
@@ -726,7 +723,9 @@ describe('createSvelteQueryHooks', () => {
       hook.createQuery(input);
 
       const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
-      const { queryFn } = getStoreValue(storeArg) as { queryFn: (ctx: { signal?: AbortSignal }) => Promise<unknown> };
+      const { queryFn } = getStoreValue(storeArg) as {
+        queryFn: (ctx: { signal?: AbortSignal }) => Promise<unknown>;
+      };
 
       await queryFn({ signal: undefined });
 
@@ -737,7 +736,10 @@ describe('createSvelteQueryHooks', () => {
 
     it('queryFn forwards signal to the underlying client method', async () => {
       const mockFetch = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
       );
       const { hooks } = createSvelteQueryHooks(
         { list: listUsersRoute },
@@ -748,7 +750,9 @@ describe('createSvelteQueryHooks', () => {
       hook.createQuery();
 
       const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
-      const { queryFn } = getStoreValue(storeArg) as { queryFn: (ctx: { signal?: AbortSignal }) => Promise<unknown> };
+      const { queryFn } = getStoreValue(storeArg) as {
+        queryFn: (ctx: { signal?: AbortSignal }) => Promise<unknown>;
+      };
 
       const controller = new AbortController();
       await queryFn({ signal: controller.signal });
@@ -761,7 +765,10 @@ describe('createSvelteQueryHooks', () => {
 
     it('mutationFn calls fetch with the correct body when invoked', async () => {
       const mockFetch = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ id: '1' }), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+        new Response(JSON.stringify({ id: '1' }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        }),
       );
       const { hooks } = createSvelteQueryHooks(
         { create: createUserRoute },
@@ -785,9 +792,7 @@ describe('createSvelteQueryHooks', () => {
     });
 
     it('mutationFn calls fetch with correct path for a path-param mutation route', async () => {
-      const mockFetch = vi.fn().mockResolvedValue(
-        new Response(null, { status: 204 }),
-      );
+      const mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
       const { hooks } = createSvelteQueryHooks(
         { remove: deleteUserRoute },
         { ...config, fetch: mockFetch },

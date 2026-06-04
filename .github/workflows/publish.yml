@@ -138,7 +138,7 @@ jobs:
 
             See [CHANGELOG](https://github.com/Cosmneo/onion-lasagna/blob/main/packages/onion-lasagna/CHANGELOG.md) for details.
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(env.VERSION, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

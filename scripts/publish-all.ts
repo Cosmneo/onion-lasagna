@@ -129,7 +129,12 @@ async function main() {
   }
 
   const version = packages[0]!.version;
-  console.log(`✅ All ${packages.length} packages at version ${version}\n`);
+  // Prerelease versions (e.g. 1.2.0-beta.1) publish under the `beta` dist-tag;
+  // stable versions publish under `latest`. This drives the beta/stable channels.
+  const distTag = version.includes('-') ? 'beta' : 'latest';
+  console.log(
+    `✅ All ${packages.length} packages at version ${version} (npm dist-tag: ${distTag})\n`,
+  );
 
   // 3. Check registry and publish
   let published = 0;
@@ -153,7 +158,7 @@ async function main() {
     }
 
     // Publish
-    const publishCmd = ['npm', 'publish', '--access', 'public'];
+    const publishCmd = ['npm', 'publish', '--access', 'public', '--tag', distTag];
     if (isCI) {
       publishCmd.push('--provenance');
     }

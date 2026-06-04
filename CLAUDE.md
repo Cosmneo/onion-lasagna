@@ -122,9 +122,9 @@ Repository throws → BaseOutboundAdapter wraps → InfraError
 
 ## Application Layer
 
-| Class                              | Purpose                                                               |
-| ---------------------------------- | --------------------------------------------------------------------- |
-| `BaseInboundPort<TInDto, TOutDto>` | Use case interface                                                    |
+| Class                                               | Purpose                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------------- |
+| `BaseInboundPort<TInDto, TOutDto>`                  | Use case interface                                                  |
 | `BaseInboundAdapter<TInput, TOutput, TAuthContext>` | Implements port; two-phase execution: `authorize()` then `handle()` |
 
 **Two-phase execution:** `BaseInboundAdapter` runs `authorize(input)` first (returns a typed `TAuthContext`), then passes both `input` and `authContext` to `handle(input, authContext)`. Override `authorize()` to perform permission checks and pre-load entities — the returned context is forwarded to `handle()`, avoiding duplicate lookups.
@@ -231,14 +231,14 @@ Each schema adapter is a separate package:
 
 Each framework adapter is a separate package. HTTP adapters export `registerRoutes`, `onionErrorHandler`, and `mapErrorToResponse`:
 
-| Framework      | Package                          | Notes                          |
-| -------------- | -------------------------------- | ------------------------------ |
-| Hono           | `@cosmneo/onion-lasagna-hono`    | HTTP                           |
-| Elysia         | `@cosmneo/onion-lasagna-elysia`  | HTTP                           |
-| Express        | `@cosmneo/onion-lasagna-express` | HTTP                           |
-| Fastify        | `@cosmneo/onion-lasagna-fastify` | HTTP                           |
-| NestJS         | `@cosmneo/onion-lasagna-nestjs`  | HTTP                           |
-| GraphQL Yoga   | `@cosmneo/onion-lasagna-yoga`    | GraphQL; exports `createOnionYoga` |
+| Framework    | Package                          | Notes                              |
+| ------------ | -------------------------------- | ---------------------------------- |
+| Hono         | `@cosmneo/onion-lasagna-hono`    | HTTP                               |
+| Elysia       | `@cosmneo/onion-lasagna-elysia`  | HTTP                               |
+| Express      | `@cosmneo/onion-lasagna-express` | HTTP                               |
+| Fastify      | `@cosmneo/onion-lasagna-fastify` | HTTP                               |
+| NestJS       | `@cosmneo/onion-lasagna-nestjs`  | HTTP                               |
+| GraphQL Yoga | `@cosmneo/onion-lasagna-yoga`    | GraphQL; exports `createOnionYoga` |
 
 > **Search:** For integration details, read `packages/servers/*/src/index.ts`
 
@@ -246,16 +246,16 @@ Each framework adapter is a separate package. HTTP adapters export `registerRout
 
 ## Client Packages
 
-| Package                                     | Purpose                                              |
-| ------------------------------------------- | ---------------------------------------------------- |
-| `@cosmneo/onion-lasagna-client`             | Type-safe HTTP client from router definitions        |
-| `@cosmneo/onion-lasagna-axios`              | Axios transport adapter for onion-lasagna-client     |
-| `@cosmneo/onion-lasagna-react-query`        | React Query hooks from HTTP router definitions       |
-| `@cosmneo/onion-lasagna-svelte-query`       | Svelte Query hooks from HTTP router definitions      |
-| `@cosmneo/onion-lasagna-swr`                | SWR hooks from HTTP router definitions               |
-| `@cosmneo/onion-lasagna-vue-query`          | Vue Query hooks from HTTP router definitions         |
-| `@cosmneo/onion-lasagna-graphql-client`     | Type-safe GraphQL client from schema definitions     |
-| `@cosmneo/onion-lasagna-graphql-react-query`| React Query hooks from GraphQL schema definitions    |
+| Package                                      | Purpose                                           |
+| -------------------------------------------- | ------------------------------------------------- |
+| `@cosmneo/onion-lasagna-client`              | Type-safe HTTP client from router definitions     |
+| `@cosmneo/onion-lasagna-axios`               | Axios transport adapter for onion-lasagna-client  |
+| `@cosmneo/onion-lasagna-react-query`         | React Query hooks from HTTP router definitions    |
+| `@cosmneo/onion-lasagna-svelte-query`        | Svelte Query hooks from HTTP router definitions   |
+| `@cosmneo/onion-lasagna-swr`                 | SWR hooks from HTTP router definitions            |
+| `@cosmneo/onion-lasagna-vue-query`           | Vue Query hooks from HTTP router definitions      |
+| `@cosmneo/onion-lasagna-graphql-client`      | Type-safe GraphQL client from schema definitions  |
+| `@cosmneo/onion-lasagna-graphql-react-query` | React Query hooks from GraphQL schema definitions |
 
 **Key features of `createReactQueryHooks`:**
 
@@ -364,6 +364,7 @@ The package exposes 21 entry points. Commonly used ones:
 ## Reference Implementations
 
 > **Search:** For real-world usage patterns, explore the starter templates:
+>
 > - `starters/simple-clean-starter/` — flat structure for smaller services
 > - `starters/modules-clean-starter/` — module-based structure for complex systems
 

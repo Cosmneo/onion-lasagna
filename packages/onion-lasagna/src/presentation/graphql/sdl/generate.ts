@@ -767,9 +767,7 @@ function sanitizeIdentifier(name: string): string {
   const parts = name.split(/[-.\s]+/);
   const camelCased = parts
     .filter((p) => p.length > 0)
-    .map((part, index) =>
-      index === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1),
-    )
+    .map((part, index) => (index === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)))
     .join('');
 
   // Strip any remaining characters that are not valid identifier chars.

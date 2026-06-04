@@ -171,7 +171,11 @@ export abstract class BaseOutboundAdapter {
           // Thenable (duck-typed, broader than instanceof Promise).
           // Use Promise.resolve() to normalise any thenable (custom or native)
           // before attaching .catch() — avoids assuming the value has .catch().
-          if (result !== null && result !== undefined && typeof (result as { then?: unknown }).then === 'function') {
+          if (
+            result !== null &&
+            result !== undefined &&
+            typeof (result as { then?: unknown }).then === 'function'
+          ) {
             return Promise.resolve(result as PromiseLike<unknown>).catch((error: unknown) => {
               if (error instanceof InfraError) throw error;
               throw (receiver as BaseOutboundAdapter).createInfraError(error, methodName);

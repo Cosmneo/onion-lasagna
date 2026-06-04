@@ -598,7 +598,10 @@ describe('createVueQueryHooks', () => {
           headers: { 'Content-Type': 'application/json' },
         }),
       );
-      const { hooks } = createVueQueryHooks({ list: listUsersRoute }, { ...config, fetch: mockFetch });
+      const { hooks } = createVueQueryHooks(
+        { list: listUsersRoute },
+        { ...config, fetch: mockFetch },
+      );
 
       const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
       hook.useQuery();

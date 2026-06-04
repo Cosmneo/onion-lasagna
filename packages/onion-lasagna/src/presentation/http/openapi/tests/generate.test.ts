@@ -885,7 +885,8 @@ describe('generateOpenAPI', () => {
       );
 
       // Body schema is inlined (no $ref at the top level)
-      const bodySchema = spec.paths['/users']?.post?.requestBody?.content?.['application/json']?.schema;
+      const bodySchema =
+        spec.paths['/users']?.post?.requestBody?.content?.['application/json']?.schema;
       expect(bodySchema).toBeDefined();
       // It must be an inline schema object, not a $ref
       expect(typeof bodySchema).toBe('object');
