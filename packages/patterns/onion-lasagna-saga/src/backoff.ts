@@ -24,6 +24,7 @@ export function exponentialBackoff(minMs: number, maxMs: number): RetryBackoff {
     const exponential = minMs * 2 ** (attempt - 1);
     const clamped = Math.min(exponential, maxMs);
     const jitter = Math.random() * clamped;
-    return Math.floor(clamped + jitter);
+    // Clamp the FINAL value (base + jitter) to maxMs so the result is always ≤ maxMs
+    return Math.min(Math.floor(clamped + jitter), maxMs);
   };
 }
