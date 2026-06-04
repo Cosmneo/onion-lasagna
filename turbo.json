@@ -13,6 +13,8 @@
     "test": {
       "cache": false
     },
-    "test:run": {}
+    "test:run": {
+      "dependsOn": ["^build"]
+    }
   }
 }
