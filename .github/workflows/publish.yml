@@ -1,9 +1,9 @@
-name: Publish All Packages
+name: Publish All Packages (manual)
 
+# Primary releases are handled by the Changesets bot in release.yml (merge the
+# "version packages" PR → publish). This workflow is kept for manual / emergency
+# publishing only — run it from the Actions tab with a version input.
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
