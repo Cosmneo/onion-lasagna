@@ -27,23 +27,30 @@ import type { GraphQLErrorCode, MappedGraphQLError, GraphQLValidationErrorItem }
 
 /**
  * Default masked error for internal errors.
+ * Extensions object is frozen; a fresh wrapper object is returned on use to
+ * prevent consumer mutation from poisoning subsequent responses.
  */
-const MASKED_ERROR: MappedGraphQLError = {
+const MASKED_ERROR: MappedGraphQLError = Object.freeze({
   message: 'An unexpected error occurred',
-  extensions: { code: 'INTERNAL_ERROR' },
-};
+  extensions: Object.freeze({ code: 'INTERNAL_ERROR' as const }),
+}) as MappedGraphQLError;
 
 /**
- * Known internal error type names that should be masked.
+ * Known internal error type names that should be masked (C04-2 / C15-2).
+ * 'PersistenceError' is intentionally absent — it does not exist (C04-4 / C15-2).
  */
 const INTERNAL_ERROR_TYPES = [
   'DomainError',
   'InfraError',
   'ControllerError',
   'NetworkError',
-  'PersistenceError',
   'ExternalServiceError',
   'InvariantViolationError',
+  // InfraError subclasses
+  'DbError',
+  'TimeoutError',
+  // DomainError subclasses
+  'PartialLoadError',
 ];
 
 // ============================================================================
@@ -53,11 +60,14 @@ const INTERNAL_ERROR_TYPES = [
 /**
  * Gets the GraphQL extension code for an error.
  * Uses instanceof first, then falls back to name-based checking for bundled code.
+ *
+ * UnauthorizedError maps to UNAUTHENTICATED (mirrors HTTP 401) while
+ * ForbiddenError / AccessDeniedError map to FORBIDDEN (HTTP 403) — C06-8 / P01-5.
  */
 export function getGraphQLErrorCode(error: unknown): GraphQLErrorCode {
   // Try instanceof first (faster)
   if (error instanceof ObjectValidationError) return 'VALIDATION_ERROR';
-  if (error instanceof UnauthorizedError) return 'FORBIDDEN';
+  if (error instanceof UnauthorizedError) return 'UNAUTHENTICATED';
   if (error instanceof ForbiddenError) return 'FORBIDDEN';
   if (error instanceof AccessDeniedError) return 'FORBIDDEN';
   if (error instanceof NotFoundError) return 'NOT_FOUND';
@@ -67,7 +77,7 @@ export function getGraphQLErrorCode(error: unknown): GraphQLErrorCode {
 
   // Fall back to name-based checking for bundled code
   if (isErrorType(error, 'ObjectValidationError')) return 'VALIDATION_ERROR';
-  if (isErrorType(error, 'UnauthorizedError')) return 'FORBIDDEN';
+  if (isErrorType(error, 'UnauthorizedError')) return 'UNAUTHENTICATED';
   if (isErrorType(error, 'ForbiddenError')) return 'FORBIDDEN';
   if (isErrorType(error, 'AccessDeniedError')) return 'FORBIDDEN';
   if (isErrorType(error, 'NotFoundError')) return 'NOT_FOUND';
@@ -83,6 +93,8 @@ export function getGraphQLErrorCode(error: unknown): GraphQLErrorCode {
  *
  * Security-sensitive errors (domain, infrastructure) are masked
  * to prevent leaking implementation details.
+ * Defence-in-depth: any error that maps to INTERNAL_ERROR code is also masked
+ * so future subclasses cannot silently bypass masking (C04-2).
  */
 export function shouldMaskGraphQLError(error: unknown): boolean {
   // Try instanceof first (faster)
@@ -90,11 +102,16 @@ export function shouldMaskGraphQLError(error: unknown): boolean {
     return true;
   }
 
-  // Fall back to name-based checking for bundled code
+  // Fall back to name-based checking for bundled code (handles cross-realm / mangled names)
   for (const errorType of INTERNAL_ERROR_TYPES) {
     if (isErrorType(error, errorType)) {
       return true;
     }
+  }
+
+  // Defence-in-depth: mask anything that resolves to INTERNAL_ERROR code
+  if (getGraphQLErrorCode(error) === 'INTERNAL_ERROR') {
+    return true;
   }
 
   return false;
@@ -109,21 +126,23 @@ export function shouldMaskGraphQLError(error: unknown): boolean {
  *
  * Mapping strategy (checked in order):
  * 1. `ObjectValidationError` → `VALIDATION_ERROR` (with field errors)
- * 2. `UnauthorizedError` / `ForbiddenError` / `AccessDeniedError` → `FORBIDDEN`
- * 3. `NotFoundError` → `NOT_FOUND`
- * 4. `ConflictError` → `CONFLICT`
- * 5. `UnprocessableError` → `UNPROCESSABLE`
- * 6. `UseCaseError` → `BAD_REQUEST`
- * 7. `DomainError` / `InfraError` → `INTERNAL_ERROR` (masked)
- * 8. Unknown → `INTERNAL_ERROR` (masked)
+ * 2. `UnauthorizedError` → `UNAUTHENTICATED` (mirrors HTTP 401)
+ * 3. `ForbiddenError` / `AccessDeniedError` → `FORBIDDEN` (mirrors HTTP 403)
+ * 4. `NotFoundError` → `NOT_FOUND`
+ * 5. `ConflictError` → `CONFLICT`
+ * 6. `UnprocessableError` → `UNPROCESSABLE`
+ * 7. `UseCaseError` → `BAD_REQUEST`
+ * 8. `DomainError` / `InfraError` (and all subclasses) → `INTERNAL_ERROR` (masked)
+ * 9. Unknown → `INTERNAL_ERROR` (masked)
  *
  * @param error - The error to map
  * @returns Mapped GraphQL error with message and extensions
  */
 export function mapErrorToGraphQLError(error: unknown): MappedGraphQLError {
-  // Masked errors - hide internal details
+  // Masked errors - hide internal details.
+  // Return a fresh shallow copy so consumer mutation cannot poison subsequent responses.
   if (shouldMaskGraphQLError(error)) {
-    return MASKED_ERROR;
+    return { ...MASKED_ERROR, extensions: { ...MASKED_ERROR.extensions } };
   }
 
   const code = getGraphQLErrorCode(error);
@@ -169,8 +188,8 @@ export function mapErrorToGraphQLError(error: unknown): MappedGraphQLError {
     };
   }
 
-  // Unknown errors - mask
-  return MASKED_ERROR;
+  // Unknown errors - mask (fresh copy for same reason as above)
+  return { ...MASKED_ERROR, extensions: { ...MASKED_ERROR.extensions } };
 }
 
 /**
