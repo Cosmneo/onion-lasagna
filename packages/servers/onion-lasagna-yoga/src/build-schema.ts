@@ -18,7 +18,10 @@ import type {
 } from '@cosmneo/onion-lasagna/graphql/field';
 import { isSchemaDefinition } from '@cosmneo/onion-lasagna/graphql/field';
 import { generateFieldId } from '@cosmneo/onion-lasagna/graphql/field';
-import { generateGraphQLSDL } from '@cosmneo/onion-lasagna/graphql/sdl';
+import {
+  generateGraphQLSDLWithMeta,
+  type GraphQLUnionMetadata,
+} from '@cosmneo/onion-lasagna/graphql/sdl';
 import { GraphQLScalarType, GraphQLError } from 'graphql';
 import { mapErrorToGraphQLError } from '@cosmneo/onion-lasagna/graphql/shared';
 
@@ -228,11 +231,14 @@ function buildTypedSchema(
   // Delegate SDL generation to the core generator.
   // `preamble: 'scalar JSON'` is required: core may produce fields typed as `JSON`
   // (for unrepresentable shapes) but never declares the scalar itself.
-  let typeDefs = generateGraphQLSDL(config, {
+  // Using generateGraphQLSDLWithMeta so we also get union metadata for __resolveType.
+  const sdlResult = generateGraphQLSDLWithMeta(config, {
     preamble: 'scalar JSON',
     includeDescriptions: true,
     includeDeprecations: true,
   });
+  let typeDefs = sdlResult.sdl;
+  const unionsMeta = sdlResult.unions;
 
   // Relax `!` on nested output type fields (CRITICAL #6).
   // Core marks required nested props non-null based on JSON-schema `required`,
@@ -258,6 +264,7 @@ function buildTypedSchema(
       subscriptions,
       onResolverError,
       fieldIdFor,
+      unionsMeta,
     ),
   };
 }
@@ -333,6 +340,9 @@ function buildResolverMap(
   // When provided, keys resolvers by this function (typed mode: generateFieldId).
   // When absent, falls back to field.metadata.fieldId ?? field.key (JSON mode).
   fieldIdFor?: (f: UnifiedGraphQLField) => string,
+  // Union metadata from generateGraphQLSDLWithMeta — used to synthesize
+  // __resolveType for every generated union type (P01-1).
+  unions?: Readonly<Record<string, GraphQLUnionMetadata>>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Record<string, any> {
   const resolveId = (f: UnifiedGraphQLField) =>
@@ -362,13 +372,72 @@ function buildResolverMap(
   if (subscriptions.length > 0) {
     resolvers['Subscription'] = {};
     for (const field of subscriptions) {
+      // P01-2: GraphQL requires a { subscribe, resolve } pair for subscriptions.
+      // `subscribe` returns the AsyncIterable (each item already per-validated by core).
+      // `resolve` extracts the payload from each yielded item for delivery to clients.
       resolvers['Subscription'][resolveId(field)] = {
         subscribe: createResolver(field, onResolverError),
+        resolve: (payload: unknown) => payload,
       };
     }
   }
 
+  // P01-1: Synthesize __resolveType for every generated union type.
+  // The core SDL generator names union members as `${unionName}_${pascalize(label)}`
+  // where `label` is the discriminator literal value (e.g. `'a'` → `'A'`).
+  // At runtime we look up `obj[discriminatorField]`, pascalize it, and return the
+  // matching member type name.
+  if (unions) {
+    for (const [unionName, meta] of Object.entries(unions)) {
+      const { members, discriminatorField } = meta;
+      if (discriminatorField) {
+        // Build a lookup from pascalized discriminator value to member type name.
+        const lookup: Record<string, string> = {};
+        for (const memberName of members) {
+          // The member name is `${unionName}_${suffix}` where suffix = pascalize(label).
+          const suffix = memberName.slice(unionName.length + 1); // strip `${unionName}_`
+          lookup[suffix] = memberName;
+        }
+
+        resolvers[unionName] = {
+          __resolveType: (obj: unknown) => {
+            if (obj === null || typeof obj !== 'object') return null;
+            const raw = (obj as Record<string, unknown>)[discriminatorField];
+            if (typeof raw !== 'string') return null;
+            const key = pascalizeLabel(raw);
+            return lookup[key] ?? null;
+          },
+        };
+      } else {
+        // No discriminator — positional members. Return null and let GraphQL's
+        // default resolution handle it (or rely on __typename being set).
+        resolvers[unionName] = {
+          __resolveType: () => null,
+        };
+      }
+    }
+  }
+
   return resolvers;
+}
+
+/**
+ * Pascal-cases a discriminator literal to match the suffix appended by the
+ * core SDL generator when naming union member types.
+ *
+ * Must mirror `pascalize()` in `@cosmneo/onion-lasagna/graphql/sdl/generate.ts`:
+ *   - Split on non-alphanumeric runs
+ *   - Uppercase first char of each segment, lowercase the rest
+ *   - Join
+ *
+ * Examples: 'a' → 'A', 'some-type' → 'SomeType', 'STATUS_OK' → 'StatusOk'
+ */
+function pascalizeLabel(str: string): string {
+  return str
+    .split(/[^a-zA-Z0-9]+/g)
+    .filter((part) => part.length > 0)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join('');
 }
 
 function createResolver(

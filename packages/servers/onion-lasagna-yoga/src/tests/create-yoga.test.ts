@@ -18,6 +18,7 @@ import {
 import {
   defineQuery,
   defineMutation,
+  defineSubscription,
   defineGraphQLSchema,
 } from '@cosmneo/onion-lasagna/graphql/field';
 
@@ -287,7 +288,7 @@ describe('createOnionYoga — context resolver errors', () => {
       errors?: Array<{ message: string; extensions?: { code?: string } }>;
     };
     expect(body.errors?.[0]?.message).toBe('Invalid token');
-    expect(body.errors?.[0]?.extensions?.code).toBe('FORBIDDEN');
+    expect(body.errors?.[0]?.extensions?.code).toBe('UNAUTHENTICATED');
   });
 
   it('maps ForbiddenError thrown in createContext to HTTP 403', async () => {
@@ -646,5 +647,184 @@ type Mutation {
     expect(relaxed).toContain('tags: [String!]');
     expect(relaxed).toContain('title: String');
     expect(relaxed).not.toContain('title: String!');
+  });
+});
+
+// ============================================================================
+// P01-1: Union __resolveType end-to-end (BLOCKER)
+// ============================================================================
+
+describe('P01-1: union __resolveType — end-to-end', () => {
+  it('resolves a discriminated union query without "must resolve to Object type" error', async () => {
+    const schema = defineGraphQLSchema({
+      statusGet: defineQuery({
+        output: zodSchema(
+          z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('a'), a: z.string() }),
+            z.object({ kind: z.literal('b'), b: z.number() }),
+          ]),
+        ),
+      }),
+    });
+
+    const field = createField({
+      key: 'statusGet',
+      operation: 'query',
+      metadata: { fieldId: 'statusGet' },
+      handler: async () => ({ kind: 'a', a: 'hello' }),
+    });
+
+    const yoga = createOnionYoga({ fields: [field], schema });
+
+    // Inline fragment on the correct member type
+    const result = await executeQuery(
+      yoga,
+      '{ statusGet { ... on StatusGetOutput_A { a } ... on StatusGetOutput_B { b } } }',
+    );
+
+    expect(result.errors).toBeUndefined();
+    expect((result.data as Record<string, unknown>)['statusGet']).toEqual({ a: 'hello' });
+  });
+
+  it('resolves to the B member when handler returns kind: b', async () => {
+    const schema = defineGraphQLSchema({
+      statusGet: defineQuery({
+        output: zodSchema(
+          z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('a'), a: z.string() }),
+            z.object({ kind: z.literal('b'), b: z.number() }),
+          ]),
+        ),
+      }),
+    });
+
+    const field = createField({
+      key: 'statusGet',
+      operation: 'query',
+      metadata: { fieldId: 'statusGet' },
+      handler: async () => ({ kind: 'b', b: 42 }),
+    });
+
+    const yoga = createOnionYoga({ fields: [field], schema });
+
+    const result = await executeQuery(
+      yoga,
+      '{ statusGet { ... on StatusGetOutput_A { a } ... on StatusGetOutput_B { b } } }',
+    );
+
+    expect(result.errors).toBeUndefined();
+    expect((result.data as Record<string, unknown>)['statusGet']).toEqual({ b: 42 });
+  });
+});
+
+// ============================================================================
+// P01-2: Typed subscriptions end-to-end (CRITICAL)
+// ============================================================================
+
+async function* subscriptionQuery(
+  yoga: ReturnType<typeof createOnionYoga>,
+  query: string,
+): AsyncGenerator<{ data?: unknown; errors?: Array<{ message: string; extensions?: unknown }> }> {
+  const response = await yoga.fetch('http://localhost:4000/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify({ query }),
+  });
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const payload = line.slice(6).trim();
+        if (payload && payload !== '') {
+          yield JSON.parse(payload) as {
+            data?: unknown;
+            errors?: Array<{ message: string; extensions?: unknown }>;
+          };
+        }
+      }
+    }
+  }
+}
+
+describe('P01-2: typed subscriptions — end-to-end', () => {
+  it('delivers yielded items without "Output validation failed on the iterable" error', async () => {
+    const schema = defineGraphQLSchema({
+      counter: defineSubscription({
+        output: zodSchema(z.object({ n: z.number() })),
+      }),
+    });
+
+    const field = createField({
+      key: 'counter',
+      operation: 'subscription',
+      metadata: { fieldId: 'counter' },
+      handler: async function* () {
+        yield { n: 1 };
+        yield { n: 2 };
+      },
+    });
+
+    const yoga = createOnionYoga({ fields: [field], schema });
+
+    const received: unknown[] = [];
+    for await (const event of subscriptionQuery(yoga, 'subscription { counter { n } }')) {
+      if (event.errors) {
+        throw new Error(`Unexpected subscription error: ${event.errors[0]?.message}`);
+      }
+      received.push(event.data);
+    }
+
+    expect(received).toEqual([{ counter: { n: 1 } }, { counter: { n: 2 } }]);
+  });
+
+  it('rejects an invalid yielded item per-item (masked, not leaking field path)', async () => {
+    const schema = defineGraphQLSchema({
+      counter: defineSubscription({
+        output: zodSchema(z.object({ n: z.number() })),
+      }),
+    });
+
+    const field = createField({
+      key: 'counter',
+      operation: 'subscription',
+      metadata: { fieldId: 'counter' },
+      handler: async function* () {
+        yield { n: 1 }; // valid
+        yield { n: 'not-a-number' }; // invalid — should be rejected per-item
+      },
+    });
+
+    const yoga = createOnionYoga({ fields: [field], schema });
+
+    const received: Array<{
+      data?: unknown;
+      errors?: Array<{ message: string; extensions?: unknown }>;
+    }> = [];
+    for await (const event of subscriptionQuery(yoga, 'subscription { counter { n } }')) {
+      received.push(event);
+    }
+
+    // First item delivered ok
+    const first = received[0];
+    expect(first).toBeDefined();
+    expect(first!.errors).toBeUndefined();
+    expect(first!.data).toEqual({ counter: { n: 1 } });
+
+    // Second item rejected — must NOT leak "output.n: ..." path details
+    const second = received[1];
+    expect(second).toBeDefined();
+    expect(second!.errors).toBeDefined();
+    const errMsg = (second!.errors as Array<{ message: string }>)[0]?.message ?? '';
+    expect(errMsg).not.toContain('output.');
+    expect(errMsg).not.toContain('counter');
   });
 });
