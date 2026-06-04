@@ -227,7 +227,8 @@ function createQueryHook(
           const queryKey = isEmptyInput($input) ? keyPath : [...keyPath, $input];
           return {
             queryKey,
-            queryFn: () => clientMethod($input),
+            // P05-3: thread the AbortSignal provided by Svelte Query to the underlying client.
+            queryFn: ({ signal }: { signal?: AbortSignal }) => clientMethod($input, { signal }),
             ...restOptions,
             enabled: $globalEnabled && $userEnabled,
           };
@@ -313,7 +314,8 @@ function createQueryOptionsFactory(
       : [...keyPath, resolvedInput];
     return queryOptions({
       queryKey,
-      queryFn: () => clientMethod(resolvedInput),
+      // P05-3: thread the AbortSignal provided by Svelte Query to the underlying client.
+      queryFn: ({ signal }: { signal?: AbortSignal }) => clientMethod(resolvedInput, { signal }),
     });
   };
 }

@@ -28,6 +28,9 @@
 
 export { createSvelteQueryHooks } from './create-svelte-query-hooks';
 export type {
+  // P05-2: StoreOrVal exported so consumers can annotate reactive-store inputs/options.
+  StoreOrVal,
+  ReactiveCreateQueryOptions,
   QueryRouteHooks,
   MutationRouteHooks,
   InferHooks,

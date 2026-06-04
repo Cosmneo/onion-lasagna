@@ -175,7 +175,9 @@ function createQueryHook(
             : ([...keyPath, resolvedInput] as unknown as readonly string[]);
         },
         // queryFn also resolves input at call-time so it uses the current value.
-        queryFn: () => clientMethod(toValue(input)),
+        // P07-2: thread the AbortSignal provided by Vue Query to the underlying client method.
+        queryFn: ({ signal }: { signal?: AbortSignal }) =>
+          clientMethod(toValue(input), { signal }),
         // P07-1: enabled is a getter — read useEnabled() and toValue(userEnabled)
         // INSIDE the function so vue-query re-tracks them on every evaluation.
         enabled: () => (useEnabled?.() ?? true) && (toValue(userEnabled) ?? true),
@@ -250,7 +252,7 @@ function createQueryOptionsFactory(
     const queryKey: readonly unknown[] = isEmptyInput(input) ? keyPath : [...keyPath, input];
     return queryOptions({
       queryKey,
-      queryFn: () => clientMethod(input),
+      queryFn: ({ signal }: { signal?: AbortSignal }) => clientMethod(input, { signal }),
     });
   };
 }

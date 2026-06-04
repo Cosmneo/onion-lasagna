@@ -145,11 +145,12 @@ export type InferHooks<T extends RouterConfig> = {
 /**
  * A callable query key function that returns a key array.
  * When called with input, appends it to the key.
+ *
+ * Both branches were identical — collapsed to a single signature.
  */
-export type QueryKeyFn<TRoute extends RouteDefinition> =
-  RequiresInput<TRoute> extends true
-    ? (input?: HookRequestInput<TRoute>) => readonly unknown[]
-    : (input?: HookRequestInput<TRoute>) => readonly unknown[];
+export type QueryKeyFn<TRoute extends RouteDefinition> = (
+  input?: HookRequestInput<TRoute>,
+) => readonly unknown[];
 
 /**
  * A namespace key function that is callable and has child properties.

@@ -155,10 +155,12 @@ function createQueryHook(
       };
       const queryKey = isEmptyInput(input) ? keyPath : [...keyPath, input];
 
+      // option-clobber fix: spread user options FIRST, then set library-controlled keys so
+      // callers (including JS/as-any) cannot accidentally override queryKey or queryFn.
       return useQuery({
-        queryKey,
-        queryFn: () => clientMethod(input),
         ...restOptions,
+        queryKey,
+        queryFn: ({ signal }: { signal?: AbortSignal }) => clientMethod(input, { signal }),
         enabled: globalEnabled && (userEnabled ?? true),
       });
     },
@@ -173,9 +175,10 @@ function createMutationHook(
 ): Record<string, unknown> {
   return {
     useMutation: (options?: Record<string, unknown>) => {
+      // option-clobber fix: spread user options FIRST, then set library-controlled mutationFn.
       return useMutation({
-        mutationFn: (input: unknown) => clientMethod(input),
         ...options,
+        mutationFn: (input: unknown) => clientMethod(input),
       });
     },
   };
@@ -233,7 +236,7 @@ function createQueryOptionsFactory(
     const queryKey: readonly unknown[] = isEmptyInput(input) ? keyPath : [...keyPath, input];
     return queryOptions({
       queryKey,
-      queryFn: () => clientMethod(input),
+      queryFn: ({ signal }: { signal?: AbortSignal }) => clientMethod(input, { signal }),
     });
   };
 }
