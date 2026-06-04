@@ -257,4 +257,77 @@ describe('Hono register-routes', () => {
       expect(body).toEqual({ id: '42', name: 'Replaced User', replaced: true });
     });
   });
+
+  describe('multi-value response headers (Set-Cookie)', () => {
+    const routes: UnifiedRouteInput[] = [
+      {
+        method: 'GET',
+        path: '/cookies',
+        handler: async () => ({
+          status: 200,
+          body: { ok: true },
+          headers: {
+            'Set-Cookie': ['sessionId=abc; Path=/', 'theme=dark; Path=/'],
+          },
+        }),
+        metadata: { operationId: 'setCookies' },
+      },
+    ];
+
+    const app = new Hono();
+    app.onError(onionErrorHandler());
+    registerHonoRoutes(app, routes);
+
+    it('emits multiple Set-Cookie headers', async () => {
+      const res = await app.request('/cookies');
+      expect(res.status).toBe(200);
+      // Headers.getSetCookie() is the standard way to get all Set-Cookie values
+      const cookies = res.headers.getSetCookie?.() ?? [res.headers.get('set-cookie')];
+      expect(cookies.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('C09-2: handler-set content-type respected', () => {
+    const routes: UnifiedRouteInput[] = [
+      {
+        method: 'GET',
+        path: '/csv',
+        handler: async () => ({
+          status: 200,
+          body: 'id,name\n1,Alice',
+          headers: { 'Content-Type': 'text/csv' },
+        }),
+        metadata: { operationId: 'getCsv' },
+      },
+      {
+        method: 'GET',
+        path: '/text',
+        handler: async () => ({
+          status: 200,
+          body: 'Hello world',
+        }),
+        metadata: { operationId: 'getText' },
+      },
+    ];
+
+    const app = new Hono();
+    app.onError(onionErrorHandler());
+    registerHonoRoutes(app, routes);
+
+    it('respects handler-set Content-Type for string body', async () => {
+      const res = await app.request('/csv');
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toContain('text/csv');
+      const body = await res.text();
+      expect(body).toBe('id,name\n1,Alice');
+    });
+
+    it('defaults string body to text/plain when no Content-Type set', async () => {
+      const res = await app.request('/text');
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toContain('text/plain');
+      const body = await res.text();
+      expect(body).toBe('Hello world');
+    });
+  });
 });

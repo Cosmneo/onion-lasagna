@@ -54,13 +54,27 @@ function extractRequest(request: FastifyRequest): RawHttpRequest {
 }
 
 /**
+ * Guards against CRLF injection in header values.
+ * Returns the value with CR and LF characters stripped.
+ */
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]/g, '');
+}
+
+/**
  * Sends a HandlerResponse through Fastify.
  */
 function sendResponse(reply: FastifyReply, response: HandlerResponse): void {
   // Set response headers
   if (response.headers) {
     for (const [key, value] of Object.entries(response.headers)) {
-      void reply.header(key, value);
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          void reply.header(key, sanitizeHeaderValue(v));
+        }
+      } else {
+        void reply.header(key, sanitizeHeaderValue(value));
+      }
     }
   }
 

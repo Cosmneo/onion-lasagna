@@ -281,6 +281,103 @@ describe('NestJS register-routes', () => {
 
       expect(() => createNestController(routes)).toThrow('Unsupported HTTP method: TRACE');
     });
+
+    it('throws for duplicate operationIds (C09-1 collision guard)', () => {
+      const routes: UnifiedRouteInput[] = [
+        {
+          method: 'GET',
+          path: '/foo',
+          handler: async () => ({ status: 200, body: { ok: true } }),
+          metadata: { operationId: 'sameId' },
+        },
+        {
+          method: 'POST',
+          path: '/foo',
+          handler: async () => ({ status: 201 }),
+          metadata: { operationId: 'sameId' },
+        },
+      ];
+
+      expect(() => createNestController(routes)).toThrow(/Duplicate operationId/);
+    });
+  });
+
+  describe('malformed body normalization', () => {
+    let app: INestApplication;
+
+    beforeAll(async () => {
+      const routes: UnifiedRouteInput[] = [
+        {
+          method: 'POST',
+          path: '/data',
+          handler: async (req) => ({
+            status: 200,
+            body: req.body,
+          }),
+          metadata: { operationId: 'postData' },
+        },
+      ];
+
+      const module = await Test.createTestingModule({
+        imports: [OnionLasagnaModule.register(routes)],
+      }).compile();
+
+      app = module.createNestApplication();
+      await app.init();
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('returns 400 for malformed JSON body instead of 500', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/data')
+        .set('Content-Type', 'application/json')
+        .send('{not valid json}');
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBeDefined();
+    });
+  });
+
+  describe('multi-value response headers (Set-Cookie)', () => {
+    let app: INestApplication;
+
+    beforeAll(async () => {
+      const routes: UnifiedRouteInput[] = [
+        {
+          method: 'GET',
+          path: '/cookies',
+          handler: async () => ({
+            status: 200,
+            body: { ok: true },
+            headers: {
+              'Set-Cookie': ['sessionId=abc; Path=/', 'theme=dark; Path=/'],
+            },
+          }),
+          metadata: { operationId: 'setCookies' },
+        },
+      ];
+
+      const module = await Test.createTestingModule({
+        imports: [OnionLasagnaModule.register(routes)],
+      }).compile();
+
+      app = module.createNestApplication();
+      await app.init();
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('emits multiple Set-Cookie headers', async () => {
+      const response = await request(app.getHttpServer()).get('/cookies');
+      expect(response.status).toBe(200);
+      const setCookie = response.headers['set-cookie'];
+      expect(Array.isArray(setCookie)).toBe(true);
+      expect((setCookie as string[]).length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   describe('query parameters', () => {

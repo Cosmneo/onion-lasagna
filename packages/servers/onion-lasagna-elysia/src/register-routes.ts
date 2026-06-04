@@ -13,6 +13,7 @@ import type {
   HandlerResponse,
 } from '@cosmneo/onion-lasagna/http/server';
 import type { RegisterElysiaRoutesOptions, ElysiaContext } from './types';
+import { InvalidRequestError } from '@cosmneo/onion-lasagna';
 
 /**
  * Supported HTTP methods in Elysia.
@@ -28,6 +29,7 @@ function toElysiaPath(path: string): string {
 
 /**
  * Extracts a RawHttpRequest from Elysia context.
+ * Uses the real request URL if available (C09-3 fix).
  */
 function extractRequest(context: ElysiaContext, method: string, path: string): RawHttpRequest {
   // Convert headers to proper format (guard against null/undefined)
@@ -50,9 +52,12 @@ function extractRequest(context: ElysiaContext, method: string, path: string): R
     }
   }
 
+  // Use the real request URL when available; fall back to the route pattern
+  const url = context.request?.url ?? path;
+
   return {
     method: method.toUpperCase(),
-    url: path,
+    url,
     headers,
     body: context.body,
     query,
@@ -61,16 +66,31 @@ function extractRequest(context: ElysiaContext, method: string, path: string): R
 }
 
 /**
+ * Guards against CRLF injection in header values.
+ * Returns the value with CR and LF characters stripped.
+ */
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]/g, '');
+}
+
+/**
  * Creates a Response from HandlerResponse.
+ * Supports multi-value headers and guards against CRLF injection.
  */
 function createResponse(response: HandlerResponse): Response {
-  // Start with empty headers, will set defaults if not provided by handler
-  const headers: Record<string, string> = {};
+  // Build response headers, supporting multi-value (string[]) entries
+  const headers = new Headers();
 
   // Apply handler-provided headers first (preserves Content-Type if set)
   if (response.headers) {
     for (const [key, value] of Object.entries(response.headers)) {
-      headers[key] = value;
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          headers.append(key, sanitizeHeaderValue(v));
+        }
+      } else {
+        headers.set(key, sanitizeHeaderValue(value));
+      }
     }
   }
 
@@ -84,8 +104,8 @@ function createResponse(response: HandlerResponse): Response {
   if (typeof response.body === 'string') {
     // Only default to text/plain if Content-Type wasn't already set
     // This allows handlers to return XML, CSV, HTML, etc.
-    if (!headers['Content-Type']) {
-      headers['Content-Type'] = 'text/plain';
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'text/plain');
     }
     return new Response(response.body, {
       status: response.status,
@@ -94,8 +114,8 @@ function createResponse(response: HandlerResponse): Response {
   }
 
   // JSON response - only set Content-Type if not already provided
-  if (!headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
   }
   return new Response(JSON.stringify(response.body), {
     status: response.status,
@@ -171,13 +191,26 @@ export function registerElysiaRoutes(
     // Destructure context properties so Elysia's static code analysis
     // detects them and populates them (Elysia optimizes by only computing
     // properties that appear in the handler's source code).
-    const handler: Handler = async ({ headers, query, body, params, store }) => {
+    const handler: Handler = async ({ headers, query, body, params, store, request }) => {
+      // Normalize Elysia body-parse errors (SyntaxError for malformed JSON)
+      // to InvalidRequestError so they map to 400 instead of 500.
+      if (body instanceof Error) {
+        if (body instanceof SyntaxError) {
+          throw new InvalidRequestError({
+            message: 'Invalid JSON in request body',
+            cause: body,
+            validationErrors: [{ field: 'body', message: body.message }],
+          });
+        }
+        throw body;
+      }
       const ctx: ElysiaContext = {
         headers: headers ?? {},
         query: query ?? {},
         body,
         params: params ?? ({} as Record<string, string>),
         store: store ?? {},
+        request: request as Request | undefined,
       };
       const rawRequest = extractRequest(ctx, method, path);
       const handlerContext = contextExtractor ? contextExtractor(ctx) : undefined;

@@ -261,4 +261,87 @@ describe('Elysia register-routes', () => {
       expect(body).toEqual({ id: '42', name: 'Replaced User', replaced: true });
     });
   });
+
+  describe('malformed body normalization', () => {
+    const routes: UnifiedRouteInput[] = [
+      {
+        method: 'POST',
+        path: '/data',
+        handler: async (req) => ({
+          status: 200,
+          body: req.body,
+        }),
+        metadata: { operationId: 'postData' },
+      },
+    ];
+
+    const app = new Elysia().onError(onionErrorHandler);
+    registerElysiaRoutes(app, routes);
+
+    it('returns 400 for malformed JSON body instead of 500', async () => {
+      const res = await app.handle(
+        new Request('http://localhost/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{not valid json}',
+        }),
+      );
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('multi-value response headers (Set-Cookie)', () => {
+    const routes: UnifiedRouteInput[] = [
+      {
+        method: 'GET',
+        path: '/cookies',
+        handler: async () => ({
+          status: 200,
+          body: { ok: true },
+          headers: {
+            'Set-Cookie': ['sessionId=abc; Path=/', 'theme=dark; Path=/'],
+          },
+        }),
+        metadata: { operationId: 'setCookies' },
+      },
+    ];
+
+    const app = new Elysia().onError(onionErrorHandler);
+    registerElysiaRoutes(app, routes);
+
+    it('emits multiple Set-Cookie values', async () => {
+      const res = await app.handle(new Request('http://localhost/cookies'));
+      expect(res.status).toBe(200);
+      // Headers.getSetCookie() returns an array of all Set-Cookie values
+      const cookies = res.headers.getSetCookie?.() ?? res.headers.get('set-cookie')?.split(', ');
+      expect(cookies).toBeDefined();
+      expect((cookies ?? []).length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('real request URL (C09-3)', () => {
+    const routes: UnifiedRouteInput[] = [
+      {
+        method: 'GET',
+        path: '/echo-url',
+        handler: async (req) => ({
+          status: 200,
+          body: { url: req.url },
+        }),
+        metadata: { operationId: 'echoUrl' },
+      },
+    ];
+
+    const app = new Elysia().onError(onionErrorHandler);
+    registerElysiaRoutes(app, routes);
+
+    it('exposes the real request URL, not the route pattern', async () => {
+      const res = await app.handle(new Request('http://localhost/echo-url?foo=bar'));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      // Real URL should contain the query string, not just the route pattern
+      expect(body.url).toContain('/echo-url');
+      expect(body.url).not.toBe('/echo-url'); // the pattern without query
+    });
+  });
 });

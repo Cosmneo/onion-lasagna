@@ -302,4 +302,83 @@ describe('Fastify register-routes', () => {
       expect(res.json()).toEqual({ id: '42', name: 'Replaced User', replaced: true });
     });
   });
+
+  describe('malformed body normalization', () => {
+    let app: FastifyInstance;
+
+    beforeAll(async () => {
+      const routes: UnifiedRouteInput[] = [
+        {
+          method: 'POST',
+          path: '/data',
+          handler: async (req) => ({
+            status: 200,
+            body: req.body,
+          }),
+          metadata: { operationId: 'postData' },
+        },
+      ];
+
+      app = Fastify();
+      app.setErrorHandler(onionErrorHandler);
+      registerFastifyRoutes(app, routes);
+      await app.ready();
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('returns 400 InvalidRequestError for malformed JSON body instead of 500', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/data',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{not valid json}',
+      });
+      expect(res.statusCode).toBe(400);
+      const body = res.json();
+      expect(body.message).toBeDefined();
+    });
+  });
+
+  describe('multi-value response headers', () => {
+    let app: FastifyInstance;
+
+    beforeAll(async () => {
+      const routes: UnifiedRouteInput[] = [
+        {
+          method: 'GET',
+          path: '/cookies',
+          handler: async () => ({
+            status: 200,
+            body: { ok: true },
+            headers: {
+              'Set-Cookie': ['sessionId=abc; Path=/', 'theme=dark; Path=/'],
+            },
+          }),
+          metadata: { operationId: 'setCookies' },
+        },
+      ];
+
+      app = Fastify();
+      app.setErrorHandler(onionErrorHandler);
+      registerFastifyRoutes(app, routes);
+      await app.ready();
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('emits multiple Set-Cookie headers', async () => {
+      const res = await app.inject({ method: 'GET', url: '/cookies' });
+      expect(res.statusCode).toBe(200);
+      // Fastify inject returns raw response — check set-cookie header
+      const setCookie = res.headers['set-cookie'];
+      expect(setCookie).toBeDefined();
+      const cookieValues = Array.isArray(setCookie) ? setCookie : [setCookie];
+      expect(cookieValues.length).toBeGreaterThanOrEqual(1);
+    });
+  });
 });

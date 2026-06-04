@@ -7,6 +7,7 @@
 import { Catch, type ExceptionFilter, type ArgumentsHost } from '@nestjs/common';
 import type { Response } from 'express';
 import { mapErrorToResponse } from './error-handler';
+import { InvalidRequestError } from '@cosmneo/onion-lasagna';
 
 /**
  * NestJS exception filter that maps onion-lasagna errors to HTTP responses.
@@ -48,13 +49,32 @@ import { mapErrorToResponse } from './error-handler';
  * app.useGlobalFilters(new OnionExceptionFilter());
  * ```
  */
+/**
+ * Normalizes a body-parser SyntaxError (NestJS / Express platform) into an
+ * `InvalidRequestError` so it maps to 400 instead of 500.
+ */
+function normalizeBodyParseError(exception: unknown): unknown {
+  if (exception instanceof SyntaxError) {
+    // body-parser decorates SyntaxError with `body` and `status` (400)
+    const errObj = exception as unknown as Record<string, unknown>;
+    if ('body' in errObj && 'status' in errObj && errObj['status'] === 400) {
+      return new InvalidRequestError({
+        message: 'Invalid JSON in request body',
+        cause: exception,
+        validationErrors: [{ field: 'body', message: exception.message }],
+      });
+    }
+  }
+  return exception;
+}
+
 @Catch()
 export class OnionExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    const { status, body } = mapErrorToResponse(exception);
+    const { status, body } = mapErrorToResponse(normalizeBodyParseError(exception));
     response.status(status).json(body);
   }
 }

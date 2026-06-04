@@ -115,19 +115,53 @@ async function extractRequest(c: Context): Promise<RawHttpRequest> {
 }
 
 /**
+ * Guards against CRLF injection in header values.
+ * Returns the value with CR and LF characters stripped.
+ */
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]/g, '');
+}
+
+/**
  * Sends a HandlerResponse through Hono.
+ * Respects handler-set Content-Type and supports string bodies (C09-2).
+ * Supports multi-value headers via append and guards against CRLF injection.
  */
 function sendResponse(c: Context, response: HandlerResponse): Response {
-  // Set response headers
+  // Set response headers (multi-value support + CRLF guard)
   if (response.headers) {
     for (const [key, value] of Object.entries(response.headers)) {
-      c.header(key, value);
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          c.header(key, sanitizeHeaderValue(v), { append: true });
+        }
+      } else {
+        c.header(key, sanitizeHeaderValue(value));
+      }
     }
   }
 
   // Return response with proper type assertions for Hono
   if (response.body === undefined || response.body === null) {
     return c.body(null, response.status as StatusCode);
+  }
+
+  // C09-2: if a handler explicitly set Content-Type or the body is a string,
+  // use c.body() to avoid Hono overriding with application/json.
+  const handlerContentType = response.headers?.['Content-Type'] ?? response.headers?.['content-type'];
+  const explicitContentType = typeof handlerContentType === 'string' ? handlerContentType : undefined;
+
+  if (typeof response.body === 'string') {
+    // String body: respect handler content-type or default to text/plain
+    if (!explicitContentType) {
+      c.header('Content-Type', 'text/plain');
+    }
+    return c.body(response.body, response.status as ContentfulStatusCode);
+  }
+
+  if (explicitContentType && !explicitContentType.includes('application/json')) {
+    // Non-JSON explicit content-type: serialize and use c.body()
+    return c.body(JSON.stringify(response.body), response.status as ContentfulStatusCode);
   }
 
   return c.json(response.body as object, response.status as ContentfulStatusCode);

@@ -9,6 +9,7 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 import { mapErrorToHttpResponse } from '@cosmneo/onion-lasagna/http/shared';
 import type { MappedErrorResponse } from '@cosmneo/onion-lasagna/http/shared';
+import { InvalidRequestError } from '@cosmneo/onion-lasagna';
 
 /**
  * Maps an error to a status code and response body.
@@ -34,6 +35,40 @@ export function mapErrorToResponse(error: unknown): MappedErrorResponse {
 }
 
 /**
+ * Normalizes a Fastify body-parse error into an `InvalidRequestError` so it
+ * maps to 400 instead of 500.  Fastify emits a FastifyError with statusCode
+ * 400 and code 'FST_ERR_CTP_INVALID_CONTENT_LENGTH' / 'FST_ERR_CTP_EMPTY_JSON_BODY'
+ * or a generic SyntaxError for malformed JSON bodies.
+ */
+function normalizeBodyParseError(error: FastifyError): unknown {
+  // FastifyError exposes .statusCode and .code directly on the type
+  const statusCode = error.statusCode;
+  const code = error.code;
+  // Fastify body-parser errors: statusCode 400 with FST_ERR_CTP_* codes
+  if (statusCode === 400 && typeof code === 'string' && code.startsWith('FST_ERR_CTP')) {
+    return new InvalidRequestError({
+      message: 'Invalid JSON in request body',
+      cause: error,
+      validationErrors: [{ field: 'body', message: error.message }],
+    });
+  }
+  // Fallback: statusCode 400 with JSON-related message (catches wrapped SyntaxError)
+  if (
+    statusCode === 400 &&
+    (error.cause instanceof SyntaxError ||
+      error instanceof SyntaxError ||
+      error.message.toLowerCase().includes('json'))
+  ) {
+    return new InvalidRequestError({
+      message: 'Invalid JSON in request body',
+      cause: error,
+      validationErrors: [{ field: 'body', message: error.message }],
+    });
+  }
+  return error;
+}
+
+/**
  * Global error handler for Fastify applications using onion-lasagna.
  *
  * Use this as the error handler for your Fastify app:
@@ -52,6 +87,6 @@ export function onionErrorHandler(
   _request: FastifyRequest,
   reply: FastifyReply,
 ): void {
-  const { status, body } = mapErrorToResponse(error);
+  const { status, body } = mapErrorToResponse(normalizeBodyParseError(error));
   void reply.status(status).send(body);
 }
