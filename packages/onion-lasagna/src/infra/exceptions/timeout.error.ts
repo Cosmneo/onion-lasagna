@@ -32,6 +32,10 @@ import { InfraError } from './infra.error';
  * @extends InfraError
  */
 export class TimeoutError extends InfraError {
+  protected override get errorTypeName(): string {
+    return 'TimeoutError';
+  }
+
   /**
    * Creates a new TimeoutError instance.
    *

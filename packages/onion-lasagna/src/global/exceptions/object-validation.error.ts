@@ -30,6 +30,10 @@ import type { ValidationError } from '../interfaces/types/validation-error.type'
  * ```
  */
 export class ObjectValidationError extends CodedError {
+  protected override get errorTypeName(): string {
+    return 'ObjectValidationError';
+  }
+
   /**
    * Array of field-level validation errors.
    *

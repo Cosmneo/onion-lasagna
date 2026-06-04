@@ -11,6 +11,7 @@ import {
   isErrorType,
   hasValidationErrors,
 } from '../error-mapping';
+import { getErrorTypeName } from '../../../../global/exceptions/coded-error.error';
 import { ObjectValidationError } from '../../../../global/exceptions/object-validation.error';
 import { DomainError } from '../../../../domain/exceptions/domain.error';
 import { PartialLoadError } from '../../../../domain/exceptions/partial-load.error';
@@ -330,6 +331,47 @@ describe('error-mapping', () => {
       }
       const error = new _NotFoundError('Not found');
       expect(isErrorType(error, 'NotFoundError')).toBe(true);
+    });
+
+    // C13-3 — stable brand tests: constructor.name completely reassigned to mangled value
+    it('C13-3: identifies DbError correctly even when constructor.name is mangled to _DbError (via brand)', () => {
+      const err = new DbError({ message: 'raw db text' });
+      // Simulate what a bundler/minifier does: rename the class
+      Object.defineProperty(err.constructor, 'name', { value: '_DbError', configurable: true });
+      // The brand check should still work even though constructor.name no longer matches
+      expect(getErrorTypeName(err)).toBe('DbError');
+      expect(isErrorType(err, 'DbError')).toBe(true);
+    });
+
+    it('C13-3: identifies DbError correctly when constructor lacks the right name (plain object simulation)', () => {
+      const err = new DbError({ message: 'raw db text' });
+      // Completely zero out the constructor name to simulate extreme mangling
+      Object.defineProperty(err.constructor, 'name', { value: 'a', configurable: true });
+      // Brand should still identify it
+      expect(getErrorTypeName(err)).toBe('DbError');
+      expect(isErrorType(err, 'DbError')).toBe(true);
+    });
+  });
+
+  describe('shouldMaskError (C13-3 brand hardening)', () => {
+    it('C13-3: masks DbError even when constructor.name is mangled to _DbError (via brand)', () => {
+      const err = new DbError({ message: 'secret connection string' });
+      Object.defineProperty(err.constructor, 'name', { value: '_DbError', configurable: true });
+      expect(shouldMaskError(err)).toBe(true);
+    });
+
+    it('C13-3: masks DomainError even when constructor.name is mangled', () => {
+      const err = new DomainError({ message: 'internal domain state' });
+      Object.defineProperty(err.constructor, 'name', { value: '_DomainError', configurable: true });
+      expect(shouldMaskError(err)).toBe(true);
+    });
+
+    it('C13-3: createErrorResponseBody masks DbError with mangled name — brand keeps message hidden', () => {
+      const err = new DbError({ message: 'postgres://user:secret@host/db' });
+      Object.defineProperty(err.constructor, 'name', { value: '_DbError', configurable: true });
+      const body = createErrorResponseBody(err);
+      expect(body.message).toBe('An unexpected error occurred');
+      expect(body.message).not.toContain('secret');
     });
   });
 

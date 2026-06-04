@@ -27,6 +27,10 @@ import { ErrorCodes, type PresentationErrorCode } from '../../global/exceptions/
  * ```
  */
 export class ControllerError extends CodedError {
+  protected override get errorTypeName(): string {
+    return 'ControllerError';
+  }
+
   /**
    * Creates a new ControllerError instance.
    *

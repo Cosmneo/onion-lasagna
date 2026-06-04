@@ -26,6 +26,10 @@ import { DomainError } from './domain.error';
  * @extends DomainError
  */
 export class PartialLoadError extends DomainError {
+  protected override get errorTypeName(): string {
+    return 'PartialLoadError';
+  }
+
   /**
    * Creates a new PartialLoadError instance.
    *

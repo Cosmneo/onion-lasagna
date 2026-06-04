@@ -26,6 +26,10 @@ import { UseCaseError } from './use-case.error';
  * @extends UseCaseError
  */
 export class ConflictError extends UseCaseError {
+  protected override get errorTypeName(): string {
+    return 'ConflictError';
+  }
+
   /**
    * Creates a new ConflictError instance.
    *

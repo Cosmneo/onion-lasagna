@@ -26,6 +26,10 @@ import { DomainError } from './domain.error';
  * @extends DomainError
  */
 export class InvariantViolationError extends DomainError {
+  protected override get errorTypeName(): string {
+    return 'InvariantViolationError';
+  }
+
   /**
    * Creates a new InvariantViolationError instance.
    *

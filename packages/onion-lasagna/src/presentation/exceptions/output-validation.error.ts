@@ -20,6 +20,10 @@ import { ErrorCodes, type PresentationErrorCode } from '../../global/exceptions/
  * @extends ControllerError
  */
 export class OutputValidationError extends ControllerError {
+  protected override get errorTypeName(): string {
+    return 'OutputValidationError';
+  }
+
   /**
    * Creates a new OutputValidationError instance.
    *

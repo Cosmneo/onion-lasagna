@@ -256,4 +256,22 @@ describe('mapErrorToGraphQLError', () => {
     expect(result2.message).toBe('An unexpected error occurred');
     expect(result2.message).not.toBe('POISONED');
   });
+
+  // C13-3 — stable brand: mangled constructor.name must not bypass masking
+  it('C13-3: masks DbError with mangled constructor.name (_DbError) via brand — message hidden', () => {
+    const err = new DbError({ message: 'FATAL: password auth failed' });
+    Object.defineProperty(err.constructor, 'name', { value: '_DbError', configurable: true });
+    const result = mapErrorToGraphQLError(err);
+    expect(result.message).toBe('An unexpected error occurred');
+    expect(result.extensions.code).toBe('INTERNAL_ERROR');
+    expect(result.message).not.toContain('password');
+  });
+
+  it('C13-3: masks DomainError with fully mangled constructor.name — brand ensures masking', () => {
+    const err = new DomainError({ message: 'internal domain detail' });
+    Object.defineProperty(err.constructor, 'name', { value: 'a', configurable: true });
+    const result = mapErrorToGraphQLError(err);
+    expect(result.message).toBe('An unexpected error occurred');
+    expect(result.extensions.code).toBe('INTERNAL_ERROR');
+  });
 });
