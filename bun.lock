@@ -81,7 +81,7 @@
     },
     "packages/clients/onion-lasagna-axios": {
       "name": "@cosmneo/onion-lasagna-axios",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "axios": "^1",
         "tsup": "^8.5.1",
@@ -93,7 +93,7 @@
     },
     "packages/clients/onion-lasagna-client": {
       "name": "@cosmneo/onion-lasagna-client",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@cosmneo/onion-lasagna-zod": "workspace:*",
@@ -102,12 +102,12 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
       },
     },
     "packages/clients/onion-lasagna-graphql-client": {
       "name": "@cosmneo/onion-lasagna-graphql-client",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "tsup": "^8.5.1",
@@ -115,12 +115,12 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
       },
     },
     "packages/clients/onion-lasagna-graphql-react-query": {
       "name": "@cosmneo/onion-lasagna-graphql-react-query",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@cosmneo/onion-lasagna-graphql-client": "workspace:*",
@@ -132,15 +132,15 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
-        "@cosmneo/onion-lasagna-graphql-client": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
+        "@cosmneo/onion-lasagna-graphql-client": "^0.4.1",
         "@tanstack/react-query": "^5",
         "react": "^18 || ^19",
       },
     },
     "packages/clients/onion-lasagna-react-query": {
       "name": "@cosmneo/onion-lasagna-react-query",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@cosmneo/onion-lasagna-client": "workspace:*",
@@ -153,15 +153,15 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
-        "@cosmneo/onion-lasagna-client": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
+        "@cosmneo/onion-lasagna-client": "^0.4.1",
         "@tanstack/react-query": "^5",
         "react": "^18 || ^19",
       },
     },
     "packages/clients/onion-lasagna-svelte-query": {
       "name": "@cosmneo/onion-lasagna-svelte-query",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@cosmneo/onion-lasagna-client": "workspace:*",
@@ -173,15 +173,15 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
-        "@cosmneo/onion-lasagna-client": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
+        "@cosmneo/onion-lasagna-client": "^0.4.1",
         "@tanstack/svelte-query": "^5",
         "svelte": "^4 || ^5",
       },
     },
     "packages/clients/onion-lasagna-swr": {
       "name": "@cosmneo/onion-lasagna-swr",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@cosmneo/onion-lasagna-client": "workspace:*",
@@ -194,15 +194,15 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
-        "@cosmneo/onion-lasagna-client": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
+        "@cosmneo/onion-lasagna-client": "^0.4.1",
         "react": "^18 || ^19",
         "swr": "^2",
       },
     },
     "packages/clients/onion-lasagna-vue-query": {
       "name": "@cosmneo/onion-lasagna-vue-query",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@cosmneo/onion-lasagna-client": "workspace:*",
@@ -214,31 +214,40 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
-        "@cosmneo/onion-lasagna-client": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
+        "@cosmneo/onion-lasagna-client": "^0.4.1",
         "@tanstack/vue-query": "^5",
         "vue": "^3",
       },
     },
     "packages/onion-lasagna": {
       "name": "@cosmneo/onion-lasagna",
-      "version": "0.4.0",
-      "devDependencies": {
-        "@types/node": "^25.0.3",
-        "@vitest/coverage-v8": "^4.0.16",
-        "tsup": "^8.5.1",
+      "version": "0.4.1",
+      "dependencies": {
         "uuid": "^13.0.0",
+      },
+      "devDependencies": {
+        "@sinclair/typebox": "^0.34.41",
+        "@types/node": "^25.0.3",
+        "@valibot/to-json-schema": "1.5.0",
+        "@vitest/coverage-v8": "^4.0.16",
+        "arktype": "2.1.29",
+        "tsup": "^8.5.1",
+        "valibot": "1.2.0",
         "vitest": "^4.0.16",
         "zod": "4.3.6",
+        "zod-to-json-schema": "3.24.5",
       },
       "peerDependencies": {
         "typescript": "^5",
-        "uuid": "^13.0.0",
       },
+      "optionalPeers": [
+        "typescript",
+      ],
     },
     "packages/patterns/onion-lasagna-saga": {
       "name": "@cosmneo/onion-lasagna-saga",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "tsup": "^8.5.1",
         "typescript": "^5.7.0",
@@ -247,7 +256,7 @@
     },
     "packages/schemas/onion-lasagna-arktype": {
       "name": "@cosmneo/onion-lasagna-arktype",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "arktype": "2.1.29",
@@ -255,13 +264,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
         "arktype": "^2.0.0",
       },
     },
     "packages/schemas/onion-lasagna-typebox": {
       "name": "@cosmneo/onion-lasagna-typebox",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@sinclair/typebox": "^0.34.41",
@@ -269,13 +278,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
         "@sinclair/typebox": "^0.34.41",
       },
     },
     "packages/schemas/onion-lasagna-valibot": {
       "name": "@cosmneo/onion-lasagna-valibot",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@valibot/to-json-schema": "1.5.0",
@@ -284,14 +293,14 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
         "@valibot/to-json-schema": "^1.0.0",
         "valibot": "^1.0.0",
       },
     },
     "packages/schemas/onion-lasagna-zod": {
       "name": "@cosmneo/onion-lasagna-zod",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "tsup": "^8.5.1",
@@ -299,13 +308,13 @@
         "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
         "zod": "^4.2.1",
       },
     },
     "packages/schemas/onion-lasagna-zod-v3": {
       "name": "@cosmneo/onion-lasagna-zod-v3",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "tsup": "^8.5.1",
@@ -314,14 +323,14 @@
         "zod-to-json-schema": "3.24.5",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
         "zod": "^3.20.0",
         "zod-to-json-schema": "^3.22.0",
       },
     },
     "packages/servers/onion-lasagna-elysia": {
       "name": "@cosmneo/onion-lasagna-elysia",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "elysia": "^1.2",
@@ -329,13 +338,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
         "elysia": "^1.2",
       },
     },
     "packages/servers/onion-lasagna-express": {
       "name": "@cosmneo/onion-lasagna-express",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@types/express": "^5.0.3",
@@ -346,13 +355,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
         "express": "^5",
       },
     },
     "packages/servers/onion-lasagna-fastify": {
       "name": "@cosmneo/onion-lasagna-fastify",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "fastify": "^5",
@@ -360,13 +369,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
         "fastify": "^5",
       },
     },
     "packages/servers/onion-lasagna-hono": {
       "name": "@cosmneo/onion-lasagna-hono",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "hono": "^4",
@@ -374,13 +383,13 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
         "hono": "^4",
       },
     },
     "packages/servers/onion-lasagna-nestjs": {
       "name": "@cosmneo/onion-lasagna-nestjs",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "@nestjs/common": "^11.1.10",
@@ -396,24 +405,26 @@
         "vitest": "^4.0.16",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
         "@nestjs/common": "^11.1.10",
         "@nestjs/core": "^11.1.10",
+        "@nestjs/platform-express": "^11.1.10",
+        "express": ">=4.0.0",
       },
     },
     "packages/servers/onion-lasagna-yoga": {
       "name": "@cosmneo/onion-lasagna-yoga",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@cosmneo/onion-lasagna": "workspace:*",
         "graphql": "^16",
-        "graphql-scalars": "^1",
         "graphql-yoga": "^5",
         "tsup": "^8.5.1",
         "vitest": "^4.0.16",
+        "zod": "4.3.6",
       },
       "peerDependencies": {
-        "@cosmneo/onion-lasagna": ">=0.4.0",
+        "@cosmneo/onion-lasagna": "^0.4.1",
         "graphql": "^16",
         "graphql-yoga": "^5",
       },
@@ -1756,8 +1767,6 @@
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
 
     "graphql": ["graphql@16.13.1", "", {}, "sha512-gGgrVCoDKlIZ8fIqXBBb0pPKqDgki0Z/FSKNiQzSGj2uEYHr1tq5wmBegGwJx6QB5S5cM0khSBpi/JFHMCvsmQ=="],
-
-    "graphql-scalars": ["graphql-scalars@1.25.0", "", { "dependencies": { "tslib": "^2.5.0" }, "peerDependencies": { "graphql": "^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0" } }, "sha512-b0xyXZeRFkne4Eq7NAnL400gStGqG/Sx9VqX0A05nHyEbv57UJnWKsjNnrpVqv5e/8N1MUxkt0wwcRXbiyKcFg=="],
 
     "graphql-yoga": ["graphql-yoga@5.18.1", "", { "dependencies": { "@envelop/core": "^5.5.1", "@envelop/instrumentation": "^1.0.0", "@graphql-tools/executor": "^1.5.0", "@graphql-tools/schema": "^10.0.11", "@graphql-tools/utils": "^10.11.0", "@graphql-yoga/logger": "^2.0.1", "@graphql-yoga/subscription": "^5.0.5", "@whatwg-node/fetch": "^0.10.6", "@whatwg-node/promise-helpers": "^1.3.2", "@whatwg-node/server": "^0.10.14", "lru-cache": "^10.0.0", "tslib": "^2.8.1" }, "peerDependencies": { "graphql": "^15.2.0 || ^16.0.0" } }, "sha512-GiDSlvibfY/vyurbkBOKMO+adF6bTCzKr80FYWta59s1Lx87oVo8T6Nu/0hrxrGv0SrAUkqUpcpr4Ee7XlYmBw=="],
 
