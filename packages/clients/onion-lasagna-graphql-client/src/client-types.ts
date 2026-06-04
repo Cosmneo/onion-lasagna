@@ -59,13 +59,23 @@ export interface GraphQLClientConfig {
  * Error thrown by the GraphQL client.
  */
 export class GraphQLClientError extends Error {
+  /**
+   * Partial response data present when the server returned both `data` and
+   * `errors` (a partial-success response). Batch callers can inspect this to
+   * recover whichever aliases were resolved before the failure.
+   * `undefined` when the response contained no `data` field.
+   */
+  public readonly partialData?: Record<string, unknown>;
+
   constructor(
     message: string,
     public readonly errors: readonly GraphQLResponseError[],
     public readonly response?: Response,
+    partialData?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'GraphQLClientError';
+    this.partialData = partialData;
   }
 }
 
