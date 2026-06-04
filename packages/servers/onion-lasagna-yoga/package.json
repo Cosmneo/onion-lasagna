@@ -21,7 +21,6 @@
     "@cosmneo/onion-lasagna": "workspace:*",
     "graphql": "^16",
     "graphql-yoga": "^5",
-    "graphql-scalars": "^1",
     "tsup": "^8.5.1",
     "vitest": "^4.0.16",
     "zod": "4.3.6"

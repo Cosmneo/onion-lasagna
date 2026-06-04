@@ -49,6 +49,15 @@ export function mapToGraphQLError(error: unknown): GraphQLError {
  * Pass this as the `maskError` option to createYoga to override Yoga's
  * default error masking with onion-lasagna's error hierarchy mapping.
  *
+ * Behaviour:
+ * - "Located" GraphQLErrors (those with a `path` array, produced by the executor
+ *   wrapping resolver-thrown errors) are passed through unchanged. Our resolver
+ *   layer already ran `mapErrorToGraphQLError` on them, so they carry the correct
+ *   code and message.
+ * - All other errors (parse phase, plugin throws, raw `Error` instances) are run
+ *   through the onion taxonomy: known errors keep their message; unknown/internal
+ *   errors are masked to "An unexpected error occurred" / INTERNAL_ERROR.
+ *
  * @example
  * ```typescript
  * import { createYoga } from 'graphql-yoga';
@@ -61,7 +70,59 @@ export function mapToGraphQLError(error: unknown): GraphQLError {
  * ```
  */
 export function onionMaskError(error: unknown, _message: string, _isDev: boolean): Error {
-  return mapToGraphQLError(error instanceof GraphQLError ? (error.originalError ?? error) : error);
+  // A located GraphQLError has `path` set as an Array — it was produced by the
+  // executor wrapping a resolver-thrown error. The resolver layer already mapped
+  // the original error through `mapErrorToGraphQLError`, so the extensions and
+  // message are already correct. Pass it through unchanged.
+  //
+  // We intentionally avoid `instanceof GraphQLError` here to be robust against
+  // module duplication (multiple `graphql` instances on the same classpath) which
+  // can silently break `instanceof` checks across module boundaries.
+  if (isLocatedGraphQLError(error)) {
+    return error as Error;
+  }
+
+  // For non-resolver-phase errors (parse, validation, plugin throws) run through
+  // the onion taxonomy. If the error is a GraphQLError wrapping another error,
+  // unwrap to the original so the taxonomy can classify it properly.
+  const original =
+    error instanceof GraphQLError || isGraphQLErrorShape(error)
+      ? ((error as GraphQLError).originalError ?? error)
+      : error;
+  return mapToGraphQLError(original);
+}
+
+/**
+ * Returns true if `error` is a located GraphQLError — i.e. a GraphQLError
+ * produced by the executor that wraps a resolver-thrown error and carries
+ * a `path` array.
+ *
+ * Uses a structural duck-type check rather than `instanceof` to avoid
+ * breakage when multiple copies of the `graphql` package are on the module
+ * path (a common situation in monorepos with workspace symlinks).
+ */
+function isLocatedGraphQLError(error: unknown): error is GraphQLError {
+  return (
+    error != null &&
+    typeof error === 'object' &&
+    'name' in error &&
+    (error as { name: unknown }).name === 'GraphQLError' &&
+    'path' in error &&
+    Array.isArray((error as { path: unknown }).path)
+  );
+}
+
+/**
+ * Returns true if `error` has the shape of a GraphQLError (duck-type check).
+ * Used to safely unwrap `originalError` even when `instanceof` might fail.
+ */
+function isGraphQLErrorShape(error: unknown): error is GraphQLError {
+  return (
+    error != null &&
+    typeof error === 'object' &&
+    'name' in error &&
+    (error as { name: unknown }).name === 'GraphQLError'
+  );
 }
 
 /**

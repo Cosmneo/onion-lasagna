@@ -120,6 +120,12 @@ export function buildSchemaFromFields(
  *   (core already emits those without `!`).
  * - Never touches `union` definitions or `scalar` declarations.
  * - Never touches inline argument types (those live inside `input` blocks).
+ * - Handles single-line types (`type Foo { id: String! }`) as well as
+ *   multi-line types.
+ *
+ * @note The preferred long-term approach is to push non-null-output relaxation
+ *   into core `generateGraphQLSDL` via an option (e.g. `nonNullOutputFields:false`)
+ *   so this post-processor can be deleted entirely. Tracked as a future improvement.
  */
 export function relaxOutputNonNull(sdl: string): string {
   const ROOT_TYPES = new Set(['Query', 'Mutation', 'Subscription']);
@@ -136,8 +142,45 @@ export function relaxOutputNonNull(sdl: string): string {
     const typeMatch = /^type\s+(\w+)\s*\{/.exec(trimmed);
     if (typeMatch) {
       const typeName = typeMatch[1] ?? '';
-      // Non-root output type block: relax non-null
-      insideOutputType = !ROOT_TYPES.has(typeName);
+      const isOutputType = !ROOT_TYPES.has(typeName);
+
+      // Handle single-line types: `type Foo { id: String! name: String! }`
+      // The opening `{` and closing `}` are on the same line — process inline.
+      const closingBraceIdx = trimmed.indexOf('}', typeMatch[0].length);
+      if (closingBraceIdx !== -1 && isOutputType) {
+        // Extract leading indent
+        const indent = line.slice(0, line.length - trimmed.length);
+        // Extract content between braces
+        const braceStart = line.indexOf('{') + 1;
+        const braceEnd = line.lastIndexOf('}');
+        const innerContent = line.slice(braceStart, braceEnd);
+
+        if (innerContent.trim().length === 0) {
+          // Empty single-line type — nothing to relax
+          result.push(line);
+        } else {
+          // Split inline field declarations. Each field matches:
+          //   fieldName(optional args): Type
+          // We find field boundaries by matching `identifier(optionalParens):`.
+          const fieldPattern = /(\w+(?:\([^)]*\))?:\s*\S+(?:\s*!)?)/g;
+          const fieldMatches = [...innerContent.matchAll(fieldPattern)].map((m) => m[0]!);
+          const relaxedFields =
+            fieldMatches.length > 0
+              ? fieldMatches
+                  .map((f) => relaxFieldLine(indent + '  ' + f.trim()))
+                  .map((f) => f.trim())
+              : [innerContent.trim()]; // fallback: treat as single field
+          const prefix = line.slice(0, line.indexOf('{') + 1);
+          const suffix = line.slice(braceEnd);
+          result.push(`${prefix} ${relaxedFields.join(' ')} ${suffix.trimStart()}`);
+        }
+        // Single-line: block opens and closes on this line, so insideOutputType stays false
+        insideOutputType = false;
+        continue;
+      }
+
+      // Multi-line block open
+      insideOutputType = isOutputType;
       result.push(line);
       continue;
     }

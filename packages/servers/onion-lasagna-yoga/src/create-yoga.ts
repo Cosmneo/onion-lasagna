@@ -10,7 +10,7 @@
 import { createYoga, createSchema } from 'graphql-yoga';
 import type { YogaServerInstance } from 'graphql-yoga';
 import { buildSchemaFromFields } from './build-schema';
-import { mapContextErrorToGraphQLError } from './error-handler';
+import { mapContextErrorToGraphQLError, onionMaskError } from './error-handler';
 import type { CreateOnionYogaOptions } from './types';
 
 /**
@@ -112,10 +112,14 @@ export function createOnionYoga(
     yogaOptions['plugins'] = options.plugins;
   }
 
-  // Disable Yoga's built-in error masking.
-  // Error mapping is handled in the resolver layer (build-schema.ts) where
-  // onion-lasagna errors are converted to GraphQLError with proper extensions.
-  yogaOptions['maskedErrors'] = false;
+  // Use onion-lasagna's error taxonomy for masking instead of Yoga's default.
+  // Resolvers already map errors via mapErrorToGraphQLError, but non-resolver
+  // phases (plugins, parse, execution) bypass that path. Setting maskError to
+  // onionMaskError ensures those throws are filtered through the same taxonomy:
+  // known errors (NotFoundError, UseCaseError, etc.) surface with their message
+  // and code, while unknown/internal errors (DomainError, InfraError, bare Error)
+  // are masked to "An unexpected error occurred" + INTERNAL_ERROR.
+  yogaOptions['maskedErrors'] = { maskError: onionMaskError };
 
   return createYoga(yogaOptions);
 }
