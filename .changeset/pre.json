@@ -27,5 +27,5 @@
     "create-onion-lasagna-app": "0.1.2",
     "onion-lasagna-cli": "0.1.0"
   },
-  "changesets": []
+  "changesets": ["easy-islands-cry", "large-wolves-rush", "v1-audit-remediation"]
 }
