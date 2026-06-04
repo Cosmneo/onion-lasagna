@@ -15,6 +15,35 @@
 
 import type { SchemaAdapter, InferOutput } from '../schema/types';
 import { isSchemaAdapter } from '../schema/types';
+
+// ============================================================================
+// Deep-freeze helpers (C05-7 + deepFreeze-adapter)
+// ============================================================================
+
+/**
+ * Deep-freezes a route definition object, skipping SchemaAdapter instances
+ * (C05-7: nested objects were previously only shallow-frozen).
+ *
+ * SchemaAdapter objects (Zod, Valibot, etc.) contain internal mutable state
+ * and MUST NOT be frozen — doing so would break the validation libraries
+ * (deepFreeze-adapter finding). We detect them via `isSchemaAdapter` and skip.
+ */
+function deepFreezeRoute<T extends object>(obj: T): T {
+  if (Object.isFrozen(obj)) return obj;
+  // Skip SchemaAdapter objects — their internals must remain mutable
+  if (isSchemaAdapter(obj)) return obj;
+
+  Object.freeze(obj);
+
+  for (const name of Object.getOwnPropertyNames(obj)) {
+    const value = (obj as Record<string, unknown>)[name];
+    if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+      deepFreezeRoute(value as object);
+    }
+  }
+
+  return obj;
+}
 import type {
   HttpMethod,
   RouteDefinition,
@@ -275,7 +304,7 @@ export function defineRoute<
     _types: undefined as unknown,
   };
 
-  return Object.freeze(definition) as RouteDefinition<
+  return deepFreezeRoute(definition) as RouteDefinition<
     TMethod,
     TPath,
     ResolveBody<TBody>,

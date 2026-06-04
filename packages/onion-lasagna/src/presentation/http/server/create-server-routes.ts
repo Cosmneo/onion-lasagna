@@ -9,6 +9,7 @@
  * @internal
  */
 
+import { randomUUID } from 'node:crypto';
 import type { SchemaAdapter, ValidationIssue } from '../schema/types';
 import type { RouterConfig, RouterDefinition, RouteDefinition } from '../route/types';
 import { isRouterDefinition, collectRoutes, normalizePath } from '../route/types';
@@ -40,6 +41,10 @@ export function createServerRoutesInternal<T extends RouterConfig>(
   options?: CreateServerRoutesOptions,
 ): UnifiedRouteInput[] {
   const routes = isRouterDefinition(router) ? router.routes : router;
+
+  // C05-1: extract basePath from RouterDefinition (if any) and normalize it
+  const basePath = isRouterDefinition(router) ? normalizeBasePath(router.basePath) : '';
+
   const collectedRoutes = collectRoutes(routes);
 
   // Sort routes by specificity: static segments before parameterized
@@ -69,10 +74,25 @@ export function createServerRoutesInternal<T extends RouterConfig>(
       );
     }
 
-    result.push(createRouteHandler(key, route, handlerConfig, resolvedOptions));
+    result.push(createRouteHandler(key, route, handlerConfig, resolvedOptions, basePath));
   }
 
   return result;
+}
+
+/**
+ * Normalizes a basePath: ensures it starts with '/' and has no trailing slash.
+ * Returns '' for undefined/empty basePath.
+ *
+ * @internal
+ */
+function normalizeBasePath(basePath?: string): string {
+  if (!basePath) return '';
+  // Ensure leading slash
+  let normalized = basePath.startsWith('/') ? basePath : `/${basePath}`;
+  // Strip trailing slash
+  normalized = normalized.replace(/\/+$/, '');
+  return normalized;
 }
 
 /**
@@ -138,6 +158,8 @@ function createRouteHandler(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   config: AnyHandlerConfig<RouteDefinition, any, any>,
   options: CreateServerRoutesOptions,
+  /** C05-1: basePath prefix already normalized (leading slash, no trailing slash) */
+  basePath = '',
 ): UnifiedRouteInput {
   const middleware = config.middleware ?? [];
   const globalMiddleware = options?.middleware ?? [];
@@ -146,9 +168,12 @@ function createRouteHandler(
   const shouldValidateRequest = options.validateRequest ?? true;
   const shouldValidateResponse = options.validateResponse ?? true;
 
+  // C05-1: prepend basePath to route path (normalizePath converts {param} → :param)
+  const routePath = normalizePath(basePath + route.path);
+
   return {
     method: route.method,
-    path: normalizePath(route.path),
+    path: routePath,
     metadata: {
       operationId: route.docs.operationId ?? generateOperationId(key),
       summary: route.docs.summary,
@@ -157,10 +182,17 @@ function createRouteHandler(
       deprecated: route.docs.deprecated,
     },
     handler: async (rawRequest: RawHttpRequest, ctx?: HandlerContext): Promise<HandlerResponse> => {
-      // Create context
-      const rawContext: HandlerContext = options?.createContext
-        ? options.createContext(rawRequest)
-        : (ctx ?? { requestId: generateRequestId() });
+      // C05-8: Create context — merge factory output with framework ctx rather than silently
+      // overriding. createContext result takes explicit precedence over framework ctx fields,
+      // but framework ctx fields not present in the factory result are preserved.
+      let rawContext: HandlerContext;
+      if (options?.createContext) {
+        const factoryCtx = options.createContext(rawRequest);
+        // Merge: framework ctx first (base), factory ctx on top (wins on overlap)
+        rawContext = ctx ? { ...ctx, ...factoryCtx } : factoryCtx;
+      } else {
+        rawContext = ctx ?? { requestId: generateRequestId() };
+      }
 
       // Validate context (if schema defined)
       // Context validation failures are treated as authentication errors (401)
@@ -172,26 +204,32 @@ function createRouteHandler(
               const result = validateContextData(route, rawContext);
               if (!result.success) {
                 const errors = result.errors ?? [];
-                throw new InvalidRequestError({
+                // Build the inner error so it can be used as cause (C05-4)
+                const innerError = new InvalidRequestError({
                   message: 'Context validation failed',
                   validationErrors: errors.map((e) => ({
                     field: e.path.join('.'),
                     message: e.message,
                   })),
                 });
+                throw innerError;
               }
               return result.data;
             },
-            () => new UnauthorizedError({ message: 'Authentication required' }),
+            // C05-4: pass the caught error as cause so UnauthorizedError.cause is populated
+            (cause) => new UnauthorizedError({ message: 'Authentication required', cause }),
           )
         : rawContext;
+
+      // C16-2: hoist normalizeHeaders once per request — used for both req.headers and raw.headers
+      const normalizedHeaders = normalizeHeaders(rawRequest.headers);
 
       // Validate request (if enabled)
       // Use internal type since specific route types are erased in this function
       let validatedRequest: ValidatedRequestInternal;
 
       if (shouldValidateRequest) {
-        const validationResult = validateRequestData(route, rawRequest);
+        const validationResult = validateRequestData(route, rawRequest, normalizedHeaders);
 
         if (!validationResult.success) {
           const errors = validationResult.errors ?? [];
@@ -207,14 +245,15 @@ function createRouteHandler(
         const data = validationResult.data ?? {};
 
         validatedRequest = {
-          body: data.body,
-          query: data.query,
+          // C05-3: fall back to raw body when no body schema (consistent with skip-validation branch)
+          body: route.request.body ? data.body : rawRequest.body,
+          query: data.query ?? normalizeQuery(rawRequest.query),
           pathParams: data.pathParams,
-          headers: data.headers,
+          headers: data.headers ?? normalizedHeaders,
           raw: {
             method: rawRequest.method,
             url: rawRequest.url,
-            headers: normalizeHeaders(rawRequest.headers),
+            headers: normalizedHeaders,
           },
         };
       } else {
@@ -224,11 +263,12 @@ function createRouteHandler(
           body: rawRequest.body,
           query: normalizeQuery(rawRequest.query),
           pathParams: normalizePathParams(rawRequest.params),
-          headers: normalizeHeaders(rawRequest.headers),
+          // C16-2: reuse already-normalized headers (no second call)
+          headers: normalizedHeaders,
           raw: {
             method: rawRequest.method,
             url: rawRequest.url,
-            headers: normalizeHeaders(rawRequest.headers),
+            headers: normalizedHeaders,
           },
         };
       }
@@ -307,10 +347,13 @@ function createRouteHandler(
 
 /**
  * Validates request data against route request schemas.
+ *
+ * @param normalizedHeaders - C16-2: pre-normalized headers (avoids double normalization)
  */
 function validateRequestData(
   route: RouteDefinition,
   rawRequest: RawHttpRequest,
+  normalizedHeaders: Record<string, string>,
 ): ValidationResultInternal {
   const errors: ValidationIssue[] = [];
   const data: {
@@ -369,10 +412,9 @@ function validateRequestData(
     data.pathParams = normalizePathParams(rawRequest.params);
   }
 
-  // Validate headers
+  // Validate headers using pre-normalized headers (C16-2: no double normalization)
   if (route.request.headers) {
-    const headersObj = normalizeHeaders(rawRequest.headers);
-    const result = (route.request.headers as SchemaAdapter).validate(headersObj);
+    const result = (route.request.headers as SchemaAdapter).validate(normalizedHeaders);
     if (result.success) {
       data.headers = result.data;
     } else {
@@ -395,21 +437,42 @@ function validateRequestData(
 /**
  * Validates response data against the route's response schema.
  *
- * Looks up the matching status code in `route.responses` and validates
- * the response body against its schema, if one is defined.
+ * Looks up the matching status code in `route.responses` and validates:
+ * 1. The status is declared in `route.responses` (MISSED undeclared-status fix)
+ * 2. The response body matches the declared schema (if any)
+ *
+ * If `route.responses` is undefined, all statuses are permissible.
  */
 function validateResponseData(
   route: RouteDefinition,
   response: HandlerResponse,
 ): ValidationResultInternal {
   if (!route.responses) {
+    // No responses declared at all — fully open contract, skip validation
     return { success: true };
   }
 
-  const entry = route.responses[String(response.status)];
-  const schema = entry?.schema as SchemaAdapter | undefined;
+  const statusKey = String(response.status);
+  const entry = route.responses[statusKey];
+
+  // undeclared-status: if route.responses is defined but the returned status isn't listed,
+  // reject it so handlers can't return undocumented statuses.
+  if (entry === undefined) {
+    return {
+      success: false,
+      errors: [
+        {
+          path: ['response'],
+          message: `Response status ${response.status} is not declared in route.responses`,
+        },
+      ],
+    };
+  }
+
+  const schema = entry.schema as SchemaAdapter | undefined;
 
   if (!schema) {
+    // Status is declared but has no schema — body shape is not validated
     return { success: true };
   }
 
@@ -606,7 +669,11 @@ function normalizeHeaders(
 
 /**
  * Generates a unique request ID using crypto-secure UUID.
+ *
+ * C05-6: uses `randomUUID` from 'node:crypto' (imported at top of file) instead of
+ * the bare global `crypto.randomUUID()` which is only available on Node >=18.17.
+ * The node:crypto import works from Node 14.17+ / all Node 18.x versions.
  */
 function generateRequestId(): string {
-  return `req_${crypto.randomUUID()}`;
+  return `req_${randomUUID()}`;
 }
