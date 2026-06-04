@@ -7,7 +7,9 @@
  * @module unified/vue-query/create-vue-query-hooks
  */
 
+import { toValue } from 'vue';
 import { useQuery, useMutation, queryOptions } from '@tanstack/vue-query';
+import type { MaybeRefOrGetter } from 'vue';
 import type {
   RouterConfig,
   RouterDefinition,
@@ -140,6 +142,15 @@ function buildHooksProxy(
 
 /**
  * Creates a `{ useQuery }` hook object for a GET/HEAD route.
+ *
+ * P07-1 fix: `enabled` is passed as a getter so vue-query re-evaluates it
+ * reactively. `useEnabled` is called inside the getter (not eagerly in setup),
+ * and the user-supplied `enabled` value is unwrapped with `toValue` so both
+ * `ref<boolean>` and plain booleans are supported.
+ *
+ * Input is typed as `MaybeRefOrGetter` and resolved with `toValue` inside
+ * `queryKey` and `queryFn` so that a reactive ref/getter input causes the
+ * query to re-run when the value changes.
  */
 function createQueryHook(
   clientMethod: (...args: unknown[]) => Promise<unknown>,
@@ -147,21 +158,27 @@ function createQueryHook(
   useEnabled?: () => boolean,
 ): Record<string, unknown> {
   return {
-    useQuery: (input?: unknown, options?: Record<string, unknown>) => {
-      const globalEnabled = useEnabled?.() ?? true;
+    useQuery: (input?: MaybeRefOrGetter<unknown>, options?: Record<string, unknown>) => {
       const { enabled: userEnabled, ...restOptions } = (options ?? {}) as {
-        enabled?: boolean;
+        enabled?: MaybeRefOrGetter<boolean | undefined>;
         [key: string]: unknown;
       };
-      const queryKey = isEmptyInput(input)
-        ? keyPath
-        : ([...keyPath, input] as unknown as readonly string[]);
 
       return useQuery({
-        queryKey,
-        queryFn: () => clientMethod(input),
         ...restOptions,
-        enabled: globalEnabled && (userEnabled ?? true),
+        // Compute the queryKey lazily so vue-query picks up reactive input changes.
+        // toValue resolves refs, getters, and plain values uniformly.
+        get queryKey() {
+          const resolvedInput = toValue(input);
+          return isEmptyInput(resolvedInput)
+            ? keyPath
+            : ([...keyPath, resolvedInput] as unknown as readonly string[]);
+        },
+        // queryFn also resolves input at call-time so it uses the current value.
+        queryFn: () => clientMethod(toValue(input)),
+        // P07-1: enabled is a getter — read useEnabled() and toValue(userEnabled)
+        // INSIDE the function so vue-query re-tracks them on every evaluation.
+        enabled: () => (useEnabled?.() ?? true) && (toValue(userEnabled) ?? true),
       });
     },
   };

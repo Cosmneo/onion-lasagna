@@ -7,6 +7,7 @@
  * @module unified/vue-query/types
  */
 
+import type { MaybeRefOrGetter } from 'vue';
 import type {
   UseQueryOptions,
   UseQueryReturnType,
@@ -68,17 +69,36 @@ type RequiresInput<TRoute extends RouteDefinition> =
 // ============================================================================
 
 /**
+ * Per-query options accepted by `useQuery` hooks.
+ *
+ * `enabled` is widened to `MaybeRefOrGetter<boolean | undefined>` so callers
+ * can pass a `ref<boolean>`, a computed getter `() => someRef.value`, or a
+ * plain boolean — all are unwrapped with `toValue` inside the hook.
+ */
+type QueryHookOptions<TRoute extends RouteDefinition> = Omit<
+  UseQueryOptions<HookResponse<TRoute>, ClientError>,
+  'queryKey' | 'queryFn' | 'enabled'
+> & {
+  enabled?: MaybeRefOrGetter<boolean | undefined>;
+};
+
+/**
  * Hooks for GET/HEAD routes (queries).
+ *
+ * Input is typed as `MaybeRefOrGetter` so callers can pass a reactive `ref`,
+ * a getter `() => value`, or a plain object. The hook resolves the value with
+ * `toValue` inside `queryKey` and `queryFn` so the query re-runs when the
+ * input ref changes.
  */
 export interface QueryRouteHooks<TRoute extends RouteDefinition> {
   useQuery: RequiresInput<TRoute> extends true
     ? (
-        input: HookRequestInput<TRoute>,
-        options?: Omit<UseQueryOptions<HookResponse<TRoute>, ClientError>, 'queryKey' | 'queryFn'>,
+        input: MaybeRefOrGetter<HookRequestInput<TRoute>>,
+        options?: QueryHookOptions<TRoute>,
       ) => UseQueryReturnType<HookResponse<TRoute>, ClientError>
     : (
-        input?: HookRequestInput<TRoute>,
-        options?: Omit<UseQueryOptions<HookResponse<TRoute>, ClientError>, 'queryKey' | 'queryFn'>,
+        input?: MaybeRefOrGetter<HookRequestInput<TRoute>>,
+        options?: QueryHookOptions<TRoute>,
       ) => UseQueryReturnType<HookResponse<TRoute>, ClientError>;
 }
 
