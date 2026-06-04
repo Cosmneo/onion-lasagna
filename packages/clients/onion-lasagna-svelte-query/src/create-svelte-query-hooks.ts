@@ -8,6 +8,8 @@
  */
 
 import { createQuery, createMutation, queryOptions } from '@tanstack/svelte-query';
+import { derived, readable, get } from 'svelte/store';
+import type { Readable } from 'svelte/store';
 import type {
   RouterConfig,
   RouterDefinition,
@@ -28,6 +30,27 @@ import type {
  * HTTP methods that map to `createQuery`.
  */
 const QUERY_METHODS = new Set(['GET', 'HEAD']);
+
+/**
+ * Checks whether a value is a Svelte readable store (has a `subscribe` function).
+ * Mirrors the `isSvelteStore` check in `@tanstack/svelte-query/createBaseQuery`.
+ */
+function isSvelteStore<T>(value: unknown): value is Readable<T> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'subscribe' in value &&
+    typeof (value as Record<string, unknown>)['subscribe'] === 'function'
+  );
+}
+
+/**
+ * Normalises a `StoreOrVal<T>` to a `Readable<T>`.
+ * Plain values are lifted into a `readable()` store; stores are returned as-is.
+ */
+function toReadable<T>(value: T | Readable<T>): Readable<T> {
+  return isSvelteStore<T>(value) ? value : readable(value);
+}
 
 /**
  * Creates Svelte Query hooks from a router definition.
@@ -69,6 +92,17 @@ const QUERY_METHODS = new Set(['GET', 'HEAD']);
  * });
  * // Keys: ['users-api', 'list'] vs ['products-api', 'list']
  * ```
+ *
+ * @example Reactive auth gate via store
+ * ```typescript
+ * const sessionValid = writable(false);
+ * const { hooks } = createSvelteQueryHooks(router, {
+ *   baseUrl: '/api',
+ *   useEnabled: () => sessionValid, // returns Readable<boolean>
+ * });
+ * // Queries are disabled until sessionValid is set to true
+ * sessionValid.set(true);
+ * ```
  */
 export function createSvelteQueryHooks<T extends RouterConfig>(
   router: T | RouterDefinition<T>,
@@ -97,7 +131,7 @@ function buildHooksProxy(
   routes: RouterConfig,
   client: Record<string, unknown>,
   keyPath: readonly string[],
-  useEnabled?: () => boolean,
+  useEnabled?: () => boolean | Readable<boolean>,
 ): Record<string, unknown> {
   const hooks: Record<string, unknown> = {};
 
@@ -140,27 +174,67 @@ function buildHooksProxy(
 
 /**
  * Creates a `{ createQuery }` hook object for a GET/HEAD route.
+ *
+ * The options object passed to `createQuery` is a Svelte `derived` store so that
+ * `@tanstack/svelte-query` will subscribe to it via the `isSvelteStore` branch in
+ * `createBaseQuery`. This means:
+ *
+ *  - When `input` is a `Readable<unknown>` store, the queryKey and queryFn update
+ *    whenever the store emits a new value (P05-1: reactive input).
+ *
+ *  - When `options.enabled` is a `Readable<boolean>` store, the enabled flag tracks
+ *    the store's current value (P05-1: reactive per-query enabled).
+ *
+ *  - When `useEnabled` returns a `Readable<boolean>`, the global gate is also reactive
+ *    (P05-1: auth-gate re-enables automatically).
+ *
+ *  - When plain values are supplied the behaviour is identical to before — the derived
+ *    store's initial snapshot equals the static value and never changes.
  */
 function createQueryHook(
   clientMethod: (...args: unknown[]) => Promise<unknown>,
   keyPath: readonly string[],
-  useEnabled?: () => boolean,
+  useEnabled?: () => boolean | Readable<boolean>,
 ): Record<string, unknown> {
   return {
-    createQuery: (input?: unknown, options?: Record<string, unknown>) => {
-      const globalEnabled = useEnabled?.() ?? true;
-      const { enabled: userEnabled, ...restOptions } = (options ?? {}) as {
-        enabled?: boolean;
+    createQuery: (
+      inputOrStore?: unknown | Readable<unknown>,
+      options?: { enabled?: boolean | Readable<boolean>; [key: string]: unknown },
+    ) => {
+      const { enabled: userEnabledOption, ...restOptions } = (options ?? {}) as {
+        enabled?: boolean | Readable<boolean>;
         [key: string]: unknown;
       };
-      const queryKey = isEmptyInput(input) ? keyPath : [...keyPath, input];
 
-      return createQuery({
-        queryKey,
-        queryFn: () => clientMethod(input),
-        ...restOptions,
-        enabled: globalEnabled && (userEnabled ?? true),
-      });
+      // Resolve the global enabled gate to a store.
+      // useEnabled() may return a plain boolean OR a Readable<boolean>.
+      const globalEnabledRaw = useEnabled ? useEnabled() : true;
+      const globalEnabledStore: Readable<boolean> = toReadable(globalEnabledRaw);
+
+      // Resolve per-query enabled to a store.
+      const userEnabledStore: Readable<boolean> = toReadable(
+        userEnabledOption !== undefined ? userEnabledOption : true,
+      );
+
+      // Resolve input to a store so that a reactive input triggers re-derivation.
+      const inputStore: Readable<unknown> = toReadable(inputOrStore);
+
+      // Build a reactive options store. `createBaseQuery` detects it via `isSvelteStore`
+      // and subscribes, so every emission causes the observer's options to be updated.
+      const optionsStore: Readable<Record<string, unknown>> = derived(
+        [inputStore, globalEnabledStore, userEnabledStore],
+        ([$input, $globalEnabled, $userEnabled]) => {
+          const queryKey = isEmptyInput($input) ? keyPath : [...keyPath, $input];
+          return {
+            queryKey,
+            queryFn: () => clientMethod($input),
+            ...restOptions,
+            enabled: $globalEnabled && $userEnabled,
+          };
+        },
+      );
+
+      return createQuery(optionsStore as Readable<Parameters<typeof createQuery>[0]>);
     },
   };
 }
@@ -222,16 +296,24 @@ function buildQueryOptionsProxy(
 
 /**
  * Creates a function that returns `queryOptions({ queryKey, queryFn })` for a GET/HEAD route.
+ *
+ * Note: `queryOptions` is used for SSR prefetching / `ensureQueryData` where a static snapshot
+ * is appropriate. It intentionally accepts plain values (not stores) because it is not called
+ * inside a Svelte component's reactive context.
  */
 function createQueryOptionsFactory(
   clientMethod: (...args: unknown[]) => Promise<unknown>,
   keyPath: readonly string[],
 ): (input?: unknown) => ReturnType<typeof queryOptions> {
   return (input?: unknown) => {
-    const queryKey: readonly unknown[] = isEmptyInput(input) ? keyPath : [...keyPath, input];
+    // For queryOptions factories, resolve a store to its current value if one is passed.
+    const resolvedInput = isSvelteStore(input) ? get(input) : input;
+    const queryKey: readonly unknown[] = isEmptyInput(resolvedInput)
+      ? keyPath
+      : [...keyPath, resolvedInput];
     return queryOptions({
       queryKey,
-      queryFn: () => clientMethod(input),
+      queryFn: () => clientMethod(resolvedInput),
     });
   };
 }
