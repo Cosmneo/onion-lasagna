@@ -272,6 +272,66 @@ describe('field selection', () => {
     });
   });
 
+  describe('union nested inside an object property (P03-1)', () => {
+    it('emits __typename and inline fragments for a union nested in an object property', async () => {
+      // Schema: { result: { status: 'ok' | 'err' discriminated union } }
+      // The SDL generator would name the nested union `GetDataOutput_Status`
+      // (derived as `${parentTypeName}_${capitalize(propName)}`).
+      // The client must produce the same name so inline fragments match.
+      const getData = defineQuery({
+        output: zodSchema(
+          z.object({
+            id: z.string(),
+            status: z.discriminatedUnion('kind', [
+              z.object({ kind: z.literal('ok'), value: z.number() }),
+              z.object({ kind: z.literal('err'), reason: z.string() }),
+            ]),
+          }),
+        ),
+      });
+      const schema = defineGraphQLSchema({ getData });
+      const { client, captured } = createCapturingClient(schema);
+
+      await (client as Record<string, (i?: unknown) => Promise<unknown>>)['getData']?.();
+
+      const query = captured[0]!.query;
+      // Must include __typename inside the nested union selection
+      expect(query).toContain('__typename');
+      // Member names must be derived as GetDataOutput_Status_Ok and GetDataOutput_Status_Err
+      expect(query).toContain('... on GetDataOutput_Status_Ok');
+      expect(query).toContain('... on GetDataOutput_Status_Err');
+      // The status field must have a sub-selection (not bare scalar)
+      expect(query).toMatch(/status\s*\{/);
+    });
+
+    it('handles a union nested in an array-of-objects property', async () => {
+      const listItems = defineQuery({
+        output: zodSchema(
+          z.array(
+            z.object({
+              id: z.string(),
+              payload: z.discriminatedUnion('type', [
+                z.object({ type: z.literal('text'), content: z.string() }),
+                z.object({ type: z.literal('image'), url: z.string() }),
+              ]),
+            }),
+          ),
+        ),
+      });
+      const schema = defineGraphQLSchema({ listItems });
+      const { client, captured } = createCapturingClient(schema);
+
+      await (client as Record<string, (i?: unknown) => Promise<unknown>>)['listItems']?.();
+
+      const query = captured[0]!.query;
+      expect(query).toContain('__typename');
+      // Array items type name: ListItemsOutput_Item; property 'payload' → ListItemsOutput_Item_Payload
+      expect(query).toContain('... on ListItemsOutput_Item_Payload_Text');
+      expect(query).toContain('... on ListItemsOutput_Item_Payload_Image');
+      expect(query).toMatch(/payload\s*\{/);
+    });
+  });
+
   describe('mutation with select', () => {
     it('sends selected fields for mutation response', async () => {
       const createUser = defineMutation({

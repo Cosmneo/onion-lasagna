@@ -197,7 +197,14 @@ function selectionFromJsonSchema(schema: JsonSchema, depth = 0, unionTypeName?: 
   if (properties) {
     const fields: string[] = [];
     for (const [propName, propSchema] of Object.entries(properties)) {
-      const nested = selectionFromJsonSchema(propSchema, depth + 1, undefined);
+      // Thread the parent type name so that unions nested inside object
+      // properties receive the correct server-matching member type names
+      // (e.g. a union at property `status` of `GetDataOutput` becomes
+      // `GetDataOutput_Status`, mirroring the SDL generator convention).
+      const nestedUnionName = unionTypeName
+        ? `${unionTypeName}_${capitalize(propName)}`
+        : undefined;
+      const nested = selectionFromJsonSchema(propSchema, depth + 1, nestedUnionName);
       if (nested) {
         fields.push(`${propName} ${nested}`);
       } else {
@@ -468,9 +475,32 @@ async function executeGraphQLRequest(
     throw clientError;
   }
 
-  // Check for errors
+  // P03-2: Check HTTP status before inspecting the body.
+  // A non-2xx response without a usable GraphQL errors array is an HTTP-level
+  // failure (e.g. gateway 401/500) and must not be silently treated as success.
+  if (!response.ok && (!json.errors || json.errors.length === 0)) {
+    const clientError = new GraphQLClientError(
+      `HTTP ${response.status} ${response.statusText}`,
+      [],
+      response,
+    );
+    if (config.onError) {
+      await config.onError(clientError);
+    }
+    throw clientError;
+  }
+
+  // Check for GraphQL errors.
+  // P03-3: When both `data` and `errors` are present (partial success), attach
+  // the partial data to the error so batch callers can recover resolved aliases.
   if (json.errors && json.errors.length > 0) {
-    const clientError = new GraphQLClientError(json.errors[0]!.message, json.errors, response);
+    const partialData = json.data && Object.keys(json.data).length > 0 ? json.data : undefined;
+    const clientError = new GraphQLClientError(
+      json.errors[0]!.message,
+      json.errors,
+      response,
+      partialData,
+    );
     if (config.onError) {
       await config.onError(clientError);
     }
