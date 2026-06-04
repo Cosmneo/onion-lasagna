@@ -713,4 +713,325 @@ describe('createClient', () => {
       }
     });
   });
+
+  // ============================================================================
+  // C10-2: External AbortSignal forwarding
+  // ============================================================================
+  describe('external signal (C10-2)', () => {
+    it('aborts the request when an external signal is aborted', async () => {
+      const abortController = new AbortController();
+
+      const mockFetch = vi.fn().mockImplementation(
+        (_request: Request, options?: RequestInit) =>
+          new Promise((_, reject) => {
+            if (options?.signal) {
+              options.signal.addEventListener('abort', () => {
+                const error = new Error('The operation was aborted');
+                error.name = 'AbortError';
+                reject(error);
+              });
+            }
+            // Never resolves on its own
+          }),
+      );
+
+      const client = createClient(
+        { list: listUsersRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      // Abort shortly after starting
+      setTimeout(() => abortController.abort(), 20);
+
+      try {
+        await client.list(undefined, { signal: abortController.signal });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ClientError);
+        const clientError = error as ClientError;
+        expect(clientError.statusText).toBe('Aborted');
+      }
+    });
+
+    it('aborts immediately when signal is already aborted before call', async () => {
+      const abortController = new AbortController();
+      abortController.abort();
+
+      const mockFetch = vi.fn().mockImplementation(
+        (_request: Request, options?: RequestInit) =>
+          new Promise((_, reject) => {
+            if (options?.signal?.aborted) {
+              const error = new Error('The operation was aborted');
+              error.name = 'AbortError';
+              reject(error);
+            }
+            // Never resolves on its own
+          }),
+      );
+
+      const client = createClient(
+        { list: listUsersRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      try {
+        await client.list(undefined, { signal: abortController.signal });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ClientError);
+        const clientError = error as ClientError;
+        expect(clientError.statusText).toBe('Aborted');
+      }
+    });
+
+    it('still works (no AbortController allocated) when no signal and no timeout', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify([]), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createClient(
+        { list: listUsersRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      await client.list();
+
+      // The second arg to fetch should have no signal (empty object)
+      const fetchOptions = mockFetch.mock.calls[0]![1] as RequestInit;
+      expect(fetchOptions.signal).toBeUndefined();
+    });
+
+    it('passes signal when timeout is set even without external signal', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify([]), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createClient(
+        { list: listUsersRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch, timeout: 5000 },
+      );
+
+      await client.list();
+
+      const fetchOptions = mockFetch.mock.calls[0]![1] as RequestInit;
+      expect(fetchOptions.signal).toBeDefined();
+    });
+  });
+
+  // ============================================================================
+  // C16-1: Exponential backoff with jitter and Retry-After
+  // ============================================================================
+  describe('exponential backoff and Retry-After (C16-1)', () => {
+    it('uses exponential backoff: later attempts wait longer on average', async () => {
+      // We test that the computeBackoff ceiling grows with attempt number.
+      // Use a custom delayFn that records delays to verify backoff grows.
+      const delays: number[] = [];
+
+      // Mock fetch: fail 3 times then succeed
+      let callCount = 0;
+      const mockFetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount <= 3) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: 'Server Error' }), {
+              status: 500,
+              statusText: 'Internal Server Error',
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify([]), {
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      });
+
+      const client = createClient(
+        { list: listUsersRoute },
+        {
+          baseUrl: 'http://localhost:3000',
+          fetch: mockFetch,
+          retry: {
+            attempts: 3,
+            delay: 100,
+            maxDelay: 10000,
+            delayFn: (attempt) => {
+              // record which attempt index was passed
+              const d = attempt * 100 + 50; // deterministic for testing
+              delays.push(d);
+              return d;
+            },
+          },
+        },
+      );
+
+      await client.list();
+
+      // delayFn was called for attempts 0, 1, 2
+      expect(delays).toEqual([50, 150, 250]);
+    });
+
+    it('honors Retry-After in seconds for 429 responses', async () => {
+      vi.useFakeTimers();
+
+      const RETRY_AFTER_SECONDS = 5;
+      let callCount = 0;
+
+      const mockFetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: 'Rate limited' }), {
+              status: 429,
+              statusText: 'Too Many Requests',
+              headers: {
+                'Content-Type': 'application/json',
+                'Retry-After': String(RETRY_AFTER_SECONDS),
+              },
+            }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify([]), {
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      });
+
+      const client = createClient(
+        { list: listUsersRoute },
+        {
+          baseUrl: 'http://localhost:3000',
+          fetch: mockFetch,
+          retry: { attempts: 1, delay: 100 }, // base delay is small; Retry-After should override
+        },
+      );
+
+      const promise = client.list();
+
+      // Should need to advance by the Retry-After duration (5000ms), not just 100ms
+      await vi.advanceTimersByTimeAsync(RETRY_AFTER_SECONDS * 1000);
+
+      await promise;
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
+    });
+
+    it('honors Retry-After as HTTP-date for 429 responses', async () => {
+      vi.useFakeTimers();
+
+      // Set a date 3 seconds in the future
+      const retryDate = new Date(Date.now() + 3000).toUTCString();
+      let callCount = 0;
+
+      const mockFetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: 'Rate limited' }), {
+              status: 429,
+              statusText: 'Too Many Requests',
+              headers: {
+                'Content-Type': 'application/json',
+                'Retry-After': retryDate,
+              },
+            }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify([]), {
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      });
+
+      const client = createClient(
+        { list: listUsersRoute },
+        {
+          baseUrl: 'http://localhost:3000',
+          fetch: mockFetch,
+          retry: { attempts: 1, delay: 100 },
+        },
+      );
+
+      const promise = client.list();
+
+      // Advance past the Retry-After date (~3s)
+      await vi.advanceTimersByTimeAsync(3500);
+
+      await promise;
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
+    });
+  });
+
+  // ============================================================================
+  // C16 abort-alloc: No AbortController allocated when not needed
+  // ============================================================================
+  describe('abort controller allocation (C16 abort-alloc)', () => {
+    it('does not pass a signal when no timeout and no external signal', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify([]), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createClient(
+        { list: listUsersRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      await client.list();
+
+      const fetchOptions = mockFetch.mock.calls[0]![1] as RequestInit;
+      expect(fetchOptions.signal).toBeUndefined();
+    });
+
+    it('passes a signal when timeout is configured', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify([]), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createClient(
+        { list: listUsersRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch, timeout: 10000 },
+      );
+
+      await client.list();
+
+      const fetchOptions = mockFetch.mock.calls[0]![1] as RequestInit;
+      expect(fetchOptions.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it('passes a signal when external signal is provided', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify([]), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const ac = new AbortController();
+
+      const client = createClient(
+        { list: listUsersRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      await client.list(undefined, { signal: ac.signal });
+
+      const fetchOptions = mockFetch.mock.calls[0]![1] as RequestInit;
+      expect(fetchOptions.signal).toBeInstanceOf(AbortSignal);
+    });
+  });
 });

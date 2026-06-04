@@ -33,6 +33,7 @@
 export { createClient } from './create-client';
 export type {
   ClientConfig,
+  ClientCallOptions,
   ClientRequestInput,
   ClientResponse,
   ClientMethod,
