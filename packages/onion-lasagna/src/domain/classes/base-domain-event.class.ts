@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 /**
  * Base class for Domain Events in Domain-Driven Design.
  *
@@ -171,7 +173,7 @@ export abstract class BaseDomainEvent<TPayload = unknown> {
     eventId?: string,
     occurredOn?: Date,
   ) {
-    this._eventId = eventId ?? crypto.randomUUID();
+    this._eventId = eventId ?? randomUUID();
     this._eventName = eventName;
     this._aggregateId = aggregateId;
     // Clone the caller-supplied Date so external mutation doesn't affect the event (C01-2).

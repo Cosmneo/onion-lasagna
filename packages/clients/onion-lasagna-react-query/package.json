@@ -31,8 +31,8 @@
   "peerDependencies": {
     "@tanstack/react-query": "^5",
     "react": "^18 || ^19",
-    "@cosmneo/onion-lasagna": ">=0.4.1",
-    "@cosmneo/onion-lasagna-client": ">=0.4.1"
+    "@cosmneo/onion-lasagna": "^0.4.1",
+    "@cosmneo/onion-lasagna-client": "^0.4.1"
   },
   "scripts": {
     "build": "tsup",
