@@ -118,6 +118,14 @@ export function generateOpenAPI<T extends RouterConfig>(
     const operation = buildOperation(key, route);
     const method = route.method.toLowerCase() as keyof OpenAPIPathItem;
 
+    // Guard: detect duplicate path+method — silently overwriting would lose a route
+    if ((paths[openAPIPath] as Record<string, OpenAPIOperation>)[method] !== undefined) {
+      throw new Error(
+        `Duplicate route: ${route.method.toUpperCase()} ${openAPIPath} is defined more than once. ` +
+          `Each path+method combination must be unique in a router.`,
+      );
+    }
+
     (paths[openAPIPath] as Record<string, OpenAPIOperation>)[method] = operation;
 
     // Collect tags
@@ -234,6 +242,11 @@ function buildParameters(route: RouteDefinition): OpenAPIParameter[] {
   const parameters: OpenAPIParameter[] = [];
 
   // Path parameters
+  // Hoist toJsonSchema() call once per route (C16) instead of re-computing per path param.
+  const paramsJsonSchema = route.request.params
+    ? (route.request.params as SchemaAdapter).toJsonSchema()
+    : null;
+
   const pathParamNames = getPathParamNames(route.path);
   for (const name of pathParamNames) {
     const param: OpenAPIParameter = {
@@ -244,10 +257,9 @@ function buildParameters(route: RouteDefinition): OpenAPIParameter[] {
     };
 
     // If we have a params schema, try to get more info
-    if (route.request.params) {
-      const jsonSchema = (route.request.params as SchemaAdapter).toJsonSchema();
-      if (jsonSchema.properties && typeof jsonSchema.properties === 'object') {
-        const propSchema = (jsonSchema.properties as Record<string, unknown>)[name];
+    if (paramsJsonSchema) {
+      if (paramsJsonSchema.properties && typeof paramsJsonSchema.properties === 'object') {
+        const propSchema = (paramsJsonSchema.properties as Record<string, unknown>)[name];
         if (isValidJsonSchema(propSchema)) {
           (param as { schema: JsonSchema }).schema = propSchema;
         }

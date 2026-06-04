@@ -22,14 +22,35 @@ import type {
 } from './types';
 
 /**
+ * Encodes a string for use inside a JSON Pointer (RFC 6901).
+ *
+ * Per RFC 6901 §3:
+ *  - `~` must be encoded as `~0`
+ *  - `/` must be encoded as `~1`
+ *
+ * The order matters: ~ must be escaped before /.
+ *
+ * @param token - Raw token (e.g. an eventType string)
+ * @returns RFC6901-safe token for embedding in a $ref JSON Pointer
+ */
+function encodeJsonPointerToken(token: string): string {
+  return token.replace(/~/g, '~0').replace(/\//g, '~1');
+}
+
+/**
  * Generates an AsyncAPI 3.0 specification from an event router definition.
  *
  * This function walks the event router structure, extracts JSON schemas from
  * all handler payload definitions, and builds a complete AsyncAPI 3.0 specification.
  *
+ * Handler context schemas (event metadata) are included as message `headers`
+ * so that consumers can see the full message contract.
+ *
  * @param router - Event router definition or raw config
  * @param config - AsyncAPI configuration (info, servers, tags, etc.)
  * @returns Complete AsyncAPI specification
+ *
+ * @throws {Error} If two router keys produce the same camelCase handlerId (C07-5).
  *
  * @example
  * ```typescript
@@ -60,10 +81,26 @@ export function generateAsyncAPI<T extends EventRouterConfig>(
 
   for (const { key, handler } of handlers) {
     const handlerId = generateHandlerId(key);
+
+    // C07-5: Guard against duplicate handlerId — two keys that collapse to the same
+    // camelCase ID would silently drop the first operation.
+    if (operations[handlerId] !== undefined) {
+      throw new Error(
+        `Duplicate handlerId "${handlerId}": two event handlers produce the same identifier ` +
+          `after camelCase conversion. Rename one of the router keys to make them unique.`,
+      );
+    }
+
     const channelId = handler.eventType;
 
-    // Build message
-    const message = buildMessage(handler.eventType, handler.payload, handler.docs);
+    // RFC6901: the eventType is used raw as the channel key (it is a semantic address,
+    // not part of a JSON Pointer), but it MUST be escaped when interpolated into $ref
+    // pointers (e.g. `#/channels/<escaped>`). C07-8.
+    const escapedChannelId = encodeJsonPointerToken(channelId);
+    const escapedHandlerId = encodeJsonPointerToken(handlerId);
+
+    // Build message (includes payload + context/metadata schema)
+    const message = buildMessage(handler.eventType, handler.payload, handler.context, handler.docs);
 
     // Build channel (group by eventType — multiple handlers may share a channel)
     if (!channels[channelId]) {
@@ -76,11 +113,11 @@ export function generateAsyncAPI<T extends EventRouterConfig>(
     channelMessages[handlerId] = message;
     channels[channelId] = { ...channels[channelId]!, messages: channelMessages };
 
-    // Build operation (one per handler)
+    // Build operation (one per handler) — use RFC6901-escaped tokens in $refs
     const operation: AsyncAPIOperation = {
       action: 'receive',
-      channel: { $ref: `#/channels/${channelId}` },
-      messages: [{ $ref: `#/channels/${channelId}/messages/${handlerId}` }],
+      channel: { $ref: `#/channels/${escapedChannelId}` },
+      messages: [{ $ref: `#/channels/${escapedChannelId}/messages/${escapedHandlerId}` }],
     };
 
     if (handler.docs.summary) {
@@ -136,10 +173,14 @@ export function generateAsyncAPI<T extends EventRouterConfig>(
 
 /**
  * Builds an AsyncAPI message from a handler definition.
+ *
+ * - `payload` schema → message `payload` field
+ * - `context` schema → message `headers` field (runtime-validated event metadata)
  */
 function buildMessage(
   eventType: string,
   payload: unknown,
+  context: unknown,
   docs: {
     readonly summary?: string;
     readonly description?: string;
@@ -164,6 +205,13 @@ function buildMessage(
   if (payload) {
     const schema = (payload as SchemaAdapter).toJsonSchema();
     (message as { payload: typeof schema }).payload = schema;
+  }
+
+  // MISSED: context/metadata schema was not included in the generated doc.
+  // Map context → message `headers` (AsyncAPI 3.0 convention for envelope metadata).
+  if (context) {
+    const headersSchema = (context as SchemaAdapter).toJsonSchema();
+    (message as { headers: typeof headersSchema }).headers = headersSchema;
   }
 
   return message;

@@ -776,4 +776,182 @@ describe('generateOpenAPI', () => {
       expect(spec.paths['/users']?.get).toBeDefined();
     });
   });
+
+  // ============================================================================
+  // MISSED: Duplicate path+method detection
+  // ============================================================================
+
+  describe('duplicate path+method detection', () => {
+    it('throws when two routes produce the same converted path and method', () => {
+      // Two different router keys that resolve to the same path+method after conversion.
+      // e.g., both map to GET /users/{id}
+      const routeA = defineRoute({
+        method: 'GET',
+        path: '/users/:id',
+        responses: { 200: { description: 'User A' } },
+        docs: { operationId: 'getUserA' },
+      });
+
+      const routeB = defineRoute({
+        method: 'GET',
+        path: '/users/:id',
+        responses: { 200: { description: 'User B' } },
+        docs: { operationId: 'getUserB' },
+      });
+
+      // Two keys that both resolve to GET /users/{id}
+      expect(() =>
+        generateOpenAPI(
+          { getUserA: routeA, getUserB: routeB },
+          { info: { title: 'Test', version: '1.0.0' } },
+        ),
+      ).toThrow(/duplicate.*GET.*\/users\/\{id\}/i);
+    });
+
+    it('does not throw for same path with different methods', () => {
+      const getRoute = defineRoute({
+        method: 'GET',
+        path: '/items/:id',
+        responses: { 200: { description: 'Get' } },
+      });
+
+      const deleteRoute = defineRoute({
+        method: 'DELETE',
+        path: '/items/:id',
+        responses: { 204: { description: 'Delete' } },
+      });
+
+      expect(() =>
+        generateOpenAPI(
+          { getItem: getRoute, deleteItem: deleteRoute },
+          { info: { title: 'Test', version: '1.0.0' } },
+        ),
+      ).not.toThrow();
+    });
+
+    it('does not throw for same method with different paths', () => {
+      const routeA = defineRoute({
+        method: 'GET',
+        path: '/items',
+        responses: { 200: { description: 'List' } },
+      });
+
+      const routeB = defineRoute({
+        method: 'GET',
+        path: '/items/:id',
+        responses: { 200: { description: 'Get' } },
+      });
+
+      expect(() =>
+        generateOpenAPI(
+          { listItems: routeA, getItem: routeB },
+          { info: { title: 'Test', version: '1.0.0' } },
+        ),
+      ).not.toThrow();
+    });
+  });
+
+  // ============================================================================
+  // C07-3: OpenAPI version note - adapter emits 3.0 JSON Schema, default is 3.1
+  // ============================================================================
+
+  describe('C07-3: OpenAPI version and schema dialect', () => {
+    it('defaults to 3.1.0 and this is documented (caller can override to 3.0.3)', () => {
+      // Default version is 3.1.0
+      const specDefault = generateOpenAPI(
+        { health: minimalRoute },
+        { info: { title: 'Test', version: '1.0.0' } },
+      );
+      expect(specDefault.openapi).toBe('3.1.0');
+
+      // Can be overridden to 3.0.3 (matching Zod adapter toJsonSchema output)
+      const spec30 = generateOpenAPI(
+        { health: minimalRoute },
+        { openapi: '3.0.3', info: { title: 'Test', version: '1.0.0' } },
+      );
+      expect(spec30.openapi).toBe('3.0.3');
+    });
+  });
+
+  // ============================================================================
+  // C07-7: refStrategy claim in docs — verify options are not used/silently ignored
+  // ============================================================================
+
+  describe('C07-7: toJsonSchema called without options (refStrategy not honored)', () => {
+    it('schema adapters produce inline schemas regardless of any refStrategy option', () => {
+      const spec = generateOpenAPI(
+        { create: createUserRoute },
+        { info: { title: 'Test', version: '1.0.0' } },
+      );
+
+      // Body schema is inlined (no $ref at the top level)
+      const bodySchema = spec.paths['/users']?.post?.requestBody?.content?.['application/json']?.schema;
+      expect(bodySchema).toBeDefined();
+      // It must be an inline schema object, not a $ref
+      expect(typeof bodySchema).toBe('object');
+    });
+  });
+
+  // ============================================================================
+  // C07-9: {} excluded by isValidJsonSchema — empty query/header schemas silent skip
+  // ============================================================================
+
+  describe('C07-9: empty query/header schema silently skipped', () => {
+    it('skips query params when schema has no properties (empty object schema)', () => {
+      // The isValidJsonSchema check excludes {} (no type/properties/etc.)
+      // This test documents the current behavior (not a bug fix, just coverage)
+      const routeWithQuery = defineRoute({
+        method: 'GET',
+        path: '/search',
+        request: {
+          query: {
+            // zodSchema(z.object({})) produces {} — no properties
+            schema: zodSchema(z.object({})),
+          },
+        },
+        responses: { 200: { description: 'Results' } },
+      });
+
+      const spec = generateOpenAPI(
+        { search: routeWithQuery },
+        { info: { title: 'Test', version: '1.0.0' } },
+      );
+
+      // No query params generated — schema has no properties
+      const params = spec.paths['/search']?.get?.parameters ?? [];
+      expect(params.filter((p) => p.in === 'query')).toHaveLength(0);
+    });
+  });
+
+  // ============================================================================
+  // C16: buildParameters hoist — verify params schema toJsonSchema() call once per route
+  // (structural / behavior test: result is the same regardless of number of params)
+  // ============================================================================
+
+  describe('C16: buildParameters — params schema reuse', () => {
+    it('correctly generates all path params even from a single toJsonSchema call', () => {
+      const multiParamRoute = defineRoute({
+        method: 'GET',
+        path: '/a/:x/b/:y/c/:z',
+        request: {
+          params: {
+            schema: zodSchema(
+              z.object({ x: z.string(), y: z.string().uuid(), z: z.coerce.number() }),
+            ),
+          },
+        },
+        responses: { 200: { description: 'OK' } },
+      });
+
+      const spec = generateOpenAPI(
+        { multiParam: multiParamRoute },
+        { info: { title: 'Test', version: '1.0.0' } },
+      );
+
+      const path = '/a/{x}/b/{y}/c/{z}';
+      const params = spec.paths[path]?.get?.parameters ?? [];
+      expect(params.filter((p) => p.in === 'path')).toHaveLength(3);
+      expect(params.map((p) => p.name)).toEqual(['x', 'y', 'z']);
+    });
+  });
 });

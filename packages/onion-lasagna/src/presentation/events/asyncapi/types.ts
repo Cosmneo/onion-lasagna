@@ -134,6 +134,12 @@ export interface AsyncAPIMessage {
   readonly description?: string;
   readonly contentType?: string;
   readonly payload?: JsonSchema;
+  /**
+   * JSON Schema for the message headers / context metadata.
+   * Populated from the handler's `context` schema (runtime-validated event envelope).
+   * Maps to AsyncAPI 3.0 `message.headers`.
+   */
+  readonly headers?: JsonSchema;
   readonly tags?: readonly AsyncAPITag[];
   readonly deprecated?: boolean;
 }
