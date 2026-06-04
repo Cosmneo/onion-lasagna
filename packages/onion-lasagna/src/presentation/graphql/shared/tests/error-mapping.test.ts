@@ -16,7 +16,10 @@ import { UnprocessableError } from '../../../../app/exceptions/unprocessable.err
 import { ForbiddenError } from '../../../../app/exceptions/forbidden.error';
 import { UnauthorizedError } from '../../../../app/exceptions/unauthorized.error';
 import { DomainError } from '../../../../domain/exceptions/domain.error';
+import { PartialLoadError } from '../../../../domain/exceptions/partial-load.error';
 import { InfraError } from '../../../../infra/exceptions/infra.error';
+import { DbError } from '../../../../infra/exceptions/db.error';
+import { TimeoutError } from '../../../../infra/exceptions/timeout.error';
 import { AccessDeniedError } from '../../../exceptions/access-denied.error';
 
 describe('getGraphQLErrorCode', () => {
@@ -28,8 +31,11 @@ describe('getGraphQLErrorCode', () => {
     expect(getGraphQLErrorCode(error)).toBe('VALIDATION_ERROR');
   });
 
-  it('maps UnauthorizedError to FORBIDDEN', () => {
-    expect(getGraphQLErrorCode(new UnauthorizedError({ message: 'No auth' }))).toBe('FORBIDDEN');
+  // C06-8 / P01-5 — UnauthorizedError must map to UNAUTHENTICATED (HTTP 401), not FORBIDDEN
+  it('maps UnauthorizedError to UNAUTHENTICATED (distinct from FORBIDDEN)', () => {
+    expect(getGraphQLErrorCode(new UnauthorizedError({ message: 'No auth' }))).toBe(
+      'UNAUTHENTICATED',
+    );
   });
 
   it('maps ForbiddenError to FORBIDDEN', () => {
@@ -38,6 +44,30 @@ describe('getGraphQLErrorCode', () => {
 
   it('maps AccessDeniedError to FORBIDDEN', () => {
     expect(getGraphQLErrorCode(new AccessDeniedError({ message: 'Denied' }))).toBe('FORBIDDEN');
+  });
+
+  // C06-8 — UNAUTHENTICATED and FORBIDDEN must be distinct
+  it('UnauthorizedError and ForbiddenError produce different codes', () => {
+    const unauthCode = getGraphQLErrorCode(new UnauthorizedError({ message: 'No token' }));
+    const forbiddenCode = getGraphQLErrorCode(new ForbiddenError({ message: 'No permission' }));
+    expect(unauthCode).not.toBe(forbiddenCode);
+    expect(unauthCode).toBe('UNAUTHENTICATED');
+    expect(forbiddenCode).toBe('FORBIDDEN');
+  });
+
+  // C04-2 / C15-1 — DbError must map to INTERNAL_ERROR
+  it('maps DbError to INTERNAL_ERROR', () => {
+    expect(getGraphQLErrorCode(new DbError({ message: 'query failed' }))).toBe('INTERNAL_ERROR');
+  });
+
+  it('maps TimeoutError to INTERNAL_ERROR', () => {
+    expect(getGraphQLErrorCode(new TimeoutError({ message: 'timed out' }))).toBe('INTERNAL_ERROR');
+  });
+
+  it('maps PartialLoadError to INTERNAL_ERROR', () => {
+    expect(getGraphQLErrorCode(new PartialLoadError({ message: 'not loaded' }))).toBe(
+      'INTERNAL_ERROR',
+    );
   });
 
   it('maps NotFoundError to NOT_FOUND', () => {
@@ -70,6 +100,26 @@ describe('shouldMaskGraphQLError', () => {
 
   it('masks InfraError', () => {
     expect(shouldMaskGraphQLError(new InfraError({ message: 'db failed' }))).toBe(true);
+  });
+
+  // C04-2 / C15-1 — InfraError subclasses must be masked
+  it('masks DbError (InfraError subclass)', () => {
+    expect(shouldMaskGraphQLError(new DbError({ message: 'SELECT failed' }))).toBe(true);
+  });
+
+  it('masks TimeoutError (InfraError subclass)', () => {
+    expect(shouldMaskGraphQLError(new TimeoutError({ message: 'timed out' }))).toBe(true);
+  });
+
+  it('masks PartialLoadError (DomainError subclass)', () => {
+    expect(shouldMaskGraphQLError(new PartialLoadError({ message: 'not loaded' }))).toBe(true);
+  });
+
+  // C04-2 — cross-realm: mangled constructor.name must still be masked
+  it('masks DbError with mangled constructor name (_DbError)', () => {
+    const error = new DbError({ message: 'raw driver text' });
+    Object.defineProperty(error.constructor, 'name', { value: '_DbError' });
+    expect(shouldMaskGraphQLError(error)).toBe(true);
   });
 
   it('does not mask UseCaseError', () => {
@@ -135,5 +185,54 @@ describe('mapErrorToGraphQLError', () => {
 
     expect(result.message).toBe('User not found');
     expect(result.extensions.code).toBe('NOT_FOUND');
+  });
+
+  // C04-2 / C15-1 — DbError message must not leak in GraphQL response
+  it('masks DbError — raw DB driver text does not appear in GraphQL response', () => {
+    const error = new DbError({
+      message: 'FATAL: password authentication failed for user "app"',
+    });
+    const result = mapErrorToGraphQLError(error);
+    expect(result.message).toBe('An unexpected error occurred');
+    expect(result.extensions.code).toBe('INTERNAL_ERROR');
+    expect(result.message).not.toContain('password');
+  });
+
+  it('masks TimeoutError in GraphQL response', () => {
+    const error = new TimeoutError({ message: 'query timed out on host db-primary' });
+    const result = mapErrorToGraphQLError(error);
+    expect(result.message).toBe('An unexpected error occurred');
+    expect(result.message).not.toContain('db-primary');
+  });
+
+  it('masks PartialLoadError in GraphQL response', () => {
+    const error = new PartialLoadError({ message: 'user.roles not loaded from private repo' });
+    const result = mapErrorToGraphQLError(error);
+    expect(result.message).toBe('An unexpected error occurred');
+    expect(result.message).not.toContain('roles');
+  });
+
+  // C06-8 / P01-5 — UnauthorizedError must surface as UNAUTHENTICATED in GraphQL
+  it('maps UnauthorizedError to UNAUTHENTICATED extension code', () => {
+    const result = mapErrorToGraphQLError(new UnauthorizedError({ message: 'Token expired' }));
+    expect(result.extensions.code).toBe('UNAUTHENTICATED');
+    expect(result.message).toBe('Token expired');
+  });
+
+  it('maps ForbiddenError to FORBIDDEN extension code (not UNAUTHENTICATED)', () => {
+    const result = mapErrorToGraphQLError(new ForbiddenError({ message: 'Insufficient role' }));
+    expect(result.extensions.code).toBe('FORBIDDEN');
+    expect(result.extensions.code).not.toBe('UNAUTHENTICATED');
+  });
+
+  // C04 nit — mutable singleton: mutating one masked GraphQL error must not affect the next
+  it('does not share state between masked GraphQL error objects (mutable singleton fix)', () => {
+    const result1 = mapErrorToGraphQLError(new DbError({ message: 'db error 1' }));
+    // Mutate the returned object
+    (result1 as Record<string, unknown>)['message'] = 'POISONED';
+
+    const result2 = mapErrorToGraphQLError(new TimeoutError({ message: 'timeout 2' }));
+    expect(result2.message).toBe('An unexpected error occurred');
+    expect(result2.message).not.toBe('POISONED');
   });
 });

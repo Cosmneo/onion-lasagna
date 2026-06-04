@@ -13,11 +13,14 @@ import {
 } from '../error-mapping';
 import { ObjectValidationError } from '../../../../global/exceptions/object-validation.error';
 import { DomainError } from '../../../../domain/exceptions/domain.error';
+import { PartialLoadError } from '../../../../domain/exceptions/partial-load.error';
 import { UseCaseError } from '../../../../app/exceptions/use-case.error';
 import { NotFoundError } from '../../../../app/exceptions/not-found.error';
 import { ConflictError } from '../../../../app/exceptions/conflict.error';
 import { UnprocessableError } from '../../../../app/exceptions/unprocessable.error';
 import { InfraError } from '../../../../infra/exceptions/infra.error';
+import { DbError } from '../../../../infra/exceptions/db.error';
+import { TimeoutError } from '../../../../infra/exceptions/timeout.error';
 import { ControllerError } from '../../../exceptions/controller.error';
 import { AccessDeniedError } from '../../../exceptions/access-denied.error';
 import { InvalidRequestError } from '../../../exceptions/invalid-request.error';
@@ -101,6 +104,31 @@ describe('error-mapping', () => {
 
     it('returns true for ControllerError', () => {
       const error = new ControllerError({ message: 'Controller error' });
+      expect(shouldMaskError(error)).toBe(true);
+    });
+
+    // C04-1 / C15-1 — InfraError subclasses must be masked
+    it('returns true for DbError (InfraError subclass)', () => {
+      const error = new DbError({ message: 'SELECT failed' });
+      expect(shouldMaskError(error)).toBe(true);
+    });
+
+    it('returns true for TimeoutError (InfraError subclass)', () => {
+      const error = new TimeoutError({ message: 'query timed out after 5 s' });
+      expect(shouldMaskError(error)).toBe(true);
+    });
+
+    // C04-1 / C15-1 — DomainError subclasses must be masked
+    it('returns true for PartialLoadError (DomainError subclass)', () => {
+      const error = new PartialLoadError({ message: 'relation not loaded' });
+      expect(shouldMaskError(error)).toBe(true);
+    });
+
+    // C04-1 cross-realm / mangled constructor.name simulation
+    it('returns true for DbError with mangled constructor name (_DbError)', () => {
+      // Simulate tsup bundle renaming: constructor.name becomes "_DbError"
+      const error = new DbError({ message: 'raw driver text that must not leak' });
+      Object.defineProperty(error.constructor, 'name', { value: '_DbError' });
       expect(shouldMaskError(error)).toBe(true);
     });
 
@@ -188,6 +216,51 @@ describe('error-mapping', () => {
       const body = createErrorResponseBody(new Error('Unknown'));
       expect(body.message).toBe('An unexpected error occurred');
       expect(body.errorCode).toBe('INTERNAL_ERROR');
+    });
+
+    // C04-1 / C15-1 — DbError message must not leak
+    it('masks DbError — raw DB driver text does not appear in response', () => {
+      const error = new DbError({ message: 'FATAL: password authentication failed for user "app"' });
+      const body = createErrorResponseBody(error);
+      expect(body.message).toBe('An unexpected error occurred');
+      expect(body.errorCode).toBe('INTERNAL_ERROR');
+      expect(body.message).not.toContain('password');
+    });
+
+    it('masks TimeoutError — timeout details do not appear in response', () => {
+      const error = new TimeoutError({ message: 'query timed out after 30 s on host db-primary' });
+      const body = createErrorResponseBody(error);
+      expect(body.message).toBe('An unexpected error occurred');
+      expect(body.message).not.toContain('db-primary');
+    });
+
+    it('masks PartialLoadError — internal domain state does not appear in response', () => {
+      const error = new PartialLoadError({ message: 'user.roles relation not loaded from repo' });
+      const body = createErrorResponseBody(error);
+      expect(body.message).toBe('An unexpected error occurred');
+      expect(body.message).not.toContain('roles');
+    });
+
+    // C04-1 — cross-realm: mangled constructor.name must still be masked
+    it('masks DbError with mangled constructor name (_DbError) — message does not leak', () => {
+      const error = new DbError({ message: 'connection string: postgres://user:secret@host' });
+      Object.defineProperty(error.constructor, 'name', { value: '_DbError' });
+      const body = createErrorResponseBody(error);
+      expect(body.message).toBe('An unexpected error occurred');
+      expect(body.message).not.toContain('secret');
+    });
+
+    // C04 nit — mutable singleton: mutating one masked response body must not affect the next
+    it('does not share state between masked response bodies (mutable singleton fix)', () => {
+      const error1 = new DbError({ message: 'first db error' });
+      const body1 = createErrorResponseBody(error1);
+      // Mutate the returned body
+      (body1 as Record<string, unknown>)['message'] = 'POISONED';
+
+      const error2 = new TimeoutError({ message: 'second timeout' });
+      const body2 = createErrorResponseBody(error2);
+      expect(body2.message).toBe('An unexpected error occurred');
+      expect(body2.message).not.toBe('POISONED');
     });
   });
 

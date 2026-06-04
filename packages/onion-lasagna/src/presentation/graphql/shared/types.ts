@@ -12,6 +12,7 @@
  */
 export type GraphQLErrorCode =
   | 'VALIDATION_ERROR'
+  | 'UNAUTHENTICATED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'CONFLICT'

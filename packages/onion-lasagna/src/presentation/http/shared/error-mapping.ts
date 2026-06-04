@@ -28,23 +28,34 @@ import type { ErrorResponseBody, MappedErrorResponse } from './types';
 
 /**
  * Default masked error response for internal errors.
+ * Returned by reference — callers must not mutate it.
+ * A fresh shallow copy is returned from createErrorResponseBody to prevent
+ * one consumer's mutation from poisoning subsequent responses (C04 nit).
  */
-const MASKED_ERROR_BODY: ErrorResponseBody = {
+const MASKED_ERROR_BODY: ErrorResponseBody = Object.freeze({
   message: 'An unexpected error occurred',
   errorCode: 'INTERNAL_ERROR',
-};
+}) as ErrorResponseBody;
 
 /**
- * Known internal error type names that should be masked.
+ * Known internal error type names that should be masked (C04-1 / C15-1).
+ * Includes all concrete subclasses of DomainError and InfraError so that
+ * cross-bundle duplicate-class scenarios (where instanceof fails) are still
+ * caught by the name-check fallback.
+ * 'PersistenceError' is intentionally absent — it does not exist (C04-4 / C15-2).
  */
 const INTERNAL_ERROR_TYPES = [
   'DomainError',
   'InfraError',
   'ControllerError',
   'NetworkError',
-  'PersistenceError',
   'ExternalServiceError',
   'InvariantViolationError',
+  // InfraError subclasses
+  'DbError',
+  'TimeoutError',
+  // DomainError subclasses
+  'PartialLoadError',
 ];
 
 /**
@@ -202,6 +213,8 @@ export function getHttpStatusCode(error: unknown): number {
  * Security-sensitive errors (domain, infrastructure, controller) are masked
  * to prevent leaking implementation details.
  * Uses instanceof first, then falls back to name-based checking for bundled code.
+ * As a final defence-in-depth layer, any error that maps to HTTP 500 is also
+ * masked so future subclasses cannot silently bypass masking (C04-1 / C15-1).
  *
  * @param error - The error to check
  * @returns True if error details should be hidden
@@ -216,11 +229,17 @@ export function shouldMaskError(error: unknown): boolean {
     return true;
   }
 
-  // Fall back to name-based checking for bundled code
+  // Fall back to name-based checking for bundled code (handles cross-realm / mangled names)
   for (const errorType of INTERNAL_ERROR_TYPES) {
     if (isErrorType(error, errorType)) {
       return true;
     }
+  }
+
+  // Defence-in-depth: any error that resolves to HTTP 500 should be masked,
+  // even if it is a future subclass not yet listed above.
+  if (getHttpStatusCode(error) === 500) {
+    return true;
   }
 
   return false;
@@ -234,9 +253,11 @@ export function shouldMaskError(error: unknown): boolean {
  * @returns Error response body
  */
 export function createErrorResponseBody(error: unknown): ErrorResponseBody {
-  // Masked errors - hide internal details
+  // Masked errors - hide internal details.
+  // Return a fresh shallow copy so a consumer mutating one response body
+  // does not poison subsequent responses (C04 nit — mutable singleton).
   if (shouldMaskError(error)) {
-    return MASKED_ERROR_BODY;
+    return { ...MASKED_ERROR_BODY };
   }
 
   // Validation errors - include field details (try instanceof first)
@@ -277,8 +298,8 @@ export function createErrorResponseBody(error: unknown): ErrorResponseBody {
     return buildSimpleErrorBody((error as CodedErrorLike).message, (error as CodedErrorLike).code);
   }
 
-  // Unknown errors - mask
-  return MASKED_ERROR_BODY;
+  // Unknown errors - mask (fresh copy for same reason as above)
+  return { ...MASKED_ERROR_BODY };
 }
 
 /**

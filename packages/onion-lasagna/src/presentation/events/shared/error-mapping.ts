@@ -18,6 +18,9 @@ import type { EventResult } from './types';
 /**
  * Error types that indicate permanent failures (send to DLQ).
  * These errors will not resolve on retry.
+ * Includes concrete DomainError subclasses so cross-realm name-checks work
+ * even when instanceof fails (C04-1 / C15-1).
+ * 'PersistenceError' is intentionally absent — it does not exist (C04-4 / C15-2).
  */
 const DLQ_ERROR_TYPES = [
   'ObjectValidationError',
@@ -29,11 +32,14 @@ const DLQ_ERROR_TYPES = [
   'ForbiddenError',
   'UnauthorizedError',
   'InvariantViolationError',
+  // DomainError subclasses
+  'PartialLoadError',
 ];
 
 /**
  * Error types that indicate transient failures (retry).
  * These errors may resolve on subsequent attempts.
+ * 'PersistenceError' is intentionally absent — it does not exist (C04-4 / C15-2).
  */
 const RETRY_ERROR_TYPES = [
   'NotFoundError',
@@ -43,7 +49,6 @@ const RETRY_ERROR_TYPES = [
   'NetworkError',
   'TimeoutError',
   'ExternalServiceError',
-  'PersistenceError',
 ];
 
 // ============================================================================
