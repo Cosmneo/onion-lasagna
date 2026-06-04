@@ -29,6 +29,10 @@ import { InfraError } from './infra.error';
  * @extends InfraError
  */
 export class ExternalServiceError extends InfraError {
+  protected override get errorTypeName(): string {
+    return 'ExternalServiceError';
+  }
+
   /**
    * Creates a new ExternalServiceError instance.
    *

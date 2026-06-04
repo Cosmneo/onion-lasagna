@@ -28,6 +28,10 @@ import { ErrorCodes, type DomainErrorCode } from '../../global/exceptions/error-
  * ```
  */
 export class DomainError extends CodedError {
+  protected override get errorTypeName(): string {
+    return 'DomainError';
+  }
+
   /**
    * Creates a new DomainError instance.
    *

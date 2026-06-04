@@ -32,6 +32,10 @@ import { ErrorCodes, type AppErrorCode } from '../../global/exceptions/error-cod
  * ```
  */
 export class UseCaseError extends CodedError {
+  protected override get errorTypeName(): string {
+    return 'UseCaseError';
+  }
+
   /**
    * Creates a new UseCaseError instance.
    *

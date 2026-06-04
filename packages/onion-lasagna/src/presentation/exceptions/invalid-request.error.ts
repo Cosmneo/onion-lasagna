@@ -37,6 +37,10 @@ import type { ValidationError } from '../../global/interfaces/types/validation-e
  * @extends CodedError
  */
 export class InvalidRequestError extends CodedError {
+  protected override get errorTypeName(): string {
+    return 'InvalidRequestError';
+  }
+
   /**
    * Array of field-level validation errors.
    *

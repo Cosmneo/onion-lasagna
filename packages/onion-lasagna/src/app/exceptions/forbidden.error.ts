@@ -49,6 +49,10 @@ import { UseCaseError } from './use-case.error';
  * @extends UseCaseError
  */
 export class ForbiddenError extends UseCaseError {
+  protected override get errorTypeName(): string {
+    return 'ForbiddenError';
+  }
+
   /**
    * Creates a new ForbiddenError instance.
    *

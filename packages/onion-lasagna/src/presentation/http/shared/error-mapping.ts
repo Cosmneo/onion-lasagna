@@ -7,7 +7,7 @@
  * @module http/shared/error-mapping
  */
 
-import { CodedError } from '../../../global/exceptions/coded-error.error';
+import { CodedError, getErrorTypeName } from '../../../global/exceptions/coded-error.error';
 import { ObjectValidationError } from '../../../global/exceptions/object-validation.error';
 import { DomainError } from '../../../domain/exceptions/domain.error';
 import { UseCaseError } from '../../../app/exceptions/use-case.error';
@@ -96,9 +96,12 @@ interface CodedErrorLike {
 // ============================================================================
 
 /**
- * Checks if error matches a specific error type by checking its constructor name.
- * This approach avoids issues with multiple class instances in bundled code.
- * Handles both original names and tsup's mangled names (prefixed with _).
+ * Checks if error matches a specific error type.
+ *
+ * Checks in order:
+ * 1. Stable symbol brand (`CODED_ERROR_TYPE`) — minification-proof source literal
+ * 2. Constructor name fallback — handles cross-realm / non-branded errors
+ * 3. Mangled name fallback — tsup prefixes class names with `_`
  *
  * @param error - The error to check
  * @param typeName - The error type name to match
@@ -106,6 +109,9 @@ interface CodedErrorLike {
  */
 export function isErrorType(error: unknown, typeName: string): error is CodedErrorLike {
   if (!error || typeof error !== 'object') return false;
+  // 1. Brand check: stable even when constructor.name is mangled by a bundler.
+  if (getErrorTypeName(error) === typeName) return true;
+  // 2. Constructor name fallback for non-branded errors (cross-realm, etc.)
   // Guard against objects without constructor (e.g., Object.create(null))
   const constructor = Object.prototype.hasOwnProperty.call(error, 'constructor')
     ? (error as { constructor?: { name?: string } }).constructor

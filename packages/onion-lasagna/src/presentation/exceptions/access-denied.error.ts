@@ -37,6 +37,10 @@ import { ErrorCodes, type PresentationErrorCode } from '../../global/exceptions/
  * @extends CodedError
  */
 export class AccessDeniedError extends CodedError {
+  protected override get errorTypeName(): string {
+    return 'AccessDeniedError';
+  }
+
   /**
    * Creates a new AccessDeniedError instance.
    *

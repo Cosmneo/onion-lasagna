@@ -29,6 +29,10 @@ import { InfraError } from './infra.error';
  * @extends InfraError
  */
 export class DbError extends InfraError {
+  protected override get errorTypeName(): string {
+    return 'DbError';
+  }
+
   /**
    * Creates a new DbError instance.
    *

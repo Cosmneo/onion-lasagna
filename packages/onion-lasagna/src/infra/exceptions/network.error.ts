@@ -29,6 +29,10 @@ import { InfraError } from './infra.error';
  * @extends InfraError
  */
 export class NetworkError extends InfraError {
+  protected override get errorTypeName(): string {
+    return 'NetworkError';
+  }
+
   /**
    * Creates a new NetworkError instance.
    *

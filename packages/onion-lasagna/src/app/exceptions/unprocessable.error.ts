@@ -25,6 +25,10 @@ import { UseCaseError } from './use-case.error';
  * @extends UseCaseError
  */
 export class UnprocessableError extends UseCaseError {
+  protected override get errorTypeName(): string {
+    return 'UnprocessableError';
+  }
+
   /**
    * Creates a new UnprocessableError instance.
    *

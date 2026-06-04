@@ -33,6 +33,10 @@ import { ErrorCodes, type InfraErrorCode } from '../../global/exceptions/error-c
  * ```
  */
 export class InfraError extends CodedError {
+  protected override get errorTypeName(): string {
+    return 'InfraError';
+  }
+
   /**
    * Creates a new InfraError instance.
    *

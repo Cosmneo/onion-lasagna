@@ -10,6 +10,15 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       exclude: ['node_modules', 'dist', '**/*.test.ts', '**/*.spec.ts', 'vitest.config.ts'],
+      // C14 — coverage thresholds set ~5 percentage points below the measured
+      // baseline (stmts 90.46 / branches 83.23 / funcs 96.14 / lines 93.32)
+      // so CI catches regressions without being brittle.
+      thresholds: {
+        statements: 85,
+        branches: 78,
+        functions: 91,
+        lines: 88,
+      },
     },
     testTimeout: 10000,
     hookTimeout: 10000,
