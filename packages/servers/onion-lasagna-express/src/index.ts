@@ -13,7 +13,7 @@
  * app.use(express.json());
  *
  * const routes = serverRoutes(router)
- *   .handle('...', { requestMapper, useCase, responseMapper })
+ *   .handleWithUseCase('...', { requestMapper, useCase, responseMapper })
  *   .build();
  * registerExpressRoutes(app, routes, { prefix: '/api/v1' });
  *
