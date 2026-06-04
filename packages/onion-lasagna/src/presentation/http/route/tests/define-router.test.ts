@@ -252,6 +252,20 @@ describe('mergeRouters', () => {
 });
 
 // ============================================================================
+// Zero-arg guard (C12-3)
+// ============================================================================
+
+describe('mergeRouters (zero-arg guard, C12-3)', () => {
+  it('returns an empty router when called with zero arguments', () => {
+    // Should NOT throw a TypeError from Array.prototype.reduce on empty array.
+    // @ts-expect-error — testing runtime guard for the 0-arg case
+    const merged = mergeRouters();
+    expect(merged._isRouter).toBe(true);
+    expect(merged.routes).toEqual({});
+  });
+});
+
+// ============================================================================
 // Variadic merge
 // ============================================================================
 

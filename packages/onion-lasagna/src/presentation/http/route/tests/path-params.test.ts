@@ -2,7 +2,8 @@
  * @fileoverview Tests for path parameter utilities.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, expectTypeOf } from 'vitest';
+import type { ExtractPathParamNames } from '../types/path-params.type';
 import {
   pathToRegex,
   getPathParamNames,
@@ -156,6 +157,62 @@ describe('path-params', () => {
         postId: '2',
       });
       expect(result).toBe('/users/1/posts/2');
+    });
+
+    // C12-1: shorter param name must not corrupt a longer param name that shares a prefix.
+    // Bug: String.replace(':user', 'alice') is NOT word-boundary-aware, so it will match
+    // ':user' inside ':userId'. If 'user' is an extra key in params (not in the template
+    // but sharing a prefix with 'userId'), it corrupts ':userId' -> 'aliceId'.
+    it('does not corrupt a colon param when a prefix-key exists in params but not in path (C12-1)', () => {
+      // 'user' is NOT in the path but 'userId' is; 'user' key comes first in iteration order.
+      const params: Record<string, string> = {};
+      params['user'] = 'alice'; // extra key, not a placeholder in this template
+      params['userId'] = 'bob';
+      const result = buildPath('/profile/:userId', params);
+      // Bug produces '/profile/aliceId'; correct result is '/profile/bob'.
+      expect(result).toBe('/profile/bob');
+    });
+
+    it('brace syntax is not susceptible to prefix corruption (C12-1 sanity check)', () => {
+      // {user} is not a substring of {userId} so no corruption even before fix.
+      // This test documents the safe behaviour is preserved post-fix.
+      const params: Record<string, string> = {};
+      params['user'] = 'alice';
+      params['userId'] = 'bob';
+      const result = buildPath('/profile/{userId}', params);
+      expect(result).toBe('/profile/bob');
+    });
+
+    // C12-2: repeated placeholder must be replaced everywhere
+    it('replaces all occurrences of a repeated colon param (C12-2)', () => {
+      const result = buildPath('/a/:id/b/:id', { id: '7' });
+      expect(result).toBe('/a/7/b/7');
+    });
+
+    it('replaces all occurrences of a repeated brace param (C12-2)', () => {
+      const result = buildPath('/a/{id}/b/{id}', { id: '7' });
+      expect(result).toBe('/a/7/b/7');
+    });
+  });
+
+  // MISSED: type-level parser should reject non-identifier tokens after ':'
+  describe('ExtractPathParamNames type-level (MISSED)', () => {
+    it('does not extract non-identifier text after colon (e.g. time segment 12:30)', () => {
+      // The type must resolve to `never` for a path like '/time/12:30'
+      // because '30' is not an identifier-shaped param (it starts with a digit).
+      expectTypeOf<ExtractPathParamNames<'/time/12:30'>>().toEqualTypeOf<never>();
+    });
+
+    it('still extracts valid identifier params', () => {
+      expectTypeOf<ExtractPathParamNames<'/users/:id'>>().toEqualTypeOf<'id'>();
+    });
+
+    it('extracts underscore-prefixed identifiers', () => {
+      expectTypeOf<ExtractPathParamNames<'/users/:_id'>>().toEqualTypeOf<'_id'>();
+    });
+
+    it('does not extract a param starting with a digit', () => {
+      expectTypeOf<ExtractPathParamNames<'/:123bad'>>().toEqualTypeOf<never>();
     });
   });
 

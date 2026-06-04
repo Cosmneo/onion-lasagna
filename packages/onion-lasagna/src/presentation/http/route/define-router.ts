@@ -496,6 +496,9 @@ export function mergeRouters(
 export function mergeRouters(
   ...routers: RouterInput<RouterConfig>[]
 ): RouterDefinition<RouterConfig> {
+  // C12-3: guard the zero-argument case — Array.prototype.reduce with no initial
+  // value throws a TypeError on an empty array.
+  if (routers.length === 0) return defineRouter({});
   const merged = routers.map(extractRoutes).reduce(deepMergeConfigs);
   return defineRouter(merged);
 }
