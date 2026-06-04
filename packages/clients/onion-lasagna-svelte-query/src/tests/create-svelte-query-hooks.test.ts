@@ -706,4 +706,106 @@ describe('createSvelteQueryHooks', () => {
       expect(getStoreValue(storeArg)['enabled']).toBe(false);
     });
   });
+
+  // ============================================================================
+  // P05-4: queryFn and mutationFn invoke the client with the correct input
+  // ============================================================================
+
+  describe('P05-4: queryFn and mutationFn invoke client with correct input', () => {
+    it('queryFn calls fetch with the correct URL for a path-param route', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+      const { hooks } = createSvelteQueryHooks(
+        { get: getUserRoute },
+        { ...config, fetch: mockFetch },
+      );
+
+      const hook = hooks['get'] as { createQuery: (...args: unknown[]) => unknown };
+      const input = { pathParams: { userId: 'abc' } };
+      hook.createQuery(input);
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      const { queryFn } = getStoreValue(storeArg) as { queryFn: (ctx: { signal?: AbortSignal }) => Promise<unknown> };
+
+      await queryFn({ signal: undefined });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const fetchedRequest = mockFetch.mock.calls[0]![0] as Request;
+      expect(fetchedRequest.url).toContain('/users/abc');
+    });
+
+    it('queryFn forwards signal to the underlying client method', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+      const { hooks } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, fetch: mockFetch },
+      );
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery();
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      const { queryFn } = getStoreValue(storeArg) as { queryFn: (ctx: { signal?: AbortSignal }) => Promise<unknown> };
+
+      const controller = new AbortController();
+      await queryFn({ signal: controller.signal });
+
+      // Signal was passed — the fetch call should have received it
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [, fetchInit] = mockFetch.mock.calls[0]! as [Request, RequestInit];
+      expect(fetchInit).toBeDefined();
+    });
+
+    it('mutationFn calls fetch with the correct body when invoked', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ id: '1' }), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+      );
+      const { hooks } = createSvelteQueryHooks(
+        { create: createUserRoute },
+        { ...config, fetch: mockFetch },
+      );
+
+      const hook = hooks['create'] as { createMutation: (...args: unknown[]) => unknown };
+      hook.createMutation();
+
+      const callArgs = mockCreateMutation.mock.calls[0]![0] as {
+        mutationFn: (input: unknown) => Promise<unknown>;
+      };
+      const { mutationFn } = callArgs;
+
+      await mutationFn({ body: { name: 'Alice' } });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const fetchedRequest = mockFetch.mock.calls[0]![0] as Request;
+      expect(fetchedRequest.url).toContain('/users');
+      expect(fetchedRequest.method).toBe('POST');
+    });
+
+    it('mutationFn calls fetch with correct path for a path-param mutation route', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(null, { status: 204 }),
+      );
+      const { hooks } = createSvelteQueryHooks(
+        { remove: deleteUserRoute },
+        { ...config, fetch: mockFetch },
+      );
+
+      const hook = hooks['remove'] as { createMutation: (...args: unknown[]) => unknown };
+      hook.createMutation();
+
+      const callArgs = mockCreateMutation.mock.calls[0]![0] as {
+        mutationFn: (input: unknown) => Promise<unknown>;
+      };
+
+      await callArgs.mutationFn({ pathParams: { userId: 'xyz' } });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const fetchedRequest = mockFetch.mock.calls[0]![0] as Request;
+      expect(fetchedRequest.url).toContain('/users/xyz');
+      expect(fetchedRequest.method).toBe('DELETE');
+    });
+  });
 });

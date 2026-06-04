@@ -54,13 +54,22 @@ export type HookResponse<TRoute extends RouteDefinition> =
   TRoute['_types']['response'] extends undefined ? void : TRoute['_types']['response'];
 
 /**
- * Checks if a route requires input (has body, params, or required query).
+ * Checks if a route requires input (has body, params, or at least one required query field).
+ *
+ * P06-1: A route also requires input when it has a query type whose required fields cannot
+ * be satisfied by an empty object `{}`.  The `{} extends TQuery` check returns `true` when
+ * ALL query fields are optional (so input is not required) and `false` when at least one
+ * field is required (so input IS required).
  */
 type RequiresInput<TRoute extends RouteDefinition> =
   HasPathParams<TRoute['path']> extends true
     ? true
     : TRoute['_types']['body'] extends undefined
-      ? false
+      ? TRoute['_types']['query'] extends undefined
+        ? false
+        : {} extends TRoute['_types']['query']
+          ? false
+          : true
       : true;
 
 // ============================================================================
@@ -125,11 +134,12 @@ export type InferHooks<T extends RouterConfig> = {
 /**
  * A callable query key function that returns a key array.
  * When called with input, appends it to the key.
+ *
+ * Both branches were identical — collapsed to a single signature.
  */
-export type QueryKeyFn<TRoute extends RouteDefinition> =
-  RequiresInput<TRoute> extends true
-    ? (input?: HookRequestInput<TRoute>) => readonly unknown[]
-    : (input?: HookRequestInput<TRoute>) => readonly unknown[];
+export type QueryKeyFn<TRoute extends RouteDefinition> = (
+  input?: HookRequestInput<TRoute>,
+) => readonly unknown[];
 
 /**
  * A namespace key function that is callable and has child properties.

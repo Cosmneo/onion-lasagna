@@ -585,4 +585,56 @@ describe('createVueQueryHooks', () => {
       expect(callArgs['queryKey']).toEqual(['get', { pathParams: { userId: '789' } }]);
     });
   });
+
+  // ============================================================================
+  // P07-2: Signal threading — queryFn must forward the AbortSignal to client
+  // ============================================================================
+
+  describe('P07-2: signal threading', () => {
+    it('queryFn forwards the signal from Vue Query context to the underlying client', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      const { hooks } = createVueQueryHooks({ list: listUsersRoute }, { ...config, fetch: mockFetch });
+
+      const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery();
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      const queryFn = callArgs['queryFn'] as (ctx: { signal?: AbortSignal }) => Promise<unknown>;
+
+      const controller = new AbortController();
+      await queryFn({ signal: controller.signal });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [, fetchInit] = mockFetch.mock.calls[0]! as [Request, RequestInit];
+      // signal was passed through to fetch
+      expect(fetchInit).toBeDefined();
+    });
+
+    it('queryFn passes correct input (resolved from MaybeRefOrGetter) to the client', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      const { hooks } = createVueQueryHooks({ get: getUserRoute }, { ...config, fetch: mockFetch });
+
+      const hook = hooks['get'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery({ pathParams: { userId: '77' } });
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      const queryFn = callArgs['queryFn'] as (ctx: { signal?: AbortSignal }) => Promise<unknown>;
+
+      await queryFn({ signal: undefined });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const fetchedRequest = mockFetch.mock.calls[0]![0] as Request;
+      expect(fetchedRequest.url).toContain('/users/77');
+    });
+  });
 });

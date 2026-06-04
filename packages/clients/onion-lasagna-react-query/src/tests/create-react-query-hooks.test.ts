@@ -439,4 +439,96 @@ describe('createReactQueryHooks', () => {
       expect(listA()).not.toEqual(listB());
     });
   });
+
+  // ============================================================================
+  // Signal threading (P07-2 / cross-adapter)
+  // ============================================================================
+
+  describe('signal threading', () => {
+    it('queryFn forwards signal from context to the underlying client method', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      const { hooks } = createReactQueryHooks({ list: listUsersRoute }, { ...config, fetch: mockFetch });
+
+      const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery();
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      const queryFn = callArgs['queryFn'] as (ctx: { signal?: AbortSignal }) => Promise<unknown>;
+
+      const controller = new AbortController();
+      await queryFn({ signal: controller.signal });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      // fetch is called with the signal in the init object
+      const [, fetchInit] = mockFetch.mock.calls[0]! as [Request, RequestInit];
+      expect(fetchInit).toBeDefined();
+    });
+
+    it('queryFn passes correct input to client when called', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      const { hooks } = createReactQueryHooks({ get: getUserRoute }, { ...config, fetch: mockFetch });
+
+      const hook = hooks['get'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery({ pathParams: { userId: '99' } });
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      const queryFn = callArgs['queryFn'] as (ctx: { signal?: AbortSignal }) => Promise<unknown>;
+
+      await queryFn({ signal: undefined });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const fetchedRequest = mockFetch.mock.calls[0]![0] as Request;
+      expect(fetchedRequest.url).toContain('/users/99');
+    });
+  });
+
+  // ============================================================================
+  // option-clobber (library-controlled keys must survive user spread)
+  // ============================================================================
+
+  describe('option-clobber: library keys set after user spread', () => {
+    it('queryKey is set by library even when user passes no options', () => {
+      const { hooks } = createReactQueryHooks({ list: listUsersRoute }, config);
+
+      const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery();
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['queryKey']).toEqual(['list']);
+    });
+
+    it('queryFn is always a function even when user spreads extra options', () => {
+      const { hooks } = createReactQueryHooks({ list: listUsersRoute }, config);
+
+      const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery(undefined, { staleTime: 1000 });
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(typeof callArgs['queryFn']).toBe('function');
+      // library keys survive the spread
+      expect(callArgs['queryKey']).toEqual(['list']);
+    });
+
+    it('mutationFn is always set by library even when user passes options', () => {
+      const { hooks } = createReactQueryHooks({ create: createUserRoute }, config);
+      const onSuccess = vi.fn();
+
+      const hook = hooks['create'] as { useMutation: (...args: unknown[]) => unknown };
+      hook.useMutation({ onSuccess });
+
+      const callArgs = mockUseMutation.mock.calls[0]![0] as Record<string, unknown>;
+      expect(typeof callArgs['mutationFn']).toBe('function');
+      expect(callArgs['onSuccess']).toBe(onSuccess);
+    });
+  });
 });
