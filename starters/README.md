@@ -6,15 +6,15 @@ Turborepo-based starter templates for building backend applications with onion a
 
 ```bash
 # Simple backend (flat structure)
-npx degit Cosmneo/onion-lasagna/starters/simple-starter my-project
+npx degit Cosmneo/onion-lasagna/starters/simple-clean-starter my-project
 
 # Module-based backend (for complex systems)
-npx degit Cosmneo/onion-lasagna/starters/modules-starter my-project
+npx degit Cosmneo/onion-lasagna/starters/modules-clean-starter my-project
 ```
 
 ## Starters
 
-### simple-starter
+### simple-clean-starter
 
 Flat structure for smaller systems, microservices, and simple APIs.
 
@@ -25,7 +25,7 @@ packages/backend/
 └── shared/
 ```
 
-### modules-starter
+### modules-clean-starter
 
 Module-based structure for complex systems with multiple teams or domains.
 

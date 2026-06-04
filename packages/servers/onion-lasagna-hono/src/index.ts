@@ -13,7 +13,7 @@
  * app.onError(onionErrorHandler());
  *
  * const routes = serverRoutes(router)
- *   .handle('...', { requestMapper, useCase, responseMapper })
+ *   .handleWithUseCase('...', { requestMapper, useCase, responseMapper })
  *   .build();
  * registerHonoRoutes(app, routes);
  *

@@ -18,7 +18,7 @@
  * import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
  *
  * const routes = serverRoutes(projectRouter)
- *   .handle('...', { requestMapper, useCase, responseMapper })
+ *   .handleWithUseCase('...', { requestMapper, useCase, responseMapper })
  *   .build();
  *
  * @Module({

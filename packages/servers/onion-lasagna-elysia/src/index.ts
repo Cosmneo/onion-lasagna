@@ -13,7 +13,7 @@
  *   .onError(onionErrorHandler);
  *
  * const routes = serverRoutes(router)
- *   .handle('...', { requestMapper, useCase, responseMapper })
+ *   .handleWithUseCase('...', { requestMapper, useCase, responseMapper })
  *   .build();
  * registerElysiaRoutes(app, routes);
  *

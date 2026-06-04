@@ -13,7 +13,7 @@
  * app.setErrorHandler(onionErrorHandler);
  *
  * const routes = serverRoutes(router)
- *   .handle('...', { requestMapper, useCase, responseMapper })
+ *   .handleWithUseCase('...', { requestMapper, useCase, responseMapper })
  *   .build();
  * registerFastifyRoutes(app, routes);
  *

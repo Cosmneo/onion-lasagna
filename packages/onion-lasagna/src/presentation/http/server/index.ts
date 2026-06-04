@@ -6,13 +6,26 @@
  *
  * @module unified/server
  *
- * @example Create server routes with builder pattern
+ * @example Simple handler (direct response)
  * ```typescript
  * import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
  * import { projectRouter } from './routes';
  *
  * const routes = serverRoutes(projectRouter)
- *   .handle('projects.create', {
+ *   .handle('projects.get', async (req, ctx) => ({
+ *     status: 200 as const,
+ *     body: { id: req.pathParams.id },
+ *   }))
+ *   .build();
+ * ```
+ *
+ * @example Use case pattern (requestMapper → useCase.execute() → responseMapper)
+ * ```typescript
+ * import { serverRoutes } from '@cosmneo/onion-lasagna/http/server';
+ * import { projectRouter } from './routes';
+ *
+ * const routes = serverRoutes(projectRouter)
+ *   .handleWithUseCase('projects.create', {
  *     requestMapper: (req, ctx) => ({
  *       name: req.body.name,        // Fully typed!
  *       createdBy: ctx.userId,      // Fully typed!
@@ -23,7 +36,7 @@
  *       body: { projectId: output.projectId },
  *     }),
  *   })
- *   .handle('projects.list', { ... })
+ *   .handleWithUseCase('projects.list', { ... })
  *   .build();
  * ```
  */
