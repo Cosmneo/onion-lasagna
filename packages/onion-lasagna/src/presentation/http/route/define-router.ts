@@ -16,6 +16,7 @@ import type {
   DeepMergeAll,
 } from './types';
 import { isRouteDefinition, isRouterDefinition } from './types';
+import { isSchemaAdapter } from '../schema/types';
 
 /**
  * Options for router definition.
@@ -173,14 +174,21 @@ function mergeTags(
 
 /**
  * Deep freezes an object and all its nested objects.
+ *
+ * deepFreeze-adapter: skips SchemaAdapter instances (Zod, Valibot, etc.) because
+ * their internal state must remain mutable for validation to work correctly.
  */
 function deepFreeze<T extends object>(obj: T): T {
+  if (Object.isFrozen(obj)) return obj;
+  // Skip SchemaAdapter objects — their internals must remain mutable
+  if (isSchemaAdapter(obj)) return obj;
+
   const propNames = Object.getOwnPropertyNames(obj) as (keyof T)[];
 
   for (const name of propNames) {
     const value = obj[name];
     if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-      deepFreeze(value);
+      deepFreeze(value as object);
     }
   }
 
