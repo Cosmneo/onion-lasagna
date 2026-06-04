@@ -57,6 +57,11 @@ export interface GraphQLClientConfig {
 
 /**
  * Error thrown by the GraphQL client.
+ *
+ * **Security note:** `message` is the raw server-provided string from `errors[0].message`
+ * and may contain sensitive information. Do NOT render it verbatim in UI without
+ * sanitisation. Prefer mapping known error codes from `errors[*].extensions` to
+ * user-facing messages instead.
  */
 export class GraphQLClientError extends Error {
   /**

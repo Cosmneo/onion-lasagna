@@ -135,6 +135,17 @@ export type QueryFieldHooks<TField extends GraphQLFieldDefinition> =
 
 /**
  * Mutation hooks for a GraphQL mutation field.
+ *
+ * **Cache invalidation is the caller's responsibility.**
+ * This adapter does not automatically invalidate related queries after a mutation.
+ * Use React Query's `onSuccess` / `onSettled` options together with
+ * `queryClient.invalidateQueries()` or the generated `queryKeys` helpers.
+ *
+ * **Error handling note.**
+ * `GraphQLClientError.message` is the raw server-provided error string from the first
+ * GraphQL error in the response (`errors[0].message`). Do NOT render it verbatim in UI
+ * without sanitisation — the server may include sensitive details. Prefer mapping known
+ * error codes from `GraphQLClientError.errors[*].extensions` to user-facing messages.
  */
 export interface MutationFieldHooks<TField extends GraphQLFieldDefinition> {
   useMutation: (
@@ -147,13 +158,20 @@ export interface MutationFieldHooks<TField extends GraphQLFieldDefinition> {
 
 /**
  * Recursively builds the hooks type from a schema config.
+ *
+ * Subscription fields are intentionally excluded (mapped to `never`):
+ * they require a WebSocket/SSE transport and cannot be represented as a
+ * one-shot React Query mutation or query hook. Omitting them prevents
+ * silent masquerading as mutations (P04-1).
  */
 export type InferGraphQLHooks<T extends GraphQLSchemaConfig> = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [K in keyof T]: T[K] extends GraphQLFieldDefinition<any, any, any, any>
     ? T[K]['_types']['operation'] extends 'query'
       ? QueryFieldHooks<T[K]>
-      : MutationFieldHooks<T[K]>
+      : T[K]['_types']['operation'] extends 'mutation'
+        ? MutationFieldHooks<T[K]>
+        : never // subscription — not supported by the React Query adapter
     : T[K] extends GraphQLSchemaConfig
       ? InferGraphQLHooks<T[K]>
       : never;
