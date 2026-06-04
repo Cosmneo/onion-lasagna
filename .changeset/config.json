@@ -2,10 +2,34 @@
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [["@cosmneo/*"]],
+  "fixed": [
+    [
+      "@cosmneo/onion-lasagna",
+      "@cosmneo/onion-lasagna-zod",
+      "@cosmneo/onion-lasagna-zod-v3",
+      "@cosmneo/onion-lasagna-typebox",
+      "@cosmneo/onion-lasagna-valibot",
+      "@cosmneo/onion-lasagna-arktype",
+      "@cosmneo/onion-lasagna-hono",
+      "@cosmneo/onion-lasagna-elysia",
+      "@cosmneo/onion-lasagna-express",
+      "@cosmneo/onion-lasagna-fastify",
+      "@cosmneo/onion-lasagna-nestjs",
+      "@cosmneo/onion-lasagna-yoga",
+      "@cosmneo/onion-lasagna-client",
+      "@cosmneo/onion-lasagna-axios",
+      "@cosmneo/onion-lasagna-react-query",
+      "@cosmneo/onion-lasagna-graphql-client",
+      "@cosmneo/onion-lasagna-graphql-react-query",
+      "@cosmneo/onion-lasagna-svelte-query",
+      "@cosmneo/onion-lasagna-swr",
+      "@cosmneo/onion-lasagna-vue-query",
+      "@cosmneo/onion-lasagna-saga"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": ["@cosmneo/onion-lasagna-docs", "create-onion-lasagna-app", "onion-lasagna-cli"]
 }
