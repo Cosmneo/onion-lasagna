@@ -28,6 +28,17 @@ import { ClientError } from './client-types';
 const DEFAULT_RETRY_STATUS_CODES = [408, 429, 500, 502, 503, 504];
 
 /**
+ * Default idempotent HTTP methods eligible for automatic retry.
+ * POST and PATCH are intentionally excluded — retry them only when explicitly opted in.
+ */
+const DEFAULT_RETRY_METHODS = ['GET', 'HEAD', 'DELETE', 'PUT', 'OPTIONS'];
+
+/**
+ * Default request timeout in milliseconds.
+ */
+const DEFAULT_TIMEOUT = 30000;
+
+/**
  * Creates a type-safe API client from a router definition.
  *
  * The client mirrors the structure of the router, providing methods
@@ -184,11 +195,21 @@ function createRouteMethod(
     }
 
     // Add query parameters
+    // Arrays are emitted as repeated keys (e.g. tags=a&tags=b) rather than comma-joined
     const queryInput = input?.['query'];
     if (queryInput) {
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(queryInput as Record<string, unknown>)) {
-        if (value !== undefined && value !== null) {
+        if (value === undefined || value === null) {
+          continue;
+        }
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            if (item !== undefined && item !== null) {
+              params.append(key, String(item));
+            }
+          }
+        } else {
           params.append(key, String(value));
         }
       }
@@ -207,9 +228,9 @@ function createRouteMethod(
       }
     }
 
-    // Set content type for body
+    // Set content type for body — use !== undefined so falsy values (false, 0, '', null) are sent
     const bodyInput = input?.['body'];
-    if (bodyInput && !headers.has('Content-Type')) {
+    if (bodyInput !== undefined && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
     }
 
@@ -217,7 +238,7 @@ function createRouteMethod(
     const requestInit: RequestInit = {
       method: route.method,
       headers,
-      body: bodyInput ? JSON.stringify(bodyInput) : undefined,
+      body: bodyInput !== undefined ? JSON.stringify(bodyInput) : undefined,
     };
 
     // Create the request
@@ -234,10 +255,16 @@ function createRouteMethod(
     const retryMaxDelay = config.retry?.maxDelay ?? 30000;
     const retryDelayFn = config.retry?.delayFn;
     const retryOn = config.retry?.retryOn ?? DEFAULT_RETRY_STATUS_CODES;
+    // C10-3: Only retry idempotent methods by default; POST/PATCH require explicit opt-in
+    const retryMethods = config.retry?.retryMethods ?? DEFAULT_RETRY_METHODS;
+    const isMethodRetryable = retryMethods.includes(route.method.toUpperCase());
+
+    // C10-1: apply the documented 30 s default timeout when none is configured
+    const effectiveTimeout = config.timeout ?? DEFAULT_TIMEOUT;
 
     // Resolve external signal once (per call, not per attempt)
     const externalSignal = options?.signal;
-    const hasSignalSource = Boolean(config.timeout) || Boolean(externalSignal);
+    const hasSignalSource = Boolean(effectiveTimeout) || Boolean(externalSignal);
 
     let lastError: ClientError | undefined;
 
@@ -251,11 +278,11 @@ function createRouteMethod(
       if (hasSignalSource) {
         controller = new AbortController();
 
-        if (config.timeout) {
+        if (effectiveTimeout) {
           timeoutId = setTimeout(() => {
             didTimeout = true;
             controller!.abort();
-          }, config.timeout);
+          }, effectiveTimeout);
         }
 
         // C10-2: merge external signal with internal timeout controller
@@ -292,41 +319,12 @@ function createRouteMethod(
 
         // Handle non-OK responses
         if (!response.ok) {
-          let body: unknown;
-          let parseError: Error | undefined;
-
-          // Try JSON first, fall back to text, preserve parse errors for debugging
-          try {
-            body = await response.json();
-          } catch (jsonError) {
-            parseError = jsonError instanceof Error ? jsonError : new Error('JSON parse failed');
-            try {
-              body = await response.text();
-            } catch (textError) {
-              // Both parsing methods failed - include parse errors in body for debugging
-              body = {
-                _parseError: 'Failed to parse response body',
-                _jsonError: parseError.message,
-                _textError: textError instanceof Error ? textError.message : 'Text parse failed',
-              };
-            }
-          }
-
-          const error = new ClientError(
-            `Request failed with status ${response.status}`,
-            response.status,
-            response.statusText,
-            body,
-            response,
-          );
-
-          // Check if we should retry
-          if (attempt < retryAttempts && retryOn.includes(response.status)) {
-            lastError = error;
-
+          // C16: decide whether to retry BEFORE parsing the body to avoid wasted
+          // body consumption on transient failures during storms.
+          if (attempt < retryAttempts && retryOn.includes(response.status) && isMethodRetryable) {
             // C16-1: honor Retry-After for 429/503, else use exponential backoff with jitter
             const retryAfterMs =
-              (response.status === 429 || response.status === 503)
+              response.status === 429 || response.status === 503
                 ? parseRetryAfterMs(response.headers.get('Retry-After'))
                 : undefined;
 
@@ -336,9 +334,44 @@ function createRouteMethod(
                 ? retryDelayFn(attempt)
                 : computeBackoff(attempt, retryBaseDelay, retryMaxDelay));
 
+            // Stash a minimal error in case we exhaust all retries
+            lastError = new ClientError(
+              `Request failed with status ${response.status}`,
+              response.status,
+              response.statusText,
+              undefined,
+              response,
+            );
+
             await sleep(delay);
             continue;
           }
+
+          // Not retrying — parse the body once as text then try to JSON-decode it.
+          // Reading as text first prevents the body double-read bug where calling
+          // response.json() consumes the stream, making response.text() return ''.
+          let body: unknown;
+          try {
+            const text = await response.text();
+            try {
+              body = JSON.parse(text);
+            } catch {
+              body = text;
+            }
+          } catch (readError) {
+            body = {
+              _parseError: 'Failed to read response body',
+              _readError: readError instanceof Error ? readError.message : 'Read failed',
+            };
+          }
+
+          const error = new ClientError(
+            `Request failed with status ${response.status}`,
+            response.status,
+            response.statusText,
+            body,
+            response,
+          );
 
           // Call error handler
           if (config.onError) {
@@ -377,7 +410,7 @@ function createRouteMethod(
         let errorStatus: string;
 
         if (didTimeout) {
-          errorMessage = `Request timeout after ${config.timeout}ms`;
+          errorMessage = `Request timeout after ${effectiveTimeout}ms`;
           errorStatus = 'Timeout';
         } else if (isAbortError) {
           errorMessage = 'Request was aborted';
@@ -389,8 +422,8 @@ function createRouteMethod(
 
         const clientError = new ClientError(errorMessage, 0, errorStatus, undefined, undefined);
 
-        // Don't retry timeouts or user-initiated aborts
-        if (attempt < retryAttempts && !isAbortError && !isExternalAbort) {
+        // Don't retry timeouts, user-initiated aborts, or non-idempotent methods
+        if (attempt < retryAttempts && !isAbortError && !isExternalAbort && isMethodRetryable) {
           lastError = clientError;
           const delay = retryDelayFn
             ? retryDelayFn(attempt)

@@ -784,7 +784,7 @@ describe('createClient', () => {
       }
     });
 
-    it('still works (no AbortController allocated) when no signal and no timeout', async () => {
+    it('still works when no external signal is provided (default 30s timeout is applied)', async () => {
       const mockFetch = vi.fn().mockResolvedValue(
         new Response(JSON.stringify([]), {
           headers: { 'Content-Type': 'application/json' },
@@ -798,9 +798,9 @@ describe('createClient', () => {
 
       await client.list();
 
-      // The second arg to fetch should have no signal (empty object)
+      // C10-1: default 30s timeout is always applied, so a signal IS present
       const fetchOptions = mockFetch.mock.calls[0]![1] as RequestInit;
-      expect(fetchOptions.signal).toBeUndefined();
+      expect(fetchOptions.signal).toBeInstanceOf(AbortSignal);
     });
 
     it('passes signal when timeout is set even without external signal', async () => {
@@ -978,7 +978,7 @@ describe('createClient', () => {
   // C16 abort-alloc: No AbortController allocated when not needed
   // ============================================================================
   describe('abort controller allocation (C16 abort-alloc)', () => {
-    it('does not pass a signal when no timeout and no external signal', async () => {
+    it('always passes a signal because the 30s default timeout is active', async () => {
       const mockFetch = vi.fn().mockResolvedValue(
         new Response(JSON.stringify([]), {
           headers: { 'Content-Type': 'application/json' },
@@ -992,8 +992,9 @@ describe('createClient', () => {
 
       await client.list();
 
+      // C10-1: the 30s default timeout is now always active, so signal is always defined
       const fetchOptions = mockFetch.mock.calls[0]![1] as RequestInit;
-      expect(fetchOptions.signal).toBeUndefined();
+      expect(fetchOptions.signal).toBeInstanceOf(AbortSignal);
     });
 
     it('passes a signal when timeout is configured', async () => {
@@ -1032,6 +1033,370 @@ describe('createClient', () => {
 
       const fetchOptions = mockFetch.mock.calls[0]![1] as RequestInit;
       expect(fetchOptions.signal).toBeInstanceOf(AbortSignal);
+    });
+  });
+
+  // ============================================================================
+  // BODY DOUBLE-READ FIX: text error payloads must not be lost
+  // ============================================================================
+  describe('body double-read fix (MISSED-body-double-read)', () => {
+    it('captures plain-text error body when response is not JSON', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('Internal Server Error', {
+          status: 500,
+          statusText: 'Internal Server Error',
+          headers: { 'Content-Type': 'text/plain' },
+        }),
+      );
+
+      const client = createClient(
+        { list: listUsersRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      try {
+        await client.list();
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ClientError);
+        const clientError = error as ClientError;
+        expect(clientError.body).toBe('Internal Server Error');
+      }
+    });
+
+    it('captures JSON error body when response is JSON', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'not found' }), {
+          status: 404,
+          statusText: 'Not Found',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createClient(
+        { get: getUserRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      try {
+        await client.get({ pathParams: { userId: '999' } });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ClientError);
+        const clientError = error as ClientError;
+        expect(clientError.body).toEqual({ error: 'not found' });
+      }
+    });
+  });
+
+  // ============================================================================
+  // FALSY BODY FIX: false/0/''/null body values must not be dropped
+  // ============================================================================
+  describe('falsy body fix (MISSED-falsy-body)', () => {
+    const falseBodyRoute = defineRoute({
+      method: 'POST',
+      path: '/echo',
+      request: { body: { schema: zodSchema(z.any()) } },
+      responses: { 200: { description: 'Echo' } },
+    });
+
+    it('sends false as body', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createClient(
+        { echo: falseBodyRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      await client.echo({ body: false });
+
+      const request = mockFetch.mock.calls[0]![0] as Request;
+      const text = await request.text();
+      expect(text).toBe('false');
+    });
+
+    it('sends 0 as body', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createClient(
+        { echo: falseBodyRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      await client.echo({ body: 0 });
+
+      const request = mockFetch.mock.calls[0]![0] as Request;
+      const text = await request.text();
+      expect(text).toBe('0');
+    });
+
+    it('sends null as body', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createClient(
+        { echo: falseBodyRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      await client.echo({ body: null });
+
+      const request = mockFetch.mock.calls[0]![0] as Request;
+      const text = await request.text();
+      expect(text).toBe('null');
+    });
+  });
+
+  // ============================================================================
+  // C10-1: timeout default applied without explicit config.timeout
+  // ============================================================================
+  describe('timeout default (C10-1)', () => {
+    it('applies 30000ms default timeout when none is configured', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify([]), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createClient(
+        { list: listUsersRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      await client.list();
+
+      // A signal must be passed when the default timeout is active
+      const fetchOptions = mockFetch.mock.calls[0]![1] as RequestInit;
+      expect(fetchOptions.signal).toBeInstanceOf(AbortSignal);
+    });
+  });
+
+  // ============================================================================
+  // C10-3: retry skips non-idempotent methods by default
+  // ============================================================================
+  describe('retry idempotency guard (C10-3)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('does NOT retry POST by default', async () => {
+      // Use real timers: after the fix POST should fail immediately (no retry = no delay)
+      vi.useRealTimers();
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Server Error' }), {
+          status: 500,
+          statusText: 'Internal Server Error',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createClient(
+        { create: createUserRoute },
+        {
+          baseUrl: 'http://localhost:3000',
+          fetch: mockFetch,
+          retry: { attempts: 3, delay: 100 },
+        },
+      );
+
+      await expect(client.create({ body: { name: 'John' } })).rejects.toThrow(ClientError);
+
+      // Only 1 call — POST should not be retried by default
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('DOES retry GET by default', async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ error: 'Server Error' }), {
+            status: 500,
+            statusText: 'Internal Server Error',
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify([]), {
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+
+      const client = createClient(
+        { list: listUsersRoute },
+        {
+          baseUrl: 'http://localhost:3000',
+          fetch: mockFetch,
+          retry: { attempts: 1, delay: 100 },
+        },
+      );
+
+      const promise = client.list();
+      await vi.advanceTimersByTimeAsync(100);
+      await promise;
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('DOES retry DELETE by default', async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ error: 'Server Error' }), {
+            status: 500,
+            statusText: 'Internal Server Error',
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+        .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+      const client = createClient(
+        { delete: deleteUserRoute },
+        {
+          baseUrl: 'http://localhost:3000',
+          fetch: mockFetch,
+          retry: { attempts: 1, delay: 100 },
+        },
+      );
+
+      const promise = client.delete({ pathParams: { userId: '123' } });
+      await vi.advanceTimersByTimeAsync(100);
+      await promise;
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('allows overriding default idempotency guard to retry POST when explicitly opted in', async () => {
+      // Deliberately opt in by setting retryMethods to include POST
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ error: 'Server Error' }), {
+            status: 500,
+            statusText: 'Internal Server Error',
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ id: '1' }), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+
+      const client = createClient(
+        { create: createUserRoute },
+        {
+          baseUrl: 'http://localhost:3000',
+          fetch: mockFetch,
+          retry: { attempts: 1, delay: 100, retryMethods: ['GET', 'HEAD', 'DELETE', 'PUT', 'OPTIONS', 'POST'] },
+        },
+      );
+
+      const promise = client.create({ body: { name: 'John' } });
+      await vi.advanceTimersByTimeAsync(100);
+      await promise;
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ============================================================================
+  // C10-4: query array values emitted as repeated keys
+  // ============================================================================
+  describe('query array serialization (C10-4)', () => {
+    it('emits repeated keys for array query values', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify([]), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createClient(
+        { list: listUsersRoute },
+        { baseUrl: 'http://localhost:3000', fetch: mockFetch },
+      );
+
+      await client.list({ query: { tags: ['a', 'b', 'c'] } });
+
+      const calledUrl: string = mockFetch.mock.calls[0]![0].url;
+      expect(calledUrl).toContain('tags=a');
+      expect(calledUrl).toContain('tags=b');
+      expect(calledUrl).toContain('tags=c');
+      // Must NOT be comma-joined as a single value
+      expect(calledUrl).not.toContain('tags=a%2Cb%2Cc');
+      expect(calledUrl).not.toContain('tags=a,b,c');
+    });
+  });
+
+  // ============================================================================
+  // C16: retry decision before body parse
+  // ============================================================================
+  describe('retry-before-parse (C16)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('retries without consuming the body of intermediate failure responses', async () => {
+      let attempt = 0;
+
+      const mockFetch = vi.fn().mockImplementation(() => {
+        attempt++;
+        if (attempt === 1) {
+          // Return a response that should trigger retry without parsing
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: 'Server Error' }), {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify([]), {
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      });
+
+      const client = createClient(
+        { list: listUsersRoute },
+        {
+          baseUrl: 'http://localhost:3000',
+          fetch: mockFetch,
+          retry: { attempts: 1, delay: 100 },
+        },
+      );
+
+      const promise = client.list();
+      await vi.advanceTimersByTimeAsync(100);
+      const result = await promise;
+
+      // Should succeed on the second attempt
+      expect(result).toEqual([]);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 });
