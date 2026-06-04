@@ -1,6 +1,7 @@
 {
   "name": "onion-lasagna-cli",
   "version": "0.1.0",
+  "private": true,
   "license": "MIT",
   "description": "Development CLI for onion-lasagna projects",
   "type": "module",
@@ -21,8 +22,5 @@
   "devDependencies": {
     "tsup": "^8.5.1",
     "typescript": "^5.8.3"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }
