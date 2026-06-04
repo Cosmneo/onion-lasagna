@@ -235,7 +235,7 @@ function createQueryHook(
         },
       );
 
-      return createQuery(optionsStore as Readable<Parameters<typeof createQuery>[0]>);
+      return createQuery(optionsStore as unknown as Parameters<typeof createQuery>[0]);
     },
   };
 }
