@@ -17,6 +17,17 @@ import type {
 // ============================================================================
 
 /**
+ * Per-call options that can be passed as a second argument to a client method.
+ */
+export interface ClientCallOptions {
+  /**
+   * An AbortSignal to cancel the request.
+   * Merged with the internal timeout controller (if any) via AbortSignal.any.
+   */
+  readonly signal?: AbortSignal;
+}
+
+/**
  * Configuration for creating a client.
  */
 export interface ClientConfig {
@@ -75,10 +86,22 @@ export interface ClientConfig {
     readonly attempts?: number;
 
     /**
-     * Delay between retries in milliseconds.
+     * Base delay for the first retry in milliseconds (used for exponential backoff).
      * @default 1000
      */
     readonly delay?: number;
+
+    /**
+     * Maximum delay cap in milliseconds for exponential backoff.
+     * @default 30000
+     */
+    readonly maxDelay?: number;
+
+    /**
+     * Custom delay function. When provided, overrides the built-in exponential backoff.
+     * Receives the zero-based attempt index (0 = first retry).
+     */
+    readonly delayFn?: (attempt: number) => number;
 
     /**
      * Status codes that should trigger a retry.
@@ -166,8 +189,8 @@ export type ClientResponse<TRoute extends RouteDefinition> =
 export type ClientMethod<TRoute extends RouteDefinition> =
   // Check if input is required
   RequiresInput<TRoute> extends true
-    ? (input: ClientRequestInput<TRoute>) => Promise<ClientResponse<TRoute>>
-    : (input?: ClientRequestInput<TRoute>) => Promise<ClientResponse<TRoute>>;
+    ? (input: ClientRequestInput<TRoute>, options?: ClientCallOptions) => Promise<ClientResponse<TRoute>>
+    : (input?: ClientRequestInput<TRoute>, options?: ClientCallOptions) => Promise<ClientResponse<TRoute>>;
 
 /**
  * Checks if a route requires input (has body, params, or required query).

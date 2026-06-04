@@ -19,7 +19,7 @@ import {
   buildPath,
   hasPathParams,
 } from '@cosmneo/onion-lasagna/http/route';
-import type { ClientConfig, InferClient } from './client-types';
+import type { ClientCallOptions, ClientConfig, InferClient } from './client-types';
 import { ClientError } from './client-types';
 
 /**
@@ -129,13 +129,49 @@ function buildClientProxy<T extends RouterConfig>(routes: T, config: ClientConfi
 }
 
 /**
+ * Computes exponential backoff with full jitter.
+ *
+ * delay = random(0, min(maxDelay, base * 2^attempt))
+ */
+function computeBackoff(attempt: number, base: number, maxDelay: number): number {
+  const ceiling = Math.min(maxDelay, base * Math.pow(2, attempt));
+  return Math.random() * ceiling;
+}
+
+/**
+ * Parses a Retry-After header value and returns the delay in milliseconds.
+ * Supports both integer seconds and HTTP-date formats.
+ * Returns undefined when the header is absent or unparseable.
+ */
+function parseRetryAfterMs(retryAfterHeader: string | null): number | undefined {
+  if (!retryAfterHeader) {
+    return undefined;
+  }
+
+  // Integer seconds
+  const seconds = Number(retryAfterHeader.trim());
+  if (!Number.isNaN(seconds) && seconds >= 0) {
+    return seconds * 1000;
+  }
+
+  // HTTP-date (RFC 7231)
+  const dateMs = Date.parse(retryAfterHeader);
+  if (!Number.isNaN(dateMs)) {
+    const delayMs = dateMs - Date.now();
+    return delayMs > 0 ? delayMs : 0;
+  }
+
+  return undefined;
+}
+
+/**
  * Creates a method for a single route.
  */
 function createRouteMethod(
   route: { method: string; path: string; request?: unknown },
   config: ClientConfig,
-): (input?: Record<string, unknown>) => Promise<unknown> {
-  return async (input?: Record<string, unknown>) => {
+): (input?: Record<string, unknown>, options?: ClientCallOptions) => Promise<unknown> {
+  return async (input?: Record<string, unknown>, options?: ClientCallOptions) => {
     const fetchFn = config.fetch ?? fetch;
 
     // Build the URL (joinUrl handles trailing/leading slash normalization)
@@ -194,28 +230,60 @@ function createRouteMethod(
 
     // Execute with retry logic
     const retryAttempts = config.retry?.attempts ?? 0;
-    const retryDelay = config.retry?.delay ?? 1000;
+    const retryBaseDelay = config.retry?.delay ?? 1000;
+    const retryMaxDelay = config.retry?.maxDelay ?? 30000;
+    const retryDelayFn = config.retry?.delayFn;
     const retryOn = config.retry?.retryOn ?? DEFAULT_RETRY_STATUS_CODES;
+
+    // Resolve external signal once (per call, not per attempt)
+    const externalSignal = options?.signal;
+    const hasSignalSource = Boolean(config.timeout) || Boolean(externalSignal);
 
     let lastError: ClientError | undefined;
 
     for (let attempt = 0; attempt <= retryAttempts; attempt++) {
-      // Setup timeout if configured
-      const controller = new AbortController();
+      // C16 abort-alloc: only allocate AbortController when actually needed
+      let controller: AbortController | undefined;
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       let didTimeout = false;
+      let effectiveSignal: AbortSignal | undefined;
 
-      if (config.timeout) {
-        timeoutId = setTimeout(() => {
-          didTimeout = true;
-          controller.abort();
-        }, config.timeout);
+      if (hasSignalSource) {
+        controller = new AbortController();
+
+        if (config.timeout) {
+          timeoutId = setTimeout(() => {
+            didTimeout = true;
+            controller!.abort();
+          }, config.timeout);
+        }
+
+        // C10-2: merge external signal with internal timeout controller
+        if (externalSignal) {
+          // AbortSignal.any is available in Node 20+ and modern browsers
+          if (typeof AbortSignal.any === 'function') {
+            effectiveSignal = AbortSignal.any([controller.signal, externalSignal]);
+          } else {
+            // Fallback: forward abort from external signal to internal controller
+            if (externalSignal.aborted) {
+              controller.abort(externalSignal.reason);
+            } else {
+              externalSignal.addEventListener('abort', () => {
+                controller!.abort(externalSignal.reason);
+              });
+            }
+            effectiveSignal = controller.signal;
+          }
+        } else {
+          effectiveSignal = controller.signal;
+        }
       }
 
       try {
-        let response = await fetchFn(request.clone(), {
-          signal: controller.signal,
-        });
+        let response = await fetchFn(
+          request.clone(),
+          effectiveSignal ? { signal: effectiveSignal } : {},
+        );
 
         // Apply response interceptor
         if (config.onResponse) {
@@ -255,7 +323,20 @@ function createRouteMethod(
           // Check if we should retry
           if (attempt < retryAttempts && retryOn.includes(response.status)) {
             lastError = error;
-            await sleep(retryDelay);
+
+            // C16-1: honor Retry-After for 429/503, else use exponential backoff with jitter
+            const retryAfterMs =
+              (response.status === 429 || response.status === 503)
+                ? parseRetryAfterMs(response.headers.get('Retry-After'))
+                : undefined;
+
+            const delay =
+              retryAfterMs ??
+              (retryDelayFn
+                ? retryDelayFn(attempt)
+                : computeBackoff(attempt, retryBaseDelay, retryMaxDelay));
+
+            await sleep(delay);
             continue;
           }
 
@@ -288,6 +369,10 @@ function createRouteMethod(
         const isAbortError =
           error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
 
+        // An abort is "external" if it came from caller's signal (not our timeout)
+        const isExternalAbort =
+          isAbortError && Boolean(externalSignal?.aborted) && !didTimeout;
+
         let errorMessage: string;
         let errorStatus: string;
 
@@ -305,9 +390,12 @@ function createRouteMethod(
         const clientError = new ClientError(errorMessage, 0, errorStatus, undefined, undefined);
 
         // Don't retry timeouts or user-initiated aborts
-        if (attempt < retryAttempts && !isAbortError) {
+        if (attempt < retryAttempts && !isAbortError && !isExternalAbort) {
           lastError = clientError;
-          await sleep(retryDelay);
+          const delay = retryDelayFn
+            ? retryDelayFn(attempt)
+            : computeBackoff(attempt, retryBaseDelay, retryMaxDelay);
+          await sleep(delay);
           continue;
         }
 
