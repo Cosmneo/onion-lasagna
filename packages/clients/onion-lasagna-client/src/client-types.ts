@@ -108,6 +108,15 @@ export interface ClientConfig {
      * @default [408, 429, 500, 502, 503, 504]
      */
     readonly retryOn?: readonly number[];
+
+    /**
+     * HTTP methods that are eligible for retry.
+     * Defaults to idempotent methods only: GET, HEAD, DELETE, PUT, OPTIONS.
+     * Set this explicitly to include non-idempotent methods such as POST or PATCH.
+     *
+     * @default ['GET', 'HEAD', 'DELETE', 'PUT', 'OPTIONS']
+     */
+    readonly retryMethods?: readonly string[];
   };
 }
 
