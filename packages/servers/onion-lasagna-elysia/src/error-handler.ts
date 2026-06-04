@@ -8,6 +8,7 @@
 
 import { mapErrorToHttpResponse } from '@cosmneo/onion-lasagna/http/shared';
 import type { MappedErrorResponse } from '@cosmneo/onion-lasagna/http/shared';
+import { InvalidRequestError } from '@cosmneo/onion-lasagna';
 
 /**
  * Maps an error to a status code and response body.
@@ -33,6 +34,31 @@ export function mapErrorToResponse(error: unknown): MappedErrorResponse {
 }
 
 /**
+ * Normalizes Elysia / bun body-parse errors (SyntaxError) into an
+ * `InvalidRequestError` so they map to 400 instead of 500.
+ */
+function normalizeBodyParseError(error: unknown): unknown {
+  // Elysia / bun throws a plain SyntaxError for malformed JSON bodies;
+  // the Elysia error code for parse failures is 'PARSE'
+  if (
+    error instanceof SyntaxError ||
+    (typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as Record<string, unknown>)['code'] === 'PARSE')
+  ) {
+    return new InvalidRequestError({
+      message: 'Invalid JSON in request body',
+      cause: error,
+      validationErrors: [
+        { field: 'body', message: error instanceof Error ? error.message : 'Malformed JSON' },
+      ],
+    });
+  }
+  return error;
+}
+
+/**
  * Global error handler for Elysia applications using onion-lasagna.
  *
  * Use this as the error handler for your Elysia app:
@@ -47,7 +73,7 @@ export function mapErrorToResponse(error: unknown): MappedErrorResponse {
  * ```
  */
 export function onionErrorHandler({ error }: { error: unknown }): Response {
-  const { status, body } = mapErrorToResponse(error);
+  const { status, body } = mapErrorToResponse(normalizeBodyParseError(error));
 
   return new Response(JSON.stringify(body), {
     status,

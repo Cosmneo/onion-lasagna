@@ -265,4 +265,72 @@ describe('Express register-routes', () => {
       expect(response.body).toEqual({ id: '42', name: 'Replaced User', replaced: true });
     });
   });
+
+  describe('malformed body normalization', () => {
+    let app: Express;
+
+    beforeAll(() => {
+      const routes: UnifiedRouteInput[] = [
+        {
+          method: 'POST',
+          path: '/data',
+          handler: async (req) => ({
+            status: 200,
+            body: req.body,
+          }),
+          metadata: { operationId: 'postData' },
+        },
+      ];
+
+      app = express();
+      app.use(express.json());
+      registerExpressRoutes(app, routes);
+      app.use(onionErrorHandler);
+    });
+
+    it('returns 400 InvalidRequestError for malformed JSON body instead of 500', async () => {
+      const response = await request(app)
+        .post('/data')
+        .set('Content-Type', 'application/json')
+        .send('{not valid json}');
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBeDefined();
+    });
+  });
+
+  describe('multi-value response headers', () => {
+    let app: Express;
+
+    beforeAll(() => {
+      const routes: UnifiedRouteInput[] = [
+        {
+          method: 'GET',
+          path: '/cookies',
+          handler: async () => ({
+            status: 200,
+            body: { ok: true },
+            headers: {
+              'Set-Cookie': ['sessionId=abc; Path=/', 'theme=dark; Path=/'],
+            },
+          }),
+          metadata: { operationId: 'setCookies' },
+        },
+      ];
+
+      app = express();
+      app.use(express.json());
+      registerExpressRoutes(app, routes);
+      app.use(onionErrorHandler);
+    });
+
+    it('emits multiple Set-Cookie headers', async () => {
+      const response = await request(app).get('/cookies');
+      expect(response.status).toBe(200);
+      const setCookie = response.headers['set-cookie'];
+      expect(Array.isArray(setCookie)).toBe(true);
+      expect(setCookie).toHaveLength(2);
+      expect(setCookie[0]).toContain('sessionId=abc');
+      expect(setCookie[1]).toContain('theme=dark');
+    });
+  });
 });

@@ -82,12 +82,25 @@ function extractRequest(req: Request): RawHttpRequest {
 }
 
 /**
- * Sends a HandlerResponse through Express.
+ * Guards against CRLF injection in header values.
+ * Returns the value with CR and LF characters stripped.
+ */
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]/g, '');
+}
+
+/**
+ * Sends a HandlerResponse through Express (used inside NestJS).
+ * Supports multi-value headers (e.g. Set-Cookie) and guards against CRLF.
  */
 function sendResponse(res: Response, response: HandlerResponse): void {
   if (response.headers) {
     for (const [key, value] of Object.entries(response.headers)) {
-      res.setHeader(key, value);
+      if (Array.isArray(value)) {
+        res.setHeader(key, value.map(sanitizeHeaderValue));
+      } else {
+        res.setHeader(key, sanitizeHeaderValue(value));
+      }
     }
   }
   res.status(response.status);
@@ -137,10 +150,21 @@ export function createNestController(
   // Apply @UseFilters(OnionExceptionFilter) at controller level
   UseFilters(OnionExceptionFilter)(OnionRouteController);
 
+  // Track used method names to detect duplicate operationIds (C09-1)
+  const usedMethodNames = new Set<string>();
+
   for (let i = 0; i < routes.length; i++) {
     const route = routes[i]!;
     const path = toNestPath(route.path);
     const methodName = route.metadata?.operationId ?? `handler${i}`;
+
+    // C09-1: Guard against duplicate operationIds overwriting earlier handlers
+    if (usedMethodNames.has(methodName)) {
+      throw new Error(
+        `Duplicate operationId detected: "${methodName}". Each route must have a unique operationId.`,
+      );
+    }
+    usedMethodNames.add(methodName);
 
     // Define handler method on prototype
     OnionRouteController.prototype[methodName] = async function (

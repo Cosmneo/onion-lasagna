@@ -95,8 +95,9 @@ export interface HandlerResponse<TData = unknown> {
 
   /**
    * Response headers.
+   * Supports multi-value headers (e.g. repeated Set-Cookie) via string arrays.
    */
-  readonly headers?: Record<string, string>;
+  readonly headers?: Record<string, string | string[]>;
 }
 
 // ============================================================================

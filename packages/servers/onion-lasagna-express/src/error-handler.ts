@@ -9,6 +9,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { mapErrorToHttpResponse } from '@cosmneo/onion-lasagna/http/shared';
 import type { MappedErrorResponse } from '@cosmneo/onion-lasagna/http/shared';
+import { InvalidRequestError } from '@cosmneo/onion-lasagna';
 
 /**
  * Maps an error to a status code and response body.
@@ -34,6 +35,25 @@ export function mapErrorToResponse(error: unknown): MappedErrorResponse {
 }
 
 /**
+ * Normalizes a body-parser / framework JSON parse error (SyntaxError) into an
+ * `InvalidRequestError` so it maps to 400 instead of 500.
+ */
+function normalizeBodyParseError(err: unknown): unknown {
+  if (err instanceof SyntaxError) {
+    // body-parser decorates SyntaxError with `body` and `status` properties
+    const errObj = err as unknown as Record<string, unknown>;
+    if ('body' in errObj && 'status' in errObj && errObj['status'] === 400) {
+      return new InvalidRequestError({
+        message: 'Invalid JSON in request body',
+        cause: err,
+        validationErrors: [{ field: 'body', message: err.message }],
+      });
+    }
+  }
+  return err;
+}
+
+/**
  * Express error-handling middleware for onion-lasagna.
  *
  * Must be registered AFTER all routes to catch errors:
@@ -55,6 +75,6 @@ export function onionErrorHandler(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _next: NextFunction,
 ): void {
-  const { status, body } = mapErrorToResponse(err);
+  const { status, body } = mapErrorToResponse(normalizeBodyParseError(err));
   res.status(status).json(body);
 }

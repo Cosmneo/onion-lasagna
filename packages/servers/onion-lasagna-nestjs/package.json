@@ -34,6 +34,8 @@
   "peerDependencies": {
     "@nestjs/common": "^11.1.10",
     "@nestjs/core": "^11.1.10",
+    "@nestjs/platform-express": "^11.1.10",
+    "express": ">=4.0.0",
     "@cosmneo/onion-lasagna": ">=0.4.1"
   },
   "scripts": {

@@ -22,6 +22,8 @@ export interface ElysiaContext {
   query: Record<string, string | undefined>;
   params: Record<string, string>;
   store: Record<string, unknown>;
+  /** The raw Request object — used to obtain the real request URL. */
+  request?: Request;
 }
 
 /**

@@ -57,12 +57,24 @@ function extractRequest(req: Request): RawHttpRequest {
 }
 
 /**
+ * Guards against CRLF injection in header values.
+ * Returns the value with CR and LF characters stripped.
+ */
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]/g, '');
+}
+
+/**
  * Sends a HandlerResponse through Express.
  */
 function sendResponse(res: Response, response: HandlerResponse): void {
   if (response.headers) {
     for (const [key, value] of Object.entries(response.headers)) {
-      res.set(key, value);
+      if (Array.isArray(value)) {
+        res.set(key, value.map(sanitizeHeaderValue));
+      } else {
+        res.set(key, sanitizeHeaderValue(value));
+      }
     }
   }
 
