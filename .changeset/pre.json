@@ -1,0 +1,31 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@cosmneo/onion-lasagna-docs": "1.0.1",
+    "@cosmneo/onion-lasagna-axios": "0.4.1",
+    "@cosmneo/onion-lasagna-client": "0.4.1",
+    "@cosmneo/onion-lasagna-graphql-client": "0.4.1",
+    "@cosmneo/onion-lasagna-graphql-react-query": "0.4.1",
+    "@cosmneo/onion-lasagna-react-query": "0.4.1",
+    "@cosmneo/onion-lasagna-svelte-query": "0.4.1",
+    "@cosmneo/onion-lasagna-swr": "0.4.1",
+    "@cosmneo/onion-lasagna-vue-query": "0.4.1",
+    "@cosmneo/onion-lasagna": "0.4.1",
+    "@cosmneo/onion-lasagna-saga": "0.4.1",
+    "@cosmneo/onion-lasagna-arktype": "0.4.1",
+    "@cosmneo/onion-lasagna-typebox": "0.4.1",
+    "@cosmneo/onion-lasagna-valibot": "0.4.1",
+    "@cosmneo/onion-lasagna-zod": "0.4.1",
+    "@cosmneo/onion-lasagna-zod-v3": "0.4.1",
+    "@cosmneo/onion-lasagna-elysia": "0.4.1",
+    "@cosmneo/onion-lasagna-express": "0.4.1",
+    "@cosmneo/onion-lasagna-fastify": "0.4.1",
+    "@cosmneo/onion-lasagna-hono": "0.4.1",
+    "@cosmneo/onion-lasagna-nestjs": "0.4.1",
+    "@cosmneo/onion-lasagna-yoga": "0.4.1",
+    "create-onion-lasagna-app": "0.1.2",
+    "onion-lasagna-cli": "0.1.0"
+  },
+  "changesets": []
+}
