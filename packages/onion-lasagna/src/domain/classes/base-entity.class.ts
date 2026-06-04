@@ -135,6 +135,7 @@ export abstract class BaseEntity<TId extends BaseValueObject<unknown>, TProps ex
    * ```
    */
   public equals(other: BaseEntity<TId, TProps>): boolean {
+    if (other === null || other === undefined) return false;
     if (this === other) return true;
     return this.idEquals(this._id, other._id);
   }

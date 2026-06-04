@@ -242,6 +242,72 @@ describe('BaseAuditOnVo', () => {
   });
 });
 
+describe('BaseAuditOnVo additional invariants', () => {
+  // C01-3: create()/now() must clone input Dates at construction
+  it('mutating the Date passed to create() should not affect stored value (C01-3)', () => {
+    const createdAt = new Date('2024-01-15T10:00:00.000Z');
+    const updatedAt = new Date('2024-01-16T10:00:00.000Z');
+    const auditOn = BaseAuditOnVo.create({ createdAt, updatedAt });
+
+    const expectedCreated = createdAt.getTime();
+    const expectedUpdated = updatedAt.getTime();
+
+    // Mutate caller Dates after construction
+    createdAt.setFullYear(1999);
+    updatedAt.setFullYear(1999);
+
+    expect(auditOn.createdAt.getTime()).toBe(expectedCreated);
+    expect(auditOn.updatedAt.getTime()).toBe(expectedUpdated);
+  });
+
+  it('mutating the Date accessed via .value should not affect stored value (C01-3 / C01-1)', () => {
+    const auditOn = BaseAuditOnVo.now();
+    const expectedCreated = auditOn.createdAt.getTime();
+
+    const leaked = auditOn.value as { createdAt: Date; updatedAt: Date };
+    leaked.createdAt.setFullYear(1999);
+
+    expect(auditOn.createdAt.getTime()).toBe(expectedCreated);
+  });
+
+  // C01-6: update() must honour the updatedAt >= createdAt invariant
+  it('update() should throw InvariantViolationError if a mocked "now" would produce updatedAt < createdAt', () => {
+    // We patch global.Date so that new Date() (no args) returns a time in the past,
+    // then verify that update() — which calls create() — correctly throws.
+    const OriginalDate = global.Date;
+    const pastTime = new OriginalDate('2000-01-01T00:00:00.000Z');
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const MockDate = function MockDate(...args: any[]) {
+      if (args.length === 0) {
+        return new OriginalDate(pastTime.getTime());
+      }
+       
+      return new OriginalDate(...(args as [string]));
+    } as unknown as typeof Date;
+    MockDate.now = () => pastTime.getTime();
+    MockDate.parse = OriginalDate.parse;
+    MockDate.UTC = OriginalDate.UTC;
+    Object.setPrototypeOf(MockDate.prototype, OriginalDate.prototype);
+    global.Date = MockDate;
+
+    try {
+      // original was created with a future createdAt (using OriginalDate to bypass mock)
+      const futureDate = new OriginalDate('2024-01-15T10:00:00.000Z');
+      const original = BaseAuditOnVo.create({
+        createdAt: futureDate,
+        updatedAt: futureDate,
+      });
+
+      // Now calling update() will produce new Date() = pastTime (< createdAt)
+      // With the fix (routed through create()), it should throw
+      expect(() => original.update()).toThrow();
+    } finally {
+      global.Date = OriginalDate;
+    }
+  });
+});
+
 describe('BaseAuditByVo and BaseAuditOnVo composition', () => {
   it('should work together for complete audit tracking', () => {
     const userId = BaseUuidV4Vo.generate();

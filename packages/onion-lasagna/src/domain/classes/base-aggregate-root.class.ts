@@ -280,12 +280,13 @@ export abstract class BaseAggregateRoot<
   }
 
   /**
-   * Returns a read-only view of loaded fields.
+   * Returns a snapshot copy of loaded fields.
    *
-   * Useful for debugging and inspection, particularly in tests
-   * or logging scenarios.
+   * A new `Set` is returned on every access so that callers cannot inadvertently
+   * mutate the aggregate's internal load-state through the returned set (C01-4).
+   * Useful for debugging and inspection, particularly in tests or logging scenarios.
    *
-   * @returns A read-only set of loaded field names
+   * @returns A copy of the loaded field names as a read-only set
    *
    * @example
    * ```typescript
@@ -294,6 +295,6 @@ export abstract class BaseAggregateRoot<
    * ```
    */
   public get loadedFields(): ReadonlySet<keyof TProps | string> {
-    return this._loadedFields;
+    return new Set(this._loadedFields);
   }
 }

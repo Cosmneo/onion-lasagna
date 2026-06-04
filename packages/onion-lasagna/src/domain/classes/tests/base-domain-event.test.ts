@@ -132,6 +132,47 @@ describe('BaseDomainEvent', () => {
     });
   });
 
+  // C01-2: occurredOn getter should return a clone (not the internal Date ref)
+  describe('occurredOn immutability (C01-2)', () => {
+    it('mutating the returned occurredOn Date should not affect the stored value', () => {
+      const fixedDate = new Date('2024-03-15T10:00:00.000Z');
+      // Use a subclass that accepts a custom occurredOn date
+      class DatedEvent extends BaseDomainEvent<TestPayload> {
+        constructor(payload: TestPayload, occOn: Date) {
+          super('DatedEvent', payload.id, payload, undefined, occOn);
+        }
+      }
+      const datedEvent = new DatedEvent(
+        { id: '456', name: 'x', nested: { value: 1, items: [] }, createdAt: new Date() },
+        fixedDate,
+      );
+      const originalTime = datedEvent.occurredOn.getTime();
+
+      // Mutate the returned date
+      datedEvent.occurredOn.setFullYear(1999);
+
+      expect(datedEvent.occurredOn.getTime()).toBe(originalTime);
+    });
+
+    it('passing a Date to constructor and mutating caller Date should not affect stored occurredOn', () => {
+      const callerDate = new Date('2024-03-15T10:00:00.000Z');
+      class DatedEvent2 extends BaseDomainEvent<TestPayload> {
+        constructor(payload: TestPayload, occOn: Date) {
+          super('DatedEvent2', payload.id, payload, undefined, occOn);
+        }
+      }
+      const event = new DatedEvent2(
+        { id: '789', name: 'y', nested: { value: 1, items: [] }, createdAt: new Date() },
+        callerDate,
+      );
+      const storedTime = event.occurredOn.getTime();
+
+      callerDate.setFullYear(1999);
+
+      expect(event.occurredOn.getTime()).toBe(storedTime);
+    });
+  });
+
   describe('event properties', () => {
     it('should set eventName correctly', () => {
       const event = new TestEvent({

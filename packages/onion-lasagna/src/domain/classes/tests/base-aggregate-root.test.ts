@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { BaseAggregateRoot } from '../base-aggregate-root.class';
-import { BaseValueObject, SKIP_VALUE_OBJECT_VALIDATION } from '../base-value-object.class';
+import { BaseValueObject } from '../base-value-object.class';
 import { BaseDomainEvent } from '../base-domain-event.class';
 import { PartialLoadError } from '../../exceptions/partial-load.error';
 
 // Test ID value object
 class TestId extends BaseValueObject<string> {
   static create(value: string): TestId {
-    return new TestId(value, SKIP_VALUE_OBJECT_VALIDATION);
+    return new TestId(value);
   }
 }
 
@@ -373,6 +373,24 @@ describe('BaseAggregateRoot', () => {
         aggregate.testMarkLoaded('name', 'status');
 
         expect(Array.from(aggregate.loadedFields).sort()).toEqual(['name', 'status']);
+      });
+
+      // C01-4: loadedFields getter must return a copy, not the live internal Set
+      it('mutating the returned loadedFields Set should NOT affect internal state (C01-4)', () => {
+        const aggregate = TestAggregate.reconstitute('123', { name: 'Test', status: 'active' }, 0);
+        aggregate.testMarkLoaded('name');
+
+        const leaked = aggregate.loadedFields as Set<string>;
+        // Attempt to add to the "leaked" set — if it's the internal one, size changes
+        try {
+          leaked.add('injected');
+        } catch {
+          // ReadonlySet cast won't throw but the underlying Set might allow it
+        }
+
+        // The aggregate should not see 'injected'
+        expect(aggregate.loadedFields.has('injected')).toBe(false);
+        expect(aggregate.loadedFields.size).toBe(1);
       });
     });
 

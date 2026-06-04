@@ -49,7 +49,11 @@ export class BaseAuditOnVo extends BaseValueObject<{
         code: 'INVALID_AUDIT_TIMESTAMPS',
       });
     }
-    return new BaseAuditOnVo(value);
+    // Clone input Dates at construction so caller mutations do not affect this VO (C01-3).
+    return new BaseAuditOnVo({
+      createdAt: new Date(value.createdAt.getTime()),
+      updatedAt: new Date(value.updatedAt.getTime()),
+    });
   }
 
   /**
@@ -58,7 +62,8 @@ export class BaseAuditOnVo extends BaseValueObject<{
    */
   static now(): BaseAuditOnVo {
     const now = new Date();
-    return new BaseAuditOnVo({ createdAt: now, updatedAt: now });
+    // Clone to ensure each field holds an independent Date instance (C01-3).
+    return new BaseAuditOnVo({ createdAt: new Date(now.getTime()), updatedAt: new Date(now.getTime()) });
   }
 
   /** When the entity was created. Returns a clone to prevent mutation. */
@@ -74,11 +79,15 @@ export class BaseAuditOnVo extends BaseValueObject<{
   /**
    * Creates a new audit timestamp with current time as updatedAt.
    *
+   * Routed through the validating `create()` factory to ensure the
+   * `updatedAt >= createdAt` invariant is always enforced, even when
+   * system clocks are skewed or mocked during testing (C01-6).
+   *
    * @returns A new immutable audit timestamp instance
    */
   update(): BaseAuditOnVo {
-    return new BaseAuditOnVo({
-      createdAt: this.value.createdAt,
+    return BaseAuditOnVo.create({
+      createdAt: this.createdAt,
       updatedAt: new Date(),
     });
   }
