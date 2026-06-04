@@ -14,6 +14,7 @@ import type {
   CreateMutationResult,
   QueryOptions,
 } from '@tanstack/svelte-query';
+import type { Readable } from 'svelte/store';
 import type {
   RouteDefinition,
   RouterConfig,
@@ -23,6 +24,9 @@ import type {
 } from '@cosmneo/onion-lasagna/http/route';
 import type { ClientConfig } from '@cosmneo/onion-lasagna-client';
 import { ClientError } from '@cosmneo/onion-lasagna-client';
+
+/** A value that can be either a plain `T` or a Svelte `Readable<T>` store. */
+export type StoreOrVal<T> = T | Readable<T>;
 
 // Re-export ClientError for consumer convenience
 export { ClientError };
@@ -68,23 +72,33 @@ type RequiresInput<TRoute extends RouteDefinition> =
 // ============================================================================
 
 /**
+ * Extra options accepted by the generated `createQuery` hooks beyond the standard
+ * Tanstack Query options. The `enabled` field is widened to also accept a
+ * `Readable<boolean>` store so that consumers can pass reactive signals directly.
+ */
+export type ReactiveCreateQueryOptions<TData, TError> = Omit<
+  CreateQueryOptions<TData, TError>,
+  'queryKey' | 'queryFn' | 'enabled'
+> & {
+  /** Static boolean OR a `Readable<boolean>` store for reactive gating. */
+  enabled?: StoreOrVal<boolean>;
+};
+
+/**
  * Hooks for GET/HEAD routes (queries).
+ *
+ * Both `input` and `options.enabled` accept either plain values (backward compatible)
+ * or Svelte `Readable` stores for full reactivity (P05-1 fix).
  */
 export interface QueryRouteHooks<TRoute extends RouteDefinition> {
   createQuery: RequiresInput<TRoute> extends true
     ? (
-        input: HookRequestInput<TRoute>,
-        options?: Omit<
-          CreateQueryOptions<HookResponse<TRoute>, ClientError>,
-          'queryKey' | 'queryFn'
-        >,
+        input: StoreOrVal<HookRequestInput<TRoute>>,
+        options?: ReactiveCreateQueryOptions<HookResponse<TRoute>, ClientError>,
       ) => CreateQueryResult<HookResponse<TRoute>, ClientError>
     : (
-        input?: HookRequestInput<TRoute>,
-        options?: Omit<
-          CreateQueryOptions<HookResponse<TRoute>, ClientError>,
-          'queryKey' | 'queryFn'
-        >,
+        input?: StoreOrVal<HookRequestInput<TRoute>>,
+        options?: ReactiveCreateQueryOptions<HookResponse<TRoute>, ClientError>,
       ) => CreateQueryResult<HookResponse<TRoute>, ClientError>;
 }
 
@@ -243,32 +257,33 @@ export interface SvelteQueryHooksConfig extends ClientConfig {
   /**
    * Function that gates all generated `createQuery` hooks.
    *
-   * Called inside every query hook. The return value is AND-ed with any
-   * per-query `enabled` option:
-   * `enabled = useEnabled() && (userEnabled ?? true)`.
+   * Called once when `createQuery` is invoked (not per-render). The return value
+   * is AND-ed with any per-query `enabled` option. Returning a `Readable<boolean>`
+   * makes the gate fully reactive — queries re-enable automatically when the store
+   * emits `true` (e.g., when an auth session becomes valid).
    *
    * Mutations are not affected — they fire on explicit `.mutate()`.
    *
-   * @example Gate queries on auth session readiness
+   * @example Gate queries on auth session readiness (reactive)
+   * ```typescript
+   * const sessionValid = writable(false);
+   *
+   * const { hooks } = createSvelteQueryHooks(router, {
+   *   baseUrl: '/api',
+   *   useEnabled: () => sessionValid, // returns Readable<boolean>
+   * });
+   *
+   * // Queries are disabled until the session becomes valid
+   * sessionValid.set(true); // all queries re-enable automatically
+   * ```
+   *
+   * @example Static boolean (backward compatible)
    * ```typescript
    * const { hooks } = createSvelteQueryHooks(router, {
    *   baseUrl: '/api',
-   *   useEnabled: () => {
-   *     const session = getValidSession();
-   *     return session.isValid;
-   *   },
+   *   useEnabled: () => isAuthenticated, // plain boolean
    * });
-   *
-   * // No manual `enabled: isValid` needed — session gating is automatic
-   * const query = hooks.users.list.createQuery();
-   *
-   * // Per-query enabled still composes:
-   * // enabled = useEnabled() && !!organizationId
-   * const query = hooks.orgs.get.createQuery(
-   *   { pathParams: { organizationId } },
-   *   { enabled: !!organizationId },
-   * );
    * ```
    */
-  readonly useEnabled?: () => boolean;
+  readonly useEnabled?: () => StoreOrVal<boolean>;
 }

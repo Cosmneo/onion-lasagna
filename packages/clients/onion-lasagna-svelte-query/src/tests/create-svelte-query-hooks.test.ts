@@ -5,8 +5,10 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
+import { get, writable, readable } from 'svelte/store';
 import { defineRoute, defineRouter } from '@cosmneo/onion-lasagna/http/route';
 import { zodSchema } from '@cosmneo/onion-lasagna-zod';
+import type { Readable } from 'svelte/store';
 
 // ============================================================================
 // Mock @tanstack/svelte-query
@@ -32,6 +34,14 @@ beforeEach(async () => {
   const mod = await import('../create-svelte-query-hooks');
   createSvelteQueryHooks = mod.createSvelteQueryHooks;
 });
+
+// ============================================================================
+// Helper: get current value from a store
+// ============================================================================
+
+function getStoreValue<T>(store: Readable<T>): T {
+  return get(store);
+}
 
 // ============================================================================
 // Test Routes
@@ -161,6 +171,18 @@ describe('createSvelteQueryHooks', () => {
   });
 
   describe('createQuery behavior', () => {
+    it('passes a reactive store (isSvelteStore) to createQuery', () => {
+      const { hooks } = createSvelteQueryHooks({ list: listUsersRoute }, config);
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery();
+
+      expect(mockCreateQuery).toHaveBeenCalledTimes(1);
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      // The argument must be a Svelte store (has a subscribe method)
+      expect(typeof storeArg.subscribe).toBe('function');
+    });
+
     it('calls createQuery with correct queryKey for route without input', () => {
       const { hooks } = createSvelteQueryHooks({ list: listUsersRoute }, config);
 
@@ -168,9 +190,10 @@ describe('createSvelteQueryHooks', () => {
       hook.createQuery();
 
       expect(mockCreateQuery).toHaveBeenCalledTimes(1);
-      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['queryKey']).toEqual(['list']);
-      expect(typeof callArgs['queryFn']).toBe('function');
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      const options = getStoreValue(storeArg);
+      expect(options['queryKey']).toEqual(['list']);
+      expect(typeof options['queryFn']).toBe('function');
     });
 
     it('appends input to queryKey', () => {
@@ -181,8 +204,9 @@ describe('createSvelteQueryHooks', () => {
       hook.createQuery(input);
 
       expect(mockCreateQuery).toHaveBeenCalledTimes(1);
-      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['queryKey']).toEqual(['get', { pathParams: { userId: '123' } }]);
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      const options = getStoreValue(storeArg);
+      expect(options['queryKey']).toEqual(['get', { pathParams: { userId: '123' } }]);
     });
 
     it('passes additional options through', () => {
@@ -191,9 +215,10 @@ describe('createSvelteQueryHooks', () => {
       const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
       hook.createQuery(undefined, { staleTime: 5000, enabled: false });
 
-      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['staleTime']).toBe(5000);
-      expect(callArgs['enabled']).toBe(false);
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      const options = getStoreValue(storeArg);
+      expect(options['staleTime']).toBe(5000);
+      expect(options['enabled']).toBe(false);
     });
 
     it('builds correct queryKey for nested routes', () => {
@@ -214,11 +239,57 @@ describe('createSvelteQueryHooks', () => {
       users['list']!.createQuery();
       users['get']!.createQuery({ pathParams: { userId: '456' } });
 
-      const listCallArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(listCallArgs['queryKey']).toEqual(['users', 'list']);
+      const listStoreArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      expect(getStoreValue(listStoreArg)['queryKey']).toEqual(['users', 'list']);
 
-      const getCallArgs = mockCreateQuery.mock.calls[1]![0] as Record<string, unknown>;
-      expect(getCallArgs['queryKey']).toEqual(['users', 'get', { pathParams: { userId: '456' } }]);
+      const getStoreArg = mockCreateQuery.mock.calls[1]![0] as Readable<Record<string, unknown>>;
+      expect(getStoreValue(getStoreArg)['queryKey']).toEqual([
+        'users',
+        'get',
+        { pathParams: { userId: '456' } },
+      ]);
+    });
+
+    it('queryKey updates reactively when reactive input store changes', () => {
+      const { hooks } = createSvelteQueryHooks({ get: getUserRoute }, config);
+      const hook = hooks['get'] as { createQuery: (...args: unknown[]) => unknown };
+
+      const inputStore = writable({ pathParams: { userId: '1' } });
+      hook.createQuery(inputStore);
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+
+      // Initial state: queryKey includes userId '1'
+      expect(getStoreValue(storeArg)['queryKey']).toEqual([
+        'get',
+        { pathParams: { userId: '1' } },
+      ]);
+
+      // Update the input store
+      inputStore.set({ pathParams: { userId: '2' } });
+
+      // The options store must re-evaluate with the new key
+      expect(getStoreValue(storeArg)['queryKey']).toEqual([
+        'get',
+        { pathParams: { userId: '2' } },
+      ]);
+    });
+
+    it('queryFn uses current input when input store changes', () => {
+      const { hooks } = createSvelteQueryHooks({ get: getUserRoute }, config);
+      const hook = hooks['get'] as { createQuery: (...args: unknown[]) => unknown };
+
+      const inputStore = writable({ pathParams: { userId: '1' } });
+      hook.createQuery(inputStore);
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+
+      // Update input
+      inputStore.set({ pathParams: { userId: '99' } });
+
+      const options = getStoreValue(storeArg);
+      // queryFn should use the latest input
+      expect(options['queryKey']).toEqual(['get', { pathParams: { userId: '99' } }]);
     });
   });
 
@@ -304,8 +375,8 @@ describe('createSvelteQueryHooks', () => {
       const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
       hook.createQuery();
 
-      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['enabled']).toBe(false);
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      expect(getStoreValue(storeArg)['enabled']).toBe(false);
     });
 
     it('enables query when useEnabled returns true', () => {
@@ -317,8 +388,8 @@ describe('createSvelteQueryHooks', () => {
       const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
       hook.createQuery();
 
-      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['enabled']).toBe(true);
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      expect(getStoreValue(storeArg)['enabled']).toBe(true);
     });
 
     it('composes with per-query enabled (both must be true)', () => {
@@ -330,8 +401,8 @@ describe('createSvelteQueryHooks', () => {
       const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
       hook.createQuery(undefined, { enabled: false });
 
-      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['enabled']).toBe(false);
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      expect(getStoreValue(storeArg)['enabled']).toBe(false);
     });
 
     it('composes with per-query enabled (useEnabled false overrides)', () => {
@@ -343,8 +414,8 @@ describe('createSvelteQueryHooks', () => {
       const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
       hook.createQuery(undefined, { enabled: true });
 
-      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['enabled']).toBe(false);
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      expect(getStoreValue(storeArg)['enabled']).toBe(false);
     });
 
     it('defaults to enabled when useEnabled is not provided', () => {
@@ -353,8 +424,8 @@ describe('createSvelteQueryHooks', () => {
       const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
       hook.createQuery();
 
-      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['enabled']).toBe(true);
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      expect(getStoreValue(storeArg)['enabled']).toBe(true);
     });
 
     it('does not affect mutations', () => {
@@ -380,9 +451,108 @@ describe('createSvelteQueryHooks', () => {
       const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
       hook.createQuery(undefined, { staleTime: 5000, enabled: true });
 
-      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['staleTime']).toBe(5000);
-      expect(callArgs['enabled']).toBe(true);
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      const options = getStoreValue(storeArg);
+      expect(options['staleTime']).toBe(5000);
+      expect(options['enabled']).toBe(true);
+    });
+
+    // -------------------------------------------------------------------------
+    // P05-1: Reactivity — useEnabled gate must re-enable when store flips
+    // -------------------------------------------------------------------------
+
+    it('P05-1: re-enables when useEnabled store flips from false to true', () => {
+      const enabledStore = writable(false);
+      const { hooks } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => enabledStore },
+      );
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery();
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+
+      // Initially disabled
+      expect(getStoreValue(storeArg)['enabled']).toBe(false);
+
+      // Gate flips to true (e.g., auth session becomes valid)
+      enabledStore.set(true);
+
+      // Options store must re-evaluate
+      expect(getStoreValue(storeArg)['enabled']).toBe(true);
+    });
+
+    it('P05-1: disables again when useEnabled store flips back to false', () => {
+      const enabledStore = writable(true);
+      const { hooks } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => enabledStore },
+      );
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery();
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+
+      expect(getStoreValue(storeArg)['enabled']).toBe(true);
+
+      enabledStore.set(false);
+
+      expect(getStoreValue(storeArg)['enabled']).toBe(false);
+    });
+
+    it('P05-1: composes reactive useEnabled with reactive per-query enabled', () => {
+      const globalEnabledStore = writable(false);
+      const perQueryEnabled = writable(true);
+
+      const { hooks } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => globalEnabledStore },
+      );
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery(undefined, { enabled: perQueryEnabled });
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+
+      // Both false initially (globalEnabled is false)
+      expect(getStoreValue(storeArg)['enabled']).toBe(false);
+
+      // Enable global — both must be true
+      globalEnabledStore.set(true);
+      expect(getStoreValue(storeArg)['enabled']).toBe(true);
+
+      // Disable per-query — result is false
+      perQueryEnabled.set(false);
+      expect(getStoreValue(storeArg)['enabled']).toBe(false);
+    });
+
+    it('P05-1: reactive useEnabled subscriber receives all changes', () => {
+      const enabledStore = writable(false);
+      const values: boolean[] = [];
+
+      const { hooks } = createSvelteQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => enabledStore },
+      );
+
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery();
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      const unsub = storeArg.subscribe((opts) => {
+        values.push(opts['enabled'] as boolean);
+      });
+
+      enabledStore.set(true);
+      enabledStore.set(false);
+      enabledStore.set(true);
+
+      unsub();
+
+      // Should have received: false (initial), true, false, true
+      expect(values).toEqual([false, true, false, true]);
     });
   });
 
@@ -396,8 +566,8 @@ describe('createSvelteQueryHooks', () => {
       const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
       hook.createQuery();
 
-      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['queryKey']).toEqual(['my-api', 'list']);
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      expect(getStoreValue(storeArg)['queryKey']).toEqual(['my-api', 'list']);
     });
 
     it('prefixes query keys with input', () => {
@@ -409,8 +579,12 @@ describe('createSvelteQueryHooks', () => {
       const hook = hooks['get'] as { createQuery: (...args: unknown[]) => unknown };
       hook.createQuery({ pathParams: { userId: '1' } });
 
-      const callArgs = mockCreateQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['queryKey']).toEqual(['my-api', 'get', { pathParams: { userId: '1' } }]);
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      expect(getStoreValue(storeArg)['queryKey']).toEqual([
+        'my-api',
+        'get',
+        { pathParams: { userId: '1' } },
+      ]);
     });
 
     it('prefixes queryKeys object', () => {
@@ -442,6 +616,94 @@ describe('createSvelteQueryHooks', () => {
       expect(listA()).toEqual(['users-api', 'list']);
       expect(listB()).toEqual(['products-api', 'list']);
       expect(listA()).not.toEqual(listB());
+    });
+  });
+
+  describe('P05-1: reactive input store', () => {
+    it('options passed to createQuery are a Svelte store (have subscribe)', () => {
+      const { hooks } = createSvelteQueryHooks({ get: getUserRoute }, config);
+      const hook = hooks['get'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery({ pathParams: { userId: '1' } });
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0];
+      // Must satisfy isSvelteStore: has subscribe as a function
+      expect(typeof (storeArg as { subscribe: unknown })['subscribe']).toBe('function');
+    });
+
+    it('queryKey updates when writable input store changes value', () => {
+      const { hooks } = createSvelteQueryHooks({ get: getUserRoute }, config);
+      const hook = hooks['get'] as { createQuery: (...args: unknown[]) => unknown };
+
+      const inputStore = writable({ pathParams: { userId: 'a' } });
+      hook.createQuery(inputStore);
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+
+      expect(getStoreValue(storeArg)['queryKey']).toEqual(['get', { pathParams: { userId: 'a' } }]);
+
+      inputStore.set({ pathParams: { userId: 'b' } });
+
+      expect(getStoreValue(storeArg)['queryKey']).toEqual(['get', { pathParams: { userId: 'b' } }]);
+    });
+
+    it('reactive input store emits all keypath changes to subscribers', () => {
+      const { hooks } = createSvelteQueryHooks({ get: getUserRoute }, config);
+      const hook = hooks['get'] as { createQuery: (...args: unknown[]) => unknown };
+
+      const inputStore = writable({ pathParams: { userId: '1' } });
+      hook.createQuery(inputStore);
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      const keys: unknown[] = [];
+      const unsub = storeArg.subscribe((opts) => {
+        keys.push(opts['queryKey']);
+      });
+
+      inputStore.set({ pathParams: { userId: '2' } });
+      inputStore.set({ pathParams: { userId: '3' } });
+
+      unsub();
+
+      expect(keys).toEqual([
+        ['get', { pathParams: { userId: '1' } }],
+        ['get', { pathParams: { userId: '2' } }],
+        ['get', { pathParams: { userId: '3' } }],
+      ]);
+    });
+
+    it('plain input value still produces a store (backward compatible)', () => {
+      const { hooks } = createSvelteQueryHooks({ list: listUsersRoute }, config);
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery();
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      expect(typeof storeArg.subscribe).toBe('function');
+      expect(getStoreValue(storeArg)['queryKey']).toEqual(['list']);
+    });
+
+    it('static boolean enabled is preserved and backward compatible', () => {
+      const { hooks } = createSvelteQueryHooks({ list: listUsersRoute }, config);
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+      hook.createQuery(undefined, { enabled: false });
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+      expect(getStoreValue(storeArg)['enabled']).toBe(false);
+    });
+
+    it('reactive enabled store (Readable<boolean>) passed in options updates the query', () => {
+      const { hooks } = createSvelteQueryHooks({ list: listUsersRoute }, config);
+      const hook = hooks['list'] as { createQuery: (...args: unknown[]) => unknown };
+
+      const enabledStore = writable(true);
+      hook.createQuery(undefined, { enabled: enabledStore });
+
+      const storeArg = mockCreateQuery.mock.calls[0]![0] as Readable<Record<string, unknown>>;
+
+      expect(getStoreValue(storeArg)['enabled']).toBe(true);
+
+      enabledStore.set(false);
+
+      expect(getStoreValue(storeArg)['enabled']).toBe(false);
     });
   });
 });
