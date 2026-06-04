@@ -288,7 +288,7 @@ describe('createOnionYoga — context resolver errors', () => {
       errors?: Array<{ message: string; extensions?: { code?: string } }>;
     };
     expect(body.errors?.[0]?.message).toBe('Invalid token');
-    expect(body.errors?.[0]?.extensions?.code).toBe('FORBIDDEN');
+    expect(body.errors?.[0]?.extensions?.code).toBe('UNAUTHENTICATED');
   });
 
   it('maps ForbiddenError thrown in createContext to HTTP 403', async () => {
