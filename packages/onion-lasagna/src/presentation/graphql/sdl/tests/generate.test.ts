@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { defineQuery, defineMutation } from '../../field/define-field';
 import { defineGraphQLSchema } from '../../field/define-schema';
-import { generateGraphQLSDL } from '../generate';
+import { generateGraphQLSDL, generateGraphQLSDLWithMeta, type GraphQLSDLResult } from '../generate';
 import { zodSchema } from '../../../http/__test-utils__/zod-schema';
 
 describe('generateGraphQLSDL', () => {
@@ -267,7 +267,7 @@ describe('generateGraphQLSDL', () => {
       expect(sdl).not.toMatch(/address: JSON/);
     });
 
-    it('names array-of-object element types after the array property', () => {
+    it('names array-of-object element types after the array property (using _Item suffix)', () => {
       const list = defineQuery({
         output: zodSchema(
           z.object({
@@ -279,8 +279,9 @@ describe('generateGraphQLSDL', () => {
       const schema = defineGraphQLSchema({ list });
       const sdl = generateGraphQLSDL(schema);
 
-      expect(sdl).toContain('items: [ListOutput_Item]!');
-      expect(sdl).toContain('type ListOutput_Item {');
+      // The element type is named <ParentType>_<PropName>_Item
+      expect(sdl).toContain('items: [ListOutput_Items_Item]!');
+      expect(sdl).toContain('type ListOutput_Items_Item {');
       expect(sdl).toContain('id: String!');
     });
 
@@ -353,6 +354,221 @@ describe('generateGraphQLSDL', () => {
       const sdl = generateGraphQLSDL(schema);
 
       expect(sdl).toContain('get: JSON');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // C07-1: fieldId collision detection
+  // -------------------------------------------------------------------------
+  describe('C07-1: fieldId collision detection', () => {
+    it('throws when two routes produce the same fieldId', () => {
+      // "users.get" → "usersGet", and a top-level "usersGet" also → "usersGet"
+      const get = defineQuery({ output: zodSchema(z.object({ id: z.string() })) });
+
+      // Both generate fieldId "usersGet"
+      const schema = defineGraphQLSchema({
+        users: { get },
+        usersGet: get,
+      });
+
+      expect(() => generateGraphQLSDL(schema)).toThrow(/duplicate.*fieldId.*usersGet/i);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // C07-2: sibling array property name collision
+  // -------------------------------------------------------------------------
+  describe('C07-2: sibling array name collision', () => {
+    it('generates distinct item-type names for sibling arrays (item vs items)', () => {
+      const q = defineQuery({
+        output: zodSchema(
+          z.object({
+            items: z.array(z.object({ id: z.string() })),
+            item: z.array(z.object({ name: z.string() })),
+          }),
+        ),
+      });
+      const sdl = generateGraphQLSDL(defineGraphQLSchema({ q }));
+
+      // Both item types must be distinct
+      expect(sdl).toContain('items: [QOutput_Items_Item]!');
+      expect(sdl).toContain('type QOutput_Items_Item {');
+      expect(sdl).toContain('item: [QOutput_Item_Item]!');
+      expect(sdl).toContain('type QOutput_Item_Item {');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // C07-4: invalid GraphQL identifier sanitization
+  // -------------------------------------------------------------------------
+  describe('C07-4: identifier sanitization', () => {
+    it('sanitizes kebab-case property names to valid GraphQL identifiers', () => {
+      const q = defineQuery({
+        output: zodSchema(z.object({ 'content-type': z.string() })),
+      });
+      const sdl = generateGraphQLSDL(defineGraphQLSchema({ q }));
+
+      // Must NOT emit verbatim 'content-type' as a field name
+      expect(sdl).not.toContain('content-type:');
+      // Must emit a valid GraphQL identifier instead
+      expect(sdl).toMatch(/contentType: String/);
+    });
+
+    it('sanitizes property names with dots to valid GraphQL identifiers', () => {
+      const q = defineQuery({
+        output: zodSchema(z.object({ 'meta.version': z.string() })),
+      });
+      const sdl = generateGraphQLSDL(defineGraphQLSchema({ q }));
+
+      expect(sdl).not.toContain('meta.version:');
+      expect(sdl).toMatch(/metaVersion: String/);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // C07 nullability: honor nullable flag
+  // -------------------------------------------------------------------------
+  describe('C07 nullability', () => {
+    it('does not mark required-but-nullable fields as non-null', () => {
+      // z.string().nullable() is in 'required' but has nullable:true
+      const q = defineQuery({
+        output: zodSchema(z.object({ bio: z.string().nullable() })),
+      });
+      const sdl = generateGraphQLSDL(defineGraphQLSchema({ q }));
+
+      // 'bio' is in required but nullable — should NOT have '!'
+      expect(sdl).toContain('bio: String');
+      expect(sdl).not.toContain('bio: String!');
+    });
+
+    it('honors anyOf-with-null nullability (JSON Schema draft style)', () => {
+      // Simulate anyOf: [{type:string},{type:null}] which some serializers emit
+      const q = defineQuery({
+        output: zodSchema(z.object({ value: z.string().nullable() })),
+      });
+      const sdl = generateGraphQLSDL(defineGraphQLSchema({ q }));
+
+      expect(sdl).not.toContain('value: String!');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // C07 JSON scalar: auto-declare scalar JSON
+  // -------------------------------------------------------------------------
+  describe('C07 JSON scalar auto-declaration', () => {
+    it('declares scalar JSON automatically when JSON is referenced without preamble', () => {
+      // A field with no output schema falls back to JSON
+      const q = defineQuery();
+      const sdl = generateGraphQLSDL(defineGraphQLSchema({ q }));
+
+      expect(sdl).toContain('scalar JSON');
+    });
+
+    it('does not duplicate scalar JSON if preamble already includes it', () => {
+      const q = defineQuery();
+      const sdl = generateGraphQLSDL(defineGraphQLSchema({ q }), {
+        preamble: 'scalar JSON',
+      });
+
+      const count = (sdl.match(/scalar JSON/g) ?? []).length;
+      expect(count).toBe(1);
+    });
+
+    it('does not emit scalar JSON when no JSON references exist', () => {
+      const q = defineQuery({
+        output: zodSchema(z.object({ id: z.string() })),
+      });
+      const sdl = generateGraphQLSDL(defineGraphQLSchema({ q }));
+
+      expect(sdl).not.toContain('scalar JSON');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // C07 empty input: guard empty input objects
+  // -------------------------------------------------------------------------
+  describe('C07 empty input guard', () => {
+    it('falls back to JSON scalar for empty input objects instead of emitting invalid SDL', () => {
+      const q = defineMutation({
+        input: zodSchema(z.object({})),
+        output: zodSchema(z.object({ id: z.string() })),
+      });
+      const sdl = generateGraphQLSDL(defineGraphQLSchema({ q }));
+
+      // Must NOT emit 'input QInput { }' (empty input is invalid SDL)
+      expect(sdl).not.toMatch(/input\s+QInput\s*\{[\s\n]*\}/);
+      // The field should still be usable
+      expect(sdl).toContain('type Mutation {');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // C06-1: union member empty-object consistency
+  // -------------------------------------------------------------------------
+  describe('C06-1: union member with empty object', () => {
+    it('falls back to JSON when a union member is an empty object', () => {
+      const q = defineQuery({
+        output: zodSchema(
+          z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('A'), name: z.string() }),
+            z.object({ kind: z.literal('B') }), // only discriminator, no other fields
+          ]),
+        ),
+      });
+      const sdl = generateGraphQLSDL(defineGraphQLSchema({ q }));
+
+      // Since one branch has no non-discriminator fields, the whole union falls
+      // back to JSON rather than producing an invalid member type
+      // OR the B member uses JSON inline. Either way, no empty type {} emitted.
+      expect(sdl).not.toMatch(/type\s+\w+\s*\{\s*\}/);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // KEY ENABLER: union metadata via generateGraphQLSDLWithMeta
+  // -------------------------------------------------------------------------
+  describe('KEY ENABLER: union metadata', () => {
+    it('generateGraphQLSDLWithMeta returns a result object with sdl string and unions metadata', () => {
+      const list = defineQuery({
+        output: zodSchema(
+          z.array(
+            z.discriminatedUnion('kind', [
+              z.object({ kind: z.literal('MEMBER'), membershipId: z.string() }),
+              z.object({ kind: z.literal('INVITE'), email: z.string() }),
+            ]),
+          ),
+        ),
+      });
+
+      const schema = defineGraphQLSchema({ team: { list } });
+      const result: GraphQLSDLResult = generateGraphQLSDLWithMeta(schema);
+
+      // sdl property is a string
+      expect(typeof result.sdl).toBe('string');
+      expect(result.sdl).toContain('type Query {');
+
+      // unions metadata maps union type name → member names + discriminator
+      expect(result.unions).toBeDefined();
+      const unionEntry = result.unions['TeamListOutput_Item'];
+      expect(unionEntry).toBeDefined();
+      expect(unionEntry?.members).toContain('TeamListOutput_Item_Member');
+      expect(unionEntry?.members).toContain('TeamListOutput_Item_Invite');
+      expect(unionEntry?.discriminatorField).toBe('kind');
+    });
+
+    it('generateGraphQLSDL still returns a plain string (backward compat)', () => {
+      const q = defineQuery({ output: zodSchema(z.object({ id: z.string() })) });
+      const sdl = generateGraphQLSDL(defineGraphQLSchema({ q }));
+
+      expect(typeof sdl).toBe('string');
+      expect(sdl).toContain('type Query {');
+    });
+
+    it('unions metadata is empty when schema has no unions', () => {
+      const q = defineQuery({ output: zodSchema(z.object({ id: z.string() })) });
+      const result = generateGraphQLSDLWithMeta(defineGraphQLSchema({ q }));
+
+      expect(result.unions).toEqual({});
     });
   });
 });

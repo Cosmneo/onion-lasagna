@@ -11,5 +11,6 @@
  * ```
  */
 
-export { generateGraphQLSDL } from './generate';
+export { generateGraphQLSDL, generateGraphQLSDLWithMeta } from './generate';
 export type { GraphQLSDLConfig } from './types';
+export type { GraphQLSDLResult, GraphQLUnionMetadata } from './generate';

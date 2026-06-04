@@ -48,8 +48,8 @@ export type {
 export { isSimpleGraphQLHandlerConfig } from './server';
 
 // SDL layer: schema definition language generation
-export { generateGraphQLSDL } from './sdl';
-export type { GraphQLSDLConfig } from './sdl';
+export { generateGraphQLSDL, generateGraphQLSDLWithMeta } from './sdl';
+export type { GraphQLSDLConfig, GraphQLSDLResult, GraphQLUnionMetadata } from './sdl';
 
 // Shared layer: error mapping
 export type {
