@@ -26,6 +26,19 @@ type ZodAny = ZodType<any, any, any>;
  * Uses `zod-to-json-schema` for JSON Schema conversion, targeting
  * OpenAPI 3.0 compatibility with inlined definitions.
  *
+ * ## JSON Schema / transform behaviour
+ *
+ * `zod-to-json-schema` is called with `effectStrategy: 'input'`, so
+ * `toJsonSchema()` always returns the **input (wire) shape** for schemas that
+ * include `.transform()`. For example, a `z.string().transform(s => new Date(s))`
+ * schema produces `{ type: 'string' }` — the Date output type is not reflected.
+ * This is consistent with documenting what the HTTP client must send.
+ *
+ * Note: Zod v4 (native `z.toJSONSchema()`) behaves differently — it emits `{}`
+ * (an unconstrained schema) for transformed types because the transform output
+ * is unrepresentable. The input-shape behaviour here is specific to zod-v3 +
+ * `zod-to-json-schema`.
+ *
  * @param schema - A Zod v3 schema to wrap
  * @returns A SchemaAdapter that validates using Zod and generates JSON Schema
  *
@@ -91,7 +104,12 @@ export function zodV3Schema<T extends ZodAny>(schema: T): SchemaAdapter<T['_outp
       };
     },
 
-    toJsonSchema(_options?: JsonSchemaOptions): JsonSchema {
+    toJsonSchema(options?: JsonSchemaOptions): JsonSchema {
+      // NOTE: the `options` parameter (refStrategy, basePath, definitions,
+      // includeMetadata) is accepted for interface compatibility but is not
+      // yet honoured by this adapter.
+      void options;
+
       const result = zodToJsonSchema(schema, {
         target: 'openApi3',
         $refStrategy: 'none',
@@ -103,9 +121,16 @@ export function zodV3Schema<T extends ZodAny>(schema: T): SchemaAdapter<T['_outp
       const { $schema, ...schemaWithoutMeta } = result as Record<string, unknown>;
 
       // zod-to-json-schema adds `additionalProperties: false` for z.object(),
-      // but Zod only strips extra keys — it doesn't reject them.
-      // Stripping this matches Zod v4's native toJSONSchema behavior and
-      // prevents OpenAPI validators from rejecting valid requests with extra fields.
+      // reflecting the library author's intent to reject unknown keys.
+      // However, Zod only *strips* extra keys during validation — it does not
+      // reject them. Removing additionalProperties: false restores that
+      // permissive semantics in the generated OpenAPI document, preventing
+      // validators from rejecting valid requests that carry extra fields.
+      //
+      // Note: Zod v4 takes a different approach — its native toJSONSchema()
+      // emits `additionalProperties: false` by default because Zod v4 objects
+      // do reject unknown keys. The stripping here is intentionally specific
+      // to the zod-v3 semantics.
       return stripAdditionalProperties(schemaWithoutMeta) as JsonSchema;
     },
 

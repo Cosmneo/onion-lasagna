@@ -28,6 +28,23 @@ import type {
  * ArkType's string-based DSL enables concise schema definitions with
  * best-in-class runtime performance.
  *
+ * ## JSON Schema / transform (morph) behaviour
+ *
+ * ArkType uses the term "morph" for its transform/coerce operations. When
+ * generating JSON Schema, morphs are handled as follows:
+ *
+ * - **Typed `.to()` pipe** (e.g. `type('string').pipe(type('number'))`):
+ *   The **output** schema is used, since the output type is known and
+ *   representable in JSON Schema.
+ * - **Untyped / function morphs** (e.g. `type('string').pipe(s => Number(s))`):
+ *   The morph is not representable. The fallback strategy returns
+ *   `ctx.out ?? ctx.base` — the output schema if available, otherwise the
+ *   input schema.
+ *
+ * In practice this means `toJsonSchema()` tends to reflect the **output
+ * shape** for typed morphs and the **input (wire) shape** for untyped
+ * function morphs — the opposite of the zod-v3 adapter.
+ *
  * @param schema - An ArkType schema to wrap
  * @returns A SchemaAdapter that validates using ArkType and generates JSON Schema
  *
@@ -76,7 +93,12 @@ export function arktypeSchema<T extends Type>(schema: T): SchemaAdapter<T['infer
       return { success: true, data: out as TOutput };
     },
 
-    toJsonSchema(_options?: JsonSchemaOptions): JsonSchema {
+    toJsonSchema(options?: JsonSchemaOptions): JsonSchema {
+      // NOTE: the `options` parameter (refStrategy, basePath, definitions,
+      // includeMetadata) is accepted for interface compatibility but is not
+      // yet honoured by this adapter.
+      void options;
+
       const result = schema.toJsonSchema({
         // Morphs (e.g. string→number coercion via .pipe().to()) have no JSON Schema
         // equivalent. Use the output schema so OpenAPI documents the validated shape.
