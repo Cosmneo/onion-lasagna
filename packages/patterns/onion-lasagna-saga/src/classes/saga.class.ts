@@ -15,6 +15,9 @@ export class Saga<TContext = unknown> {
   }
 
   public addStep(step: ISagaStep<TContext>): this {
+    if (this.steps.some((s) => s.name === step.name)) {
+      throw new Error(`Duplicate step name: "${step.name}"`);
+    }
     this.steps.push(step);
     return this;
   }
@@ -252,6 +255,7 @@ export class Saga<TContext = unknown> {
 
       const attemptController = new AbortController();
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
       const globalAbortListener: EventListener = () => {
         attemptController.abort(new AbortError('Saga aborted'));
       };
@@ -260,33 +264,33 @@ export class Saga<TContext = unknown> {
         this.options.abortSignal.addEventListener('abort', globalAbortListener);
       }
 
-      if (timeoutMs && timeoutMs > 0) {
-        timeoutId = setTimeout(() => {
-          attemptController.abort(new TimeoutError(`Operation timed out after ${timeoutMs} ms`));
-        }, timeoutMs);
-      }
-
       try {
-        await attemptFn(attemptController.signal);
-        if (timeoutId) {
-          clearTimeout(timeoutId);
+        // Build the array of racing promises: always the attempt, optionally a timeout race.
+        // The timeout race rejects with a TimeoutError after timeoutMs regardless of whether
+        // the step respects the abort signal — this enforces the timeout even for signal-ignoring steps.
+        const races: Promise<void>[] = [Promise.resolve(attemptFn(attemptController.signal))];
+
+        if (timeoutMs && timeoutMs > 0) {
+          races.push(
+            new Promise<void>((_, reject) => {
+              timeoutId = setTimeout(() => {
+                attemptController.abort(
+                  new TimeoutError(`Operation timed out after ${timeoutMs} ms`),
+                );
+                reject(new TimeoutError(`Operation timed out after ${timeoutMs} ms`));
+              }, timeoutMs);
+            }),
+          );
         }
-        if (this.options.abortSignal) {
-          this.options.abortSignal.removeEventListener('abort', globalAbortListener);
-        }
+
+        await Promise.race(races);
         return;
       } catch (error) {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        if (this.options.abortSignal) {
-          this.options.abortSignal.removeEventListener('abort', globalAbortListener);
-        }
-
         const err = error instanceof Error ? error : new Error(String(error));
         lastError = err;
 
         if (attemptController.signal.aborted) {
+          // Abort (including timeout-triggered abort) — do not retry
           throw err;
         }
 
@@ -296,7 +300,16 @@ export class Saga<TContext = unknown> {
 
         const delayMs = typeof backoff === 'function' ? backoff(attempt) : (backoff ?? 0);
         if (delayMs > 0) {
-          await this.delay(delayMs);
+          // C11-3: make the delay abortable so an in-flight abort wakes it immediately
+          await this.delay(delayMs, this.options.abortSignal);
+        }
+      } finally {
+        // Always clean up — regardless of success, error, or non-settling race paths
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        if (this.options.abortSignal) {
+          this.options.abortSignal.removeEventListener('abort', globalAbortListener);
         }
       }
     }
@@ -306,8 +319,23 @@ export class Saga<TContext = unknown> {
     }
   }
 
-  private async delay(ms: number): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, ms));
+  private async delay(ms: number, abortSignal?: AbortSignal): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+      if (abortSignal?.aborted) {
+        reject(new AbortError('Saga aborted'));
+        return;
+      }
+
+      const id = setTimeout(resolve, ms);
+
+      if (abortSignal) {
+        const onAbort = () => {
+          clearTimeout(id);
+          reject(new AbortError('Saga aborted'));
+        };
+        abortSignal.addEventListener('abort', onAbort, { once: true });
+      }
+    });
   }
 
   public getSteps(): ReadonlyArray<ISagaStep<TContext>> {
