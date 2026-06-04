@@ -18,6 +18,35 @@ import { InfraError } from '../../infra/exceptions/infra.error';
  * before `handle()`. The authorization phase can return a typed context that
  * is passed to `handle()`, enabling entity caching and avoiding duplicate lookups.
  *
+ * @remarks
+ * **IMPORTANT — `TAuthContext` override requirement:**
+ * When `TAuthContext` is anything other than `void` (the default), the subclass
+ * **MUST** override `authorize()`. The base implementation returns
+ * `undefined as TAuthContext`, which TypeScript accepts at compile time but will
+ * deliver `undefined` to `handle()` at runtime, causing a `TypeError` on any
+ * property access. There is no compile-time guard for this footgun.
+ *
+ * Safe pattern — always override when `TAuthContext` is not `void`:
+ * ```typescript
+ * // WRONG — compiles clean, crashes at runtime when handle() accesses ctx.userId
+ * class BadUseCase extends BaseInboundAdapter<Input, Output, { userId: string }> {
+ *   // authorize() not overridden — handle() receives undefined!
+ *   protected async handle(input: Input, ctx: { userId: string }): Promise<Output> {
+ *     return { id: ctx.userId }; // TypeError: Cannot read properties of undefined
+ *   }
+ * }
+ *
+ * // CORRECT — override authorize() whenever TAuthContext is non-void
+ * class GoodUseCase extends BaseInboundAdapter<Input, Output, { userId: string }> {
+ *   protected async authorize(input: Input): Promise<{ userId: string }> {
+ *     return { userId: input.requesterId };
+ *   }
+ *   protected async handle(input: Input, ctx: { userId: string }): Promise<Output> {
+ *     return { id: ctx.userId };
+ *   }
+ * }
+ * ```
+ *
  * @typeParam TInput - Input type (plain object)
  * @typeParam TOutput - Output type (plain object)
  * @typeParam TAuthContext - Authorization context type passed from authorize() to handle() (default: void)
@@ -84,9 +113,19 @@ export abstract class BaseInboundAdapter<
    *
    * Default implementation returns `undefined` (no authorization, no context).
    *
+   * @remarks
+   * **You MUST override this method if `TAuthContext` is not `void`.**
+   *
+   * The default implementation casts `undefined` to `TAuthContext`. TypeScript
+   * permits this cast at compile time, so forgetting to override when
+   * `TAuthContext` is a real type will compile without errors but cause a
+   * runtime `TypeError` the moment `handle()` accesses any property of the
+   * context parameter.
+   *
    * @param input - Input data
    * @returns Promise resolving to the authorization context (passed to handle)
    * @throws {ForbiddenError} When the user lacks permission for this operation
+   * @throws {UnauthorizedError} When the user is not authenticated
    * @throws {NotFoundError} When a required resource doesn't exist
    * @throws {UseCaseError} For other authorization failures
    */

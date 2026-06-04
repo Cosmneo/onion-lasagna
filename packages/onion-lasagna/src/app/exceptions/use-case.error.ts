@@ -15,7 +15,9 @@ import { ErrorCodes, type AppErrorCode } from '../../global/exceptions/error-cod
  *
  * **Child classes:**
  * - {@link ConflictError} - Resource state conflicts (HTTP 409)
+ * - {@link ForbiddenError} - Authenticated user lacks permission (HTTP 403)
  * - {@link NotFoundError} - Resource not found (HTTP 404)
+ * - {@link UnauthorizedError} - Authentication required or credentials invalid (HTTP 401)
  * - {@link UnprocessableError} - Valid but unprocessable request (HTTP 422)
  *
  * @example

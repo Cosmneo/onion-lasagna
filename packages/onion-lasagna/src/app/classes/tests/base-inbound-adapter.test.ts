@@ -6,6 +6,7 @@ import { InfraError } from '../../../infra/exceptions/infra.error';
 import { ObjectValidationError } from '../../../global/exceptions/object-validation.error';
 import { ForbiddenError } from '../../exceptions/forbidden.error';
 import { NotFoundError } from '../../exceptions/not-found.error';
+import { UnauthorizedError } from '../../exceptions/unauthorized.error';
 
 // Plain types for input/output
 interface InputData {
@@ -204,6 +205,14 @@ describe('BaseInboundAdapter', () => {
       const input: InputData = { name: 'Test' };
 
       await expect(useCase.execute(input)).rejects.toThrow(forbiddenError);
+    });
+
+    it('should preserve UnauthorizedError without wrapping', async () => {
+      const unauthorizedError = new UnauthorizedError({ message: 'Authentication required' });
+      const useCase = new FailingUseCase(unauthorizedError);
+      const input: InputData = { name: 'Test' };
+
+      await expect(useCase.execute(input)).rejects.toThrow(unauthorizedError);
     });
   });
 
