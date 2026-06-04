@@ -6,13 +6,51 @@ type UnknownFn = (...args: unknown[]) => unknown;
 /**
  * Abstract base class for outbound adapters (secondary/driven ports).
  *
- * Provides automatic error handling for all subclass methods by:
- * - Wrapping synchronous methods with try/catch
- * - Attaching `.catch()` handlers to Promise-returning methods
- * - Converting all errors to {@link InfraError} with the original as `cause`
+ * ## Wrapping contract
  *
- * This ensures infrastructure errors are properly typed and don't leak
- * implementation details to the application layer.
+ * Every **function-valued property** on the concrete instance is automatically
+ * wrapped with error-handling, including:
+ *
+ * - Prototype methods defined with the `method() {}` syntax.
+ * - Arrow-function **class fields** (`myFn = () => {}`), which are own
+ *   enumerable properties created *after* `super()` returns.
+ *
+ * ### What is wrapped
+ *
+ * | Return type                          | Handling                                     |
+ * | ------------------------------------ | -------------------------------------------- |
+ * | Sync value                           | try/catch → `createInfraError`              |
+ * | `instanceof Promise`                 | `.catch()` → `createInfraError`             |
+ * | Duck-typed thenable (`then` present) | `.catch()` via `Promise.resolve()` wrapper  |
+ * | `AsyncGenerator` (Symbol.asyncIterator) | wraps each `.next()` call                 |
+ * | `Generator` (Symbol.iterator)        | wraps each `.next()` call                   |
+ *
+ * ### What is NOT wrapped
+ *
+ * - Getters / setters.
+ * - Methods on `BaseOutboundAdapter.prototype` itself (infrastructure methods).
+ * - `createInfraError` itself.
+ *
+ * ### Double-wrap prevention
+ *
+ * If the thrown (or rejected) value is already an `instanceof InfraError`
+ * it is re-thrown as-is so that the subtype and error code are preserved.
+ *
+ * ### Configurability
+ *
+ * All wrapped properties are installed with `configurable: true` so that
+ * test spies (`vi.spyOn`, `jest.spyOn`) can replace and restore them.
+ *
+ * ### Implementation approach — lazy Proxy
+ *
+ * The class returns a `Proxy` from its constructor rather than walking the
+ * prototype chain eagerly in `super()`.  This is necessary because arrow-field
+ * class properties are own-instance properties assigned **after** `super()`
+ * returns; they do not exist on `this` at `super()` time and therefore cannot
+ * be discovered by a plain constructor-time scan.
+ *
+ * A per-instance `WeakMap`-backed cache memoises the wrapped version of each
+ * method so each accessor pays the one-time cost only on first call.
  *
  * @example
  * ```typescript
@@ -25,6 +63,11 @@ type UnknownFn = (...args: unknown[]) => unknown;
  *     return this.db.users.findUnique({ where: { id } });
  *   }
  *
+ *   // Arrow fields are also wrapped automatically:
+ *   save = async (user: User): Promise<void> => {
+ *     await this.db.users.upsert(user);
+ *   };
+ *
  *   protected override createInfraError(error: unknown, methodName: string): InfraError {
  *     return new DbError({
  *       message: `Database error in ${methodName}`,
@@ -36,10 +79,127 @@ type UnknownFn = (...args: unknown[]) => unknown;
  */
 export abstract class BaseOutboundAdapter {
   /**
-   * Initializes the adapter and wraps all subclass methods with error handling.
+   * Initializes the adapter.
+   *
+   * Returns a `Proxy` so that arrow-field class properties — which are
+   * assigned **after** `super()` returns — are also intercepted and wrapped.
    */
   constructor() {
-    this.wrapAllSubclassMethods();
+    // Per-instance cache: property name → wrapped function.
+    // Stored on the target (real instance) so the Proxy's get trap can reach it.
+    const wrapCache = new Map<string | symbol, UnknownFn>();
+
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const target = this;
+
+    const proxy = new Proxy(target, {
+      get(obj, prop, receiver) {
+        // Retrieve the raw value from the real instance / prototype chain.
+        const raw = Reflect.get(obj, prop, receiver);
+
+        // Only intercept callable, non-constructor own-or-prototype functions
+        // that do NOT belong to BaseOutboundAdapter itself.
+        if (
+          typeof prop !== 'string' ||
+          typeof raw !== 'function' ||
+          prop === 'constructor' ||
+          // Skip infrastructure methods on the base class itself
+          Object.prototype.hasOwnProperty.call(BaseOutboundAdapter.prototype, prop)
+        ) {
+          return raw;
+        }
+
+        // Check the descriptor to skip getters (they already returned above via Reflect.get)
+        const descriptor =
+          Object.getOwnPropertyDescriptor(obj, prop) ??
+          (() => {
+            let p: object | null = Object.getPrototypeOf(obj);
+            while (p && p !== Object.prototype) {
+              const d = Object.getOwnPropertyDescriptor(p, prop);
+              if (d) return d;
+              p = Object.getPrototypeOf(p);
+            }
+            return undefined;
+          })();
+
+        if (descriptor?.get || descriptor?.set) {
+          return raw;
+        }
+
+        // Return memoised wrapper if already built
+        if (wrapCache.has(prop)) {
+          return wrapCache.get(prop) as UnknownFn;
+        }
+
+        // Build the wrapper
+        const methodName = prop;
+        const wrapped: UnknownFn = (...args: unknown[]) => {
+          let result: unknown;
+          try {
+            result = Reflect.apply(raw as UnknownFn, receiver, args);
+          } catch (error) {
+            if (error instanceof InfraError) throw error;
+            throw (receiver as BaseOutboundAdapter).createInfraError(error, methodName);
+          }
+
+          // AsyncGenerator: has Symbol.asyncIterator
+          if (
+            result !== null &&
+            result !== undefined &&
+            typeof (result as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] ===
+              'function' &&
+            typeof (result as { next?: unknown }).next === 'function'
+          ) {
+            return wrapAsyncGenerator(
+              result as AsyncGenerator<unknown>,
+              receiver as BaseOutboundAdapter,
+              methodName,
+            );
+          }
+
+          // SyncGenerator: has Symbol.iterator AND a .next() but is not itself a Promise
+          if (
+            result !== null &&
+            result !== undefined &&
+            typeof (result as { [Symbol.iterator]?: unknown })[Symbol.iterator] === 'function' &&
+            typeof (result as { next?: unknown }).next === 'function' &&
+            typeof (result as { then?: unknown }).then !== 'function'
+          ) {
+            return wrapSyncGenerator(
+              result as Generator<unknown>,
+              receiver as BaseOutboundAdapter,
+              methodName,
+            );
+          }
+
+          // Thenable (duck-typed, broader than instanceof Promise).
+          // Use Promise.resolve() to normalise any thenable (custom or native)
+          // before attaching .catch() — avoids assuming the value has .catch().
+          if (result !== null && result !== undefined && typeof (result as { then?: unknown }).then === 'function') {
+            return Promise.resolve(result as PromiseLike<unknown>).catch((error: unknown) => {
+              if (error instanceof InfraError) throw error;
+              throw (receiver as BaseOutboundAdapter).createInfraError(error, methodName);
+            });
+          }
+
+          return result;
+        };
+
+        // Install on the instance so future direct-property access also gets the wrapper,
+        // and so that Object.defineProperty(instance, prop, ...) from spies works.
+        Object.defineProperty(obj, prop, {
+          value: wrapped,
+          writable: true,
+          enumerable: false,
+          configurable: true,
+        });
+
+        wrapCache.set(prop, wrapped);
+        return wrapped;
+      },
+    });
+
+    return proxy;
   }
 
   /**
@@ -58,70 +218,58 @@ export abstract class BaseOutboundAdapter {
       cause: error,
     });
   }
+}
 
-  /**
-   * Walks the prototype chain and wraps all methods with error handling.
-   * Uses a local per-construction `seen` set so each instance is fully wrapped
-   * regardless of how many other instances have been created before it.
-   * @internal
-   */
-  private wrapAllSubclassMethods(): void {
-    const wrapMethod = (methodName: string, original: UnknownFn) => {
-      const wrapped: UnknownFn = (...args: unknown[]) => {
-        try {
-          const result = Reflect.apply(original, this, args);
-
-          // If it's a Promise, preserve rejection handling without turning sync methods into async ones.
-          if (result instanceof Promise) {
-            return result.catch((error: unknown) => {
-              throw this.createInfraError(error, methodName);
-            });
-          }
-
-          return result;
-        } catch (error) {
-          throw this.createInfraError(error, methodName);
-        }
-      };
-
-      Object.defineProperty(this, methodName, {
-        value: wrapped,
-        writable: false,
-        enumerable: false,
-        configurable: false,
+/** @internal Wraps an AsyncGenerator so each `.next()` rejection is caught. */
+function wrapAsyncGenerator(
+  gen: AsyncGenerator<unknown>,
+  adapter: BaseOutboundAdapter,
+  methodName: string,
+): AsyncGenerator<unknown> {
+  const wrapped: AsyncGenerator<unknown> = {
+    next(...args) {
+      return gen.next(...args).catch((error: unknown) => {
+        if (error instanceof InfraError) throw error;
+        throw adapter.createInfraError(error, methodName);
       });
-    };
+    },
+    return(value) {
+      return gen.return(value);
+    },
+    throw(error) {
+      return gen.throw(error);
+    },
+    [Symbol.asyncIterator]() {
+      return wrapped;
+    },
+  };
+  return wrapped;
+}
 
-    // Collect all method names that need wrapping.
-    // `seen` is local to this construction so derived-class overrides win and
-    // each name is wrapped exactly once per instance — no shared mutable state.
-    const methodsToWrap: { name: string; fn: UnknownFn }[] = [];
-    const seen = new Set<string>();
-
-    // Walk the prototype chain until this base class.
-    let proto: object | null = Object.getPrototypeOf(this);
-    while (proto && proto !== BaseOutboundAdapter.prototype && proto !== Object.prototype) {
-      for (const key of Object.getOwnPropertyNames(proto)) {
-        if (key === 'constructor') continue;
-        if (seen.has(key)) continue;
-
-        const descriptor = Object.getOwnPropertyDescriptor(proto, key);
-        if (!descriptor) continue;
-
-        // Skip getters/setters - only wrap regular methods
-        if (descriptor.get || descriptor.set) continue;
-        if (typeof descriptor.value !== 'function') continue;
-
-        methodsToWrap.push({ name: key, fn: descriptor.value as UnknownFn });
-        seen.add(key);
+/** @internal Wraps a SyncGenerator so each `.next()` throw is caught. */
+function wrapSyncGenerator(
+  gen: Generator<unknown>,
+  adapter: BaseOutboundAdapter,
+  methodName: string,
+): Generator<unknown> {
+  const wrapped: Generator<unknown> = {
+    next(...args) {
+      try {
+        return gen.next(...args);
+      } catch (error) {
+        if (error instanceof InfraError) throw error;
+        throw adapter.createInfraError(error, methodName);
       }
-
-      proto = Object.getPrototypeOf(proto);
-    }
-
-    // Apply wrapping to this instance
-    for (const { name, fn } of methodsToWrap) {
-      wrapMethod(name, fn);
-    }
-  }
+    },
+    return(value) {
+      return gen.return(value);
+    },
+    throw(error) {
+      return gen.throw(error);
+    },
+    [Symbol.iterator]() {
+      return wrapped;
+    },
+  };
+  return wrapped;
 }

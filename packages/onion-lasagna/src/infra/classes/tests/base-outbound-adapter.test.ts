@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { BaseOutboundAdapter } from '../base-outbound-adapter.class';
 import { InfraError } from '../../exceptions/infra.error';
 import { DbError } from '../../exceptions/db.error';
@@ -259,5 +259,184 @@ describe('BaseOutboundAdapter', () => {
 
       expect(err).toBeInstanceOf(DbError);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C03-1: Arrow-function class-field methods (own properties, post-super)
+// ---------------------------------------------------------------------------
+describe('C03-1 — arrow-function class-field methods are wrapped', () => {
+  class ArrowRepo extends BaseOutboundAdapter {
+    // Arrow fields are own-property function values assigned AFTER super()
+    asyncArrow = async (): Promise<void> => {
+      throw new Error('arrow async failure');
+    };
+
+    syncArrow = (): string => {
+      throw new Error('arrow sync failure');
+    };
+
+    arrowSuccess = async (): Promise<string> => {
+      return 'ok';
+    };
+  }
+
+  it('wraps async arrow-field errors into InfraError', async () => {
+    const repo = new ArrowRepo();
+    const err = await repo.asyncArrow().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(InfraError);
+    expect(((err as InfraError).cause as Error).message).toBe('arrow async failure');
+  });
+
+  it('wraps sync arrow-field errors into InfraError', () => {
+    const repo = new ArrowRepo();
+    expect(() => repo.syncArrow()).toThrow(InfraError);
+  });
+
+  it('passes through successful arrow-field return values', async () => {
+    const repo = new ArrowRepo();
+    await expect(repo.arrowSuccess()).resolves.toBe('ok');
+  });
+
+  it('allows test spies to be installed on arrow fields', () => {
+    const repo = new ArrowRepo();
+    // If configurable:true, vi.spyOn is able to replace the property
+    const spy = vi.spyOn(repo, 'syncArrow').mockReturnValue('mocked');
+    expect(repo.syncArrow()).toBe('mocked');
+    spy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C03-2: Non-native thenables bypass wrapping
+// ---------------------------------------------------------------------------
+describe('C03-2 — non-native thenables (duck-typed) are wrapped', () => {
+  class ThenableRepo extends BaseOutboundAdapter {
+    customThenable(): { then: (res: (v: string) => void, rej: (e: unknown) => void) => void } {
+      return {
+        then(_res, rej) {
+          rej(new Error('thenable rejection'));
+        },
+      };
+    }
+  }
+
+  it('wraps errors from duck-typed thenables into InfraError', async () => {
+    const repo = new ThenableRepo();
+    // Cast to a thenable so the caller can await it
+    const result = repo.customThenable() as unknown as Promise<string>;
+    const err = await result.catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(InfraError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C03-3: Async/sync generator returns are wrapped
+// ---------------------------------------------------------------------------
+describe('C03-3 — async generator errors are wrapped', () => {
+  class GeneratorRepo extends BaseOutboundAdapter {
+    async *asyncGenerator(): AsyncGenerator<number> {
+      yield 1;
+      throw new Error('generator failure');
+    }
+
+    *syncGenerator(): Generator<number> {
+      yield 1;
+      throw new Error('sync generator failure');
+    }
+  }
+
+  it('wraps errors from async generators into InfraError', async () => {
+    const repo = new GeneratorRepo();
+    const gen = repo.asyncGenerator();
+    // First yield succeeds
+    const first = await gen.next();
+    expect(first.value).toBe(1);
+    // Second call throws — should be an InfraError
+    const err = await gen.next().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(InfraError);
+  });
+
+  it('wraps errors from sync generators into InfraError', () => {
+    const repo = new GeneratorRepo();
+    const gen = repo.syncGenerator();
+    gen.next(); // yield 1
+    expect(() => gen.next()).toThrow(InfraError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C03-4: Wrapped methods must be configurable (allow test spying/rebind)
+// ---------------------------------------------------------------------------
+describe('C03-4 — wrapped prototype methods are configurable (spy-friendly)', () => {
+  class SpyRepo extends BaseOutboundAdapter {
+    async fetchSomething(): Promise<string> {
+      return 'real';
+    }
+
+    syncThing(): string {
+      return 'real sync';
+    }
+  }
+
+  it('allows vi.spyOn on wrapped async methods', async () => {
+    const repo = new SpyRepo();
+    const spy = vi.spyOn(repo, 'fetchSomething').mockResolvedValue('mocked');
+    await expect(repo.fetchSomething()).resolves.toBe('mocked');
+    spy.mockRestore();
+  });
+
+  it('allows vi.spyOn on wrapped sync methods', () => {
+    const repo = new SpyRepo();
+    const spy = vi.spyOn(repo, 'syncThing').mockReturnValue('mocked sync');
+    expect(repo.syncThing()).toBe('mocked sync');
+    spy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C03-5: createInfraError must NOT double-wrap already-typed InfraErrors
+// ---------------------------------------------------------------------------
+describe('C03-5 — already-typed InfraErrors are not double-wrapped', () => {
+  class AlreadyWrappedRepo extends BaseOutboundAdapter {
+    async throwsInfraError(): Promise<void> {
+      throw new InfraError({ message: 'already an infra error' });
+    }
+
+    async throwsDbError(): Promise<void> {
+      throw new DbError({ message: 'already a db error' });
+    }
+
+    syncThrowsInfraError(): void {
+      throw new InfraError({ message: 'sync already infra' });
+    }
+  }
+
+  it('passes through async InfraError without re-wrapping', async () => {
+    const repo = new AlreadyWrappedRepo();
+    const err = await repo.throwsInfraError().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(InfraError);
+    expect((err as InfraError).message).toBe('already an infra error');
+    // Must NOT be wrapped in another InfraError
+    expect((err as InfraError).cause).toBeUndefined();
+  });
+
+  it('passes through async DbError (InfraError subtype) without re-wrapping', async () => {
+    const repo = new AlreadyWrappedRepo();
+    const err = await repo.throwsDbError().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(DbError);
+    expect((err as DbError).message).toBe('already a db error');
+    expect((err as DbError).cause).toBeUndefined();
+  });
+
+  it('passes through sync InfraError without re-wrapping', () => {
+    const repo = new AlreadyWrappedRepo();
+    try {
+      repo.syncThrowsInfraError();
+    } catch (err) {
+      expect(err).toBeInstanceOf(InfraError);
+      expect((err as InfraError).message).toBe('sync already infra');
+      expect((err as InfraError).cause).toBeUndefined();
+    }
   });
 });
