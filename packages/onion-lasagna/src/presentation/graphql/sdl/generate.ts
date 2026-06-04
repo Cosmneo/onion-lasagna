@@ -37,6 +37,45 @@ import { generateFieldId } from '../field/utils';
 import type { GraphQLSDLConfig } from './types';
 
 // ============================================================================
+// Public API Types
+// ============================================================================
+
+/**
+ * Metadata for a single generated GraphQL union type.
+ */
+export interface GraphQLUnionMetadata {
+  /** The generated names of all member types. */
+  readonly members: readonly string[];
+  /**
+   * The JSON Schema property name of the discriminator field, when one was
+   * detected. `null` when the union used positional names instead.
+   */
+  readonly discriminatorField: string | null;
+}
+
+/**
+ * The result object returned by `generateGraphQLSDL`.
+ *
+ * Implements `toString()` so existing callers that treat the return value as
+ * a plain string (template literals, string concatenation, etc.) continue to
+ * work without modification.
+ */
+export interface GraphQLSDLResult {
+  /** The full GraphQL SDL string. */
+  readonly sdl: string;
+  /**
+   * Metadata about all union types that were generated.
+   * Keyed by the union type name emitted in the SDL.
+   */
+  readonly unions: Readonly<Record<string, GraphQLUnionMetadata>>;
+  /**
+   * Returns the SDL string — allows backward-compatible use in template
+   * literals and string concatenation.
+   */
+  toString(): string;
+}
+
+// ============================================================================
 // Public API
 // ============================================================================
 
@@ -71,19 +110,68 @@ export function generateGraphQLSDL<T extends GraphQLSchemaConfig>(
   schema: T | GraphQLSchemaDefinition<T>,
   config?: GraphQLSDLConfig,
 ): string {
+  return buildSDL(schema, config).sdl;
+}
+
+/**
+ * Generates a GraphQL SDL string together with structured metadata about
+ * all union types produced during generation.
+ *
+ * The metadata is needed by server adapters to build `__resolveType`
+ * resolvers for each union without re-parsing the SDL string.
+ *
+ * @param schema - Schema definition or schema config
+ * @param config - Optional SDL generation configuration
+ * @returns GraphQLSDLResult with the SDL string and union metadata
+ *
+ * @example
+ * ```typescript
+ * import { generateGraphQLSDLWithMeta } from '@cosmneo/onion-lasagna/graphql/sdl';
+ *
+ * const { sdl, unions } = generateGraphQLSDLWithMeta(schema);
+ * for (const [unionName, meta] of Object.entries(unions)) {
+ *   console.log(unionName, meta.members, meta.discriminatorField);
+ * }
+ * ```
+ */
+export function generateGraphQLSDLWithMeta<T extends GraphQLSchemaConfig>(
+  schema: T | GraphQLSchemaDefinition<T>,
+  config?: GraphQLSDLConfig,
+): GraphQLSDLResult {
+  return buildSDL(schema, config);
+}
+
+/**
+ * Core implementation: builds both the SDL string and union metadata.
+ * Called by both exported entry points.
+ */
+function buildSDL<T extends GraphQLSchemaConfig>(
+  schema: T | GraphQLSchemaDefinition<T>,
+  config?: GraphQLSDLConfig,
+): GraphQLSDLResult {
   const fields = isSchemaDefinition(schema) ? schema.fields : schema;
   const collectedFields = collectFields(fields);
 
   const includeDescriptions = config?.includeDescriptions ?? true;
   const includeDeprecations = config?.includeDeprecations ?? true;
 
-  // Partition fields by operation type
+  // Partition fields by operation type — detect fieldId collisions early.
   const queries: { fieldId: string; field: GraphQLFieldDefinition }[] = [];
   const mutations: { fieldId: string; field: GraphQLFieldDefinition }[] = [];
   const subscriptions: { fieldId: string; field: GraphQLFieldDefinition }[] = [];
 
+  const seenFieldIds = new Set<string>();
   for (const { key, field } of collectedFields) {
     const fieldId = generateFieldId(key);
+    if (seenFieldIds.has(fieldId)) {
+      throw new Error(
+        `Duplicate fieldId "${fieldId}" detected in GraphQL schema. ` +
+          `Two routes produced the same fieldId ("${fieldId}"). ` +
+          `Rename one of the conflicting keys to avoid this collision.`,
+      );
+    }
+    seenFieldIds.add(fieldId);
+
     if (field.operation === 'query') {
       queries.push({ fieldId, field });
     } else if (field.operation === 'mutation') {
@@ -96,65 +184,104 @@ export function generateGraphQLSDL<T extends GraphQLSchemaConfig>(
   // Collect all named types that need to be emitted. Insertion order is
   // preserved (Map), so emitted types follow the order in which the
   // generator first encountered them.
-  const namedTypes: Map<string, string> = new Map();
-  const lines: string[] = [];
+  const namedTypes = new Map<string, string>();
+  // Track union metadata for the KEY ENABLER requirement.
+  const unionsMetadata = new Map<string, GraphQLUnionMetadata>();
+  // Track whether any JSON reference was emitted so we can auto-declare
+  // `scalar JSON` when needed.
+  const jsonUsage = { used: false };
 
-  // Preamble
-  if (config?.preamble) {
-    lines.push(config.preamble);
-    lines.push('');
-  }
+  // Track whether preamble already declares scalar JSON.
+  const preambleHasJsonScalar = Boolean(
+    config?.preamble && /\bscalar\s+JSON\b/.test(config.preamble),
+  );
+
+  const rootTypeLines: string[] = [];
 
   // Build Query type
   if (queries.length > 0) {
-    lines.push('type Query {');
+    rootTypeLines.push('type Query {');
     for (const { fieldId, field } of queries) {
       const fieldLine = buildFieldLine(
         fieldId,
         field,
         namedTypes,
+        unionsMetadata,
+        jsonUsage,
         includeDescriptions,
         includeDeprecations,
       );
-      lines.push(fieldLine);
+      rootTypeLines.push(fieldLine);
     }
-    lines.push('}');
-    lines.push('');
+    rootTypeLines.push('}');
+    rootTypeLines.push('');
   }
 
   // Build Mutation type
   if (mutations.length > 0) {
-    lines.push('type Mutation {');
+    rootTypeLines.push('type Mutation {');
     for (const { fieldId, field } of mutations) {
       const fieldLine = buildFieldLine(
         fieldId,
         field,
         namedTypes,
+        unionsMetadata,
+        jsonUsage,
         includeDescriptions,
         includeDeprecations,
       );
-      lines.push(fieldLine);
+      rootTypeLines.push(fieldLine);
     }
-    lines.push('}');
-    lines.push('');
+    rootTypeLines.push('}');
+    rootTypeLines.push('');
   }
 
   // Build Subscription type
   if (subscriptions.length > 0) {
-    lines.push('type Subscription {');
+    rootTypeLines.push('type Subscription {');
     for (const { fieldId, field } of subscriptions) {
       const fieldLine = buildFieldLine(
         fieldId,
         field,
         namedTypes,
+        unionsMetadata,
+        jsonUsage,
         includeDescriptions,
         includeDeprecations,
       );
-      lines.push(fieldLine);
+      rootTypeLines.push(fieldLine);
     }
-    lines.push('}');
+    rootTypeLines.push('}');
+    rootTypeLines.push('');
+  }
+
+  // Also check namedTypes bodies for JSON references (covers nested fields).
+  if (!jsonUsage.used) {
+    for (const [, body] of namedTypes) {
+      if (/\bJSON\b/.test(body)) {
+        jsonUsage.used = true;
+        break;
+      }
+    }
+  }
+
+  const lines: string[] = [];
+
+  // Preamble (may or may not already contain scalar JSON)
+  if (config?.preamble) {
+    lines.push(config.preamble);
     lines.push('');
   }
+
+  // Auto-declare `scalar JSON` when JSON is used and not already declared.
+  // Placed after any caller-supplied preamble so we don't reorder custom
+  // scalar declarations, but before the operation types.
+  if (jsonUsage.used && !preambleHasJsonScalar) {
+    lines.push('scalar JSON');
+    lines.push('');
+  }
+
+  lines.push(...rootTypeLines);
 
   // Emit named types (inputs and outputs)
   for (const [, typeBody] of namedTypes) {
@@ -162,7 +289,23 @@ export function generateGraphQLSDL<T extends GraphQLSchemaConfig>(
     lines.push('');
   }
 
-  return lines.join('\n').trimEnd() + '\n';
+  const sdl = lines.join('\n').trimEnd() + '\n';
+
+  // Build the result unions record.
+  const unions: Record<string, GraphQLUnionMetadata> = {};
+  for (const [typeName, meta] of unionsMetadata) {
+    unions[typeName] = meta;
+  }
+
+  const result: GraphQLSDLResult = {
+    sdl,
+    unions,
+    toString() {
+      return this.sdl;
+    },
+  };
+
+  return result;
 }
 
 // ============================================================================
@@ -176,6 +319,8 @@ function buildFieldLine(
   fieldId: string,
   field: GraphQLFieldDefinition,
   namedTypes: Map<string, string>,
+  unionsMetadata: Map<string, GraphQLUnionMetadata>,
+  jsonUsage: { used: boolean },
   includeDescriptions: boolean,
   includeDeprecations: boolean,
 ): string {
@@ -191,10 +336,12 @@ function buildFieldLine(
   const inputTypeName = field.input ? `${capitalize(fieldId)}Input` : undefined;
   const outputRootName = field.output ? `${capitalize(fieldId)}Output` : undefined;
 
-  // Register named input type
+  // Register named input type — may return 'JSON' for empty objects
+  let resolvedInputType: string | undefined;
   if (field.input && inputTypeName) {
     const jsonSchema = (field.input as SchemaAdapter).toJsonSchema();
-    registerInputType(inputTypeName, jsonSchema, namedTypes);
+    resolvedInputType = registerInputType(inputTypeName, jsonSchema, namedTypes);
+    if (resolvedInputType === 'JSON') jsonUsage.used = true;
   }
 
   // Register named output type — `outputTypeName` is what the field's
@@ -204,18 +351,27 @@ function buildFieldLine(
   let outputTypeName: string | undefined;
   if (field.output && outputRootName) {
     const jsonSchema = (field.output as SchemaAdapter).toJsonSchema();
-    outputTypeName = registerOutputType(outputRootName, jsonSchema, namedTypes);
+    outputTypeName = registerOutputType(outputRootName, jsonSchema, namedTypes, unionsMetadata);
+    if (outputTypeName === 'JSON' || (outputTypeName && outputTypeName.includes('JSON'))) {
+      jsonUsage.used = true;
+    }
   }
 
   // Build field signature
   let signature = `  ${fieldId}`;
 
-  if (inputTypeName) {
-    signature += `(input: ${inputTypeName}!)`;
+  if (resolvedInputType) {
+    signature += `(input: ${resolvedInputType}!)`;
   }
 
   signature += ': ';
-  signature += outputTypeName ?? 'JSON';
+  if (!outputTypeName) {
+    // No output schema — fall back to JSON
+    jsonUsage.used = true;
+    signature += 'JSON';
+  } else {
+    signature += outputTypeName;
+  }
 
   // Deprecation directive
   if (includeDeprecations && field.docs.deprecated) {
@@ -250,16 +406,23 @@ function registerInputType(
     Array.isArray(jsonSchema.required) ? (jsonSchema.required as string[]) : [],
   );
 
+  // Guard: empty object inputs are invalid SDL — fall back to JSON same as outputs.
+  if (Object.keys(properties).length === 0) {
+    namedTypes.delete(typeName);
+    return 'JSON';
+  }
+
   const lines: string[] = [`input ${typeName} {`];
   for (const [propName, propSchema] of Object.entries(properties)) {
+    const safeName = sanitizeIdentifier(propName);
     const graphqlType = jsonSchemaToGraphQLType(
       propSchema,
-      `${typeName}_${capitalize(propName)}`,
+      `${typeName}_${capitalize(safeName)}`,
       namedTypes,
       'input',
     );
-    const isRequired = required.has(propName);
-    lines.push(`  ${propName}: ${graphqlType}${isRequired ? '!' : ''}`);
+    const isRequired = required.has(propName) && !isNullable(propSchema);
+    lines.push(`  ${safeName}: ${graphqlType}${isRequired ? '!' : ''}`);
   }
   lines.push('}');
 
@@ -277,6 +440,7 @@ function registerOutputType(
   typeName: string,
   jsonSchema: JsonSchema,
   namedTypes: Map<string, string>,
+  unionsMetadata: Map<string, GraphQLUnionMetadata>,
 ): string {
   if (namedTypes.has(typeName)) return typeName;
 
@@ -288,14 +452,20 @@ function registerOutputType(
   if (jsonSchema.type === 'array') {
     const items = jsonSchema.items as JsonSchema | undefined;
     if (!items) return '[JSON]';
-    const itemTypeName = jsonSchemaToGraphQLType(items, `${typeName}_Item`, namedTypes, 'output');
+    const itemTypeName = jsonSchemaToGraphQLType(
+      items,
+      `${typeName}_Item`,
+      namedTypes,
+      'output',
+      unionsMetadata,
+    );
     return `[${itemTypeName}]`;
   }
 
   // Union (oneOf / anyOf) at the root output position.
   const variants = pickVariants(jsonSchema);
   if (variants) {
-    return registerUnionType(typeName, variants, namedTypes);
+    return registerUnionType(typeName, variants, namedTypes, unionsMetadata);
   }
 
   // Reserve before recursing.
@@ -315,14 +485,16 @@ function registerOutputType(
   );
   const lines: string[] = [`type ${typeName} {`];
   for (const [propName, propSchema] of Object.entries(properties)) {
+    const safeName = sanitizeIdentifier(propName);
     const graphqlType = jsonSchemaToGraphQLType(
       propSchema,
-      `${typeName}_${capitalize(propName)}`,
+      `${typeName}_${capitalize(safeName)}`,
       namedTypes,
       'output',
+      unionsMetadata,
     );
-    const isRequired = required.has(propName);
-    lines.push(`  ${propName}: ${graphqlType}${isRequired ? '!' : ''}`);
+    const isRequired = required.has(propName) && !isNullable(propSchema);
+    lines.push(`  ${safeName}: ${graphqlType}${isRequired ? '!' : ''}`);
   }
   lines.push('}');
 
@@ -342,6 +514,7 @@ function registerUnionType(
   typeName: string,
   variants: JsonSchema[],
   namedTypes: Map<string, string>,
+  unionsMetadata: Map<string, GraphQLUnionMetadata>,
 ): string {
   if (namedTypes.has(typeName)) return typeName;
 
@@ -350,6 +523,8 @@ function registerUnionType(
 
   const memberNames: string[] = [];
   const seen = new Set<string>();
+  let discriminatorField: string | null = null;
+
   for (let i = 0; i < variants.length; i++) {
     const variant = variants[i];
     if (!variant || !isObjectSchema(variant)) {
@@ -358,23 +533,46 @@ function registerUnionType(
       namedTypes.delete(typeName);
       return 'JSON';
     }
-    const discriminator = pickDiscriminatorLabel(variant);
-    let memberName = discriminator
-      ? `${typeName}_${pascalize(discriminator)}`
+    const discriminatorInfo = pickDiscriminatorInfo(variant);
+    if (discriminatorInfo && discriminatorField === null) {
+      discriminatorField = discriminatorInfo.field;
+    }
+    const discriminatorLabel = discriminatorInfo?.label ?? null;
+    let memberName = discriminatorLabel
+      ? `${typeName}_${pascalize(discriminatorLabel)}`
       : `${typeName}_Member${i + 1}`;
     // Ensure uniqueness within this union (two branches with the same
     // discriminator would be a Zod modelling bug, but we keep the
     // generator robust).
     let suffix = 2;
     while (seen.has(memberName)) {
-      memberName = `${typeName}_${pascalize(discriminator ?? 'Member')}${suffix++}`;
+      memberName = `${typeName}_${pascalize(discriminatorLabel ?? 'Member')}${suffix++}`;
     }
     seen.add(memberName);
-    registerOutputType(memberName, variant, namedTypes);
+
+    // Register the member type — it may return 'JSON' for empty objects.
+    // In that case we still want to fall back gracefully for the union.
+    const registeredName = registerOutputType(memberName, variant, namedTypes, unionsMetadata);
+
+    // If the member fell back to JSON (empty object), skip adding it as
+    // a named member — GraphQL cannot have JSON as a union member.
+    // We fall back the whole union to JSON in this case.
+    if (registeredName === 'JSON') {
+      namedTypes.delete(typeName);
+      return 'JSON';
+    }
+
     memberNames.push(memberName);
   }
 
   namedTypes.set(typeName, `union ${typeName} = ${memberNames.join(' | ')}`);
+
+  // Record union metadata for the KEY ENABLER.
+  unionsMetadata.set(typeName, {
+    members: memberNames,
+    discriminatorField,
+  });
+
   return typeName;
 }
 
@@ -404,19 +602,50 @@ function isObjectSchema(schema: JsonSchema): boolean {
 }
 
 /**
- * Find the literal value of a discriminator-style property in an object
- * schema. Zod's `z.discriminatedUnion('kind', [...])` emits each branch
- * with `properties.kind = { type: 'string', const: 'MEMBER' }` (or
- * `enum: ['MEMBER']`). We surface that literal so union member type
- * names can carry domain meaning instead of positional indexes.
+ * Returns true when the JSON schema fragment represents a nullable value.
+ *
+ * Handles two conventions:
+ * - OpenAPI 3.0 style: `{ nullable: true, type: 'string' }`
+ * - JSON Schema draft style: `{ anyOf: [{type:'string'},{type:'null'}] }`
+ * - Array type style: `{ type: ['string', 'null'] }`
  */
-function pickDiscriminatorLabel(schema: JsonSchema): string | null {
+function isNullable(schema: JsonSchema): boolean {
+  if ((schema as { nullable?: boolean }).nullable === true) return true;
+
+  // type: ['string', 'null']
+  const type = schema.type;
+  if (Array.isArray(type) && (type as string[]).includes('null')) return true;
+
+  // anyOf: [{type:'X'},{type:'null'}]
+  const anyOf = (schema as { anyOf?: unknown[] }).anyOf;
+  if (Array.isArray(anyOf)) {
+    return anyOf.some(
+      (branch) =>
+        branch !== null &&
+        typeof branch === 'object' &&
+        (branch as { type?: string }).type === 'null',
+    );
+  }
+
+  return false;
+}
+
+/**
+ * Find the literal value and field name of a discriminator-style property in
+ * an object schema. Zod's `z.discriminatedUnion('kind', [...])` emits each
+ * branch with `properties.kind = { type: 'string', const: 'MEMBER' }` (or
+ * `enum: ['MEMBER']`). We surface that literal so union member type names can
+ * carry domain meaning instead of positional indexes.
+ *
+ * Returns `{ field, label }` when found, or `null` otherwise.
+ */
+function pickDiscriminatorInfo(schema: JsonSchema): { field: string; label: string } | null {
   const properties = (schema.properties ?? {}) as Record<string, JsonSchema>;
-  for (const propSchema of Object.values(properties)) {
+  for (const [propName, propSchema] of Object.entries(properties)) {
     if (!propSchema || typeof propSchema !== 'object') continue;
     const constValue = (propSchema as { const?: unknown }).const;
     if (typeof constValue === 'string' && constValue.length > 0) {
-      return constValue;
+      return { field: propName, label: constValue };
     }
     const enumValue = (propSchema as { enum?: unknown[] }).enum;
     if (
@@ -425,7 +654,7 @@ function pickDiscriminatorLabel(schema: JsonSchema): string | null {
       typeof enumValue[0] === 'string' &&
       enumValue[0].length > 0
     ) {
-      return enumValue[0];
+      return { field: propName, label: enumValue[0] as string };
     }
   }
   return null;
@@ -450,6 +679,7 @@ function jsonSchemaToGraphQLType(
   parentTypeName: string,
   namedTypes: Map<string, string>,
   kind: 'input' | 'output',
+  unionsMetadata?: Map<string, GraphQLUnionMetadata>,
 ): string {
   if (!schema || typeof schema !== 'object') return 'JSON';
 
@@ -464,7 +694,7 @@ function jsonSchemaToGraphQLType(
   const variants = pickVariants(schema);
   if (variants) {
     if (kind === 'input') return 'JSON';
-    return registerUnionType(parentTypeName, variants, namedTypes);
+    return registerUnionType(parentTypeName, variants, namedTypes, unionsMetadata ?? new Map());
   }
 
   const type = schema.type as string | undefined;
@@ -483,12 +713,14 @@ function jsonSchemaToGraphQLType(
       if (!items) return '[JSON]';
       const itemType = jsonSchemaToGraphQLType(
         items,
-        // Singular-ish name for array element types — drop a trailing
-        // 's' when present so `Tags[]` becomes `…_Tag`. Cheap heuristic;
-        // fine for the conventional case.
-        parentTypeName.replace(/s$/, ''),
+        // Use a stable '_Item' suffix appended to the full parent type name.
+        // This avoids the previous s-stripping heuristic which caused sibling
+        // array properties (e.g. 'item' and 'items') to collide on the same
+        // generated type name.
+        `${parentTypeName}_Item`,
         namedTypes,
         kind,
+        unionsMetadata,
       );
       return `[${itemType}]`;
     }
@@ -496,17 +728,58 @@ function jsonSchemaToGraphQLType(
       if (kind === 'input') {
         return registerInputType(parentTypeName, schema, namedTypes);
       }
-      return registerOutputType(parentTypeName, schema, namedTypes);
+      return registerOutputType(parentTypeName, schema, namedTypes, unionsMetadata ?? new Map());
     default:
       // Object without explicit type but has properties.
       if (isObjectSchema(schema)) {
         if (kind === 'input') {
           return registerInputType(parentTypeName, schema, namedTypes);
         }
-        return registerOutputType(parentTypeName, schema, namedTypes);
+        return registerOutputType(parentTypeName, schema, namedTypes, unionsMetadata ?? new Map());
       }
       return 'JSON';
   }
+}
+
+/**
+ * Sanitizes a JSON schema property name to a valid GraphQL identifier.
+ *
+ * GraphQL identifiers must match the pattern [_A-Za-z][_0-9A-Za-z]*. Property
+ * names from JSON Schema can contain hyphens, dots, spaces, and other
+ * characters that are illegal in GraphQL. We camelCase-encode separators
+ * and strip remaining non-identifier characters so the resulting name is
+ * always a valid SDL token.
+ *
+ * Examples:
+ *  - 'content-type' becomes 'contentType'
+ *  - 'meta.version' becomes 'metaVersion'
+ *  - 'first name' becomes 'firstName'
+ *  - '$id' becomes '_id'
+ */
+function sanitizeIdentifier(name: string): string {
+  if (/^[_A-Za-z][_0-9A-Za-z]*$/.test(name)) {
+    // Already a valid identifier — no change needed.
+    return name;
+  }
+
+  // Split on separator characters (hyphens, dots, spaces, underscores used
+  // as word-separator when mixed with other separators) and camelCase them.
+  const parts = name.split(/[-.\s]+/);
+  const camelCased = parts
+    .filter((p) => p.length > 0)
+    .map((part, index) =>
+      index === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1),
+    )
+    .join('');
+
+  // Strip any remaining characters that are not valid identifier chars.
+  const stripped = camelCased.replace(/[^_0-9A-Za-z]/g, '');
+
+  // If the first char is a digit, prepend underscore.
+  const safe = /^[0-9]/.test(stripped) ? `_${stripped}` : stripped;
+
+  // Replace leading $ with _.
+  return safe.replace(/^\$/, '_');
 }
 
 /**
