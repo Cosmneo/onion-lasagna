@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ref } from 'vue';
 import { z } from 'zod';
 import { defineRoute, defineRouter } from '@cosmneo/onion-lasagna/http/route';
 import { zodSchema } from '@cosmneo/onion-lasagna-zod';
@@ -191,7 +192,9 @@ describe('createVueQueryHooks', () => {
 
       const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
       expect(callArgs['staleTime']).toBe(5000);
-      expect(callArgs['enabled']).toBe(false);
+      // enabled is a getter — invoke to get the resolved boolean
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+      expect(enabledGetter()).toBe(false);
     });
 
     it('builds correct queryKey for nested routes', () => {
@@ -300,7 +303,10 @@ describe('createVueQueryHooks', () => {
       hook.useQuery();
 
       const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['enabled']).toBe(false);
+      // enabled is now a getter — invoke it to get the current value
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+      expect(typeof enabledGetter).toBe('function');
+      expect(enabledGetter()).toBe(false);
     });
 
     it('enables query when useEnabled returns true', () => {
@@ -313,7 +319,9 @@ describe('createVueQueryHooks', () => {
       hook.useQuery();
 
       const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['enabled']).toBe(true);
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+      expect(typeof enabledGetter).toBe('function');
+      expect(enabledGetter()).toBe(true);
     });
 
     it('composes with per-query enabled (both must be true)', () => {
@@ -326,7 +334,8 @@ describe('createVueQueryHooks', () => {
       hook.useQuery(undefined, { enabled: false });
 
       const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['enabled']).toBe(false);
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+      expect(enabledGetter()).toBe(false);
     });
 
     it('composes with per-query enabled (useEnabled false overrides)', () => {
@@ -339,7 +348,8 @@ describe('createVueQueryHooks', () => {
       hook.useQuery(undefined, { enabled: true });
 
       const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['enabled']).toBe(false);
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+      expect(enabledGetter()).toBe(false);
     });
 
     it('defaults to enabled when useEnabled is not provided', () => {
@@ -349,7 +359,9 @@ describe('createVueQueryHooks', () => {
       hook.useQuery();
 
       const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
-      expect(callArgs['enabled']).toBe(true);
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+      expect(typeof enabledGetter).toBe('function');
+      expect(enabledGetter()).toBe(true);
     });
 
     it('does not affect mutations', () => {
@@ -377,7 +389,8 @@ describe('createVueQueryHooks', () => {
 
       const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
       expect(callArgs['staleTime']).toBe(5000);
-      expect(callArgs['enabled']).toBe(true);
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+      expect(enabledGetter()).toBe(true);
     });
   });
 
@@ -437,6 +450,139 @@ describe('createVueQueryHooks', () => {
       expect(listA()).toEqual(['users-api', 'list']);
       expect(listB()).toEqual(['products-api', 'list']);
       expect(listA()).not.toEqual(listB());
+    });
+  });
+
+  // ============================================================================
+  // P07-1: reactive enabled getter + reactive input (bug fix tests)
+  // ============================================================================
+
+  describe('P07-1: reactive enabled getter', () => {
+    it('passes enabled as a getter function, not a static boolean', () => {
+      const { hooks } = createVueQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => true },
+      );
+
+      const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery();
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      // CRITICAL: enabled must be a function (getter), not a static boolean
+      expect(typeof callArgs['enabled']).toBe('function');
+    });
+
+    it('enabled getter re-evaluates useEnabled on each call', () => {
+      let sessionValid = false;
+      const useEnabled = () => sessionValid;
+
+      const { hooks } = createVueQueryHooks({ list: listUsersRoute }, { ...config, useEnabled });
+
+      const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery();
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+
+      // Initially false
+      expect(enabledGetter()).toBe(false);
+
+      // Session becomes valid — getter must re-evaluate
+      sessionValid = true;
+      expect(enabledGetter()).toBe(true);
+    });
+
+    it('enabled getter composes useEnabled AND per-query enabled (both true -> true)', () => {
+      const { hooks } = createVueQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => true },
+      );
+
+      const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery(undefined, { enabled: () => true });
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+      expect(enabledGetter()).toBe(true);
+    });
+
+    it('enabled getter composes useEnabled AND per-query enabled (useEnabled false -> false)', () => {
+      const { hooks } = createVueQueryHooks(
+        { list: listUsersRoute },
+        { ...config, useEnabled: () => false },
+      );
+
+      const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery(undefined, { enabled: () => true });
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+      expect(enabledGetter()).toBe(false);
+    });
+
+    it('enabled getter composes with reactive ref input', () => {
+      const enabledRef = ref(false);
+      const { hooks } = createVueQueryHooks({ list: listUsersRoute }, config);
+
+      const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery(undefined, { enabled: enabledRef });
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+
+      expect(enabledGetter()).toBe(false);
+      enabledRef.value = true;
+      expect(enabledGetter()).toBe(true);
+    });
+
+    it('enabled getter defaults to true when useEnabled not provided and no user enabled', () => {
+      const { hooks } = createVueQueryHooks({ list: listUsersRoute }, config);
+
+      const hook = hooks['list'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery();
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      const enabledGetter = callArgs['enabled'] as () => boolean;
+      expect(typeof enabledGetter).toBe('function');
+      expect(enabledGetter()).toBe(true);
+    });
+  });
+
+  describe('P07-1: reactive input (MaybeRefOrGetter)', () => {
+    it('applies toValue to input inside queryKey so a changed ref refetches', () => {
+      const { hooks } = createVueQueryHooks({ get: getUserRoute }, config);
+
+      const userIdRef = ref('123');
+      const hook = hooks['get'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery(() => ({ pathParams: { userId: userIdRef.value } }));
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      // queryKey should include the resolved (toValue'd) input
+      const qk = callArgs['queryKey'] as unknown[];
+      expect(qk).toEqual(['get', { pathParams: { userId: '123' } }]);
+    });
+
+    it('queryFn resolves input via toValue so a ref input is unwrapped', () => {
+      const { hooks } = createVueQueryHooks({ get: getUserRoute }, config);
+
+      const inputRef = ref({ pathParams: { userId: '456' } });
+      const hook = hooks['get'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery(inputRef);
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      const qk = callArgs['queryKey'] as unknown[];
+      // The unwrapped ref value must appear in the key
+      expect(qk).toEqual(['get', { pathParams: { userId: '456' } }]);
+    });
+
+    it('plain object input still works (non-reactive call path)', () => {
+      const { hooks } = createVueQueryHooks({ get: getUserRoute }, config);
+
+      const hook = hooks['get'] as { useQuery: (...args: unknown[]) => unknown };
+      hook.useQuery({ pathParams: { userId: '789' } });
+
+      const callArgs = mockUseQuery.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs['queryKey']).toEqual(['get', { pathParams: { userId: '789' } }]);
     });
   });
 });
