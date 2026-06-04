@@ -74,7 +74,7 @@ export function createAxiosAdapter(instance?: AxiosInstance): typeof fetch {
       if (
         err instanceof Error &&
         'code' in err &&
-        (err as NodeJS.ErrnoException).code === 'ECONNABORTED'
+        (err as { code?: string }).code === 'ECONNABORTED'
       ) {
         // Axios connection-aborted timeout
         throw new DOMException('The operation timed out.', 'TimeoutError');
