@@ -9,6 +9,7 @@
  * @internal
  */
 
+import { randomUUID } from 'node:crypto';
 import type { SchemaAdapter, ValidationIssue } from '../../http/schema/types';
 import type {
   GraphQLSchemaConfig,
@@ -302,7 +303,7 @@ interface ValidatedArgsInternal {
  * Generates a unique request ID.
  */
 function generateRequestId(): string {
-  return `gql_${crypto.randomUUID()}`;
+  return `gql_${randomUUID()}`;
 }
 
 // ============================================================================

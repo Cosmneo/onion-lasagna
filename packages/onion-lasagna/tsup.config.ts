@@ -36,5 +36,7 @@ export default defineConfig({
   target: 'es2022',
   minify: false,
   skipNodeModulesBundle: true,
-  external: ['uuid'],
+  // uuid@13 is ESM-only; bundling it ensures the CJS output is self-contained
+  // and CJS consumers do not get a bare require('uuid') that cannot resolve.
+  noExternal: ['uuid'],
 });

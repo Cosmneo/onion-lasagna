@@ -28,7 +28,7 @@
   "peerDependencies": {
     "graphql": "^16",
     "graphql-yoga": "^5",
-    "@cosmneo/onion-lasagna": ">=0.4.1"
+    "@cosmneo/onion-lasagna": "^0.4.1"
   },
   "scripts": {
     "build": "tsup",

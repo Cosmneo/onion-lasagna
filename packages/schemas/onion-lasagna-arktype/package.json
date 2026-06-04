@@ -25,7 +25,7 @@
   },
   "peerDependencies": {
     "arktype": "^2.0.0",
-    "@cosmneo/onion-lasagna": ">=0.4.1"
+    "@cosmneo/onion-lasagna": "^0.4.1"
   },
   "scripts": {
     "build": "tsup",
