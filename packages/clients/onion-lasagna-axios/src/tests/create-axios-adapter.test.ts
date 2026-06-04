@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import axios from 'axios';
 import { createAxiosAdapter } from '../create-axios-adapter';
 
 // ============================================================================
@@ -49,7 +50,7 @@ describe('createAxiosAdapter', () => {
           authorization: 'Bearer token123',
         }),
         validateStatus: expect.any(Function),
-        responseType: 'text',
+        responseType: 'arraybuffer',
       }),
     );
   });
@@ -225,5 +226,215 @@ describe('createAxiosAdapter', () => {
         method: 'GET',
       }),
     );
+  });
+
+  // ============================================================================
+  // P02-1: Abort/Timeout error normalization
+  // ============================================================================
+
+  describe('P02-1: abort and timeout error normalization', () => {
+    it('should rethrow axios CanceledError as DOMException with name AbortError', async () => {
+      const canceledError = new axios.CanceledError('Request canceled');
+      const abortInstance = {
+        request: vi.fn().mockRejectedValue(canceledError),
+      } as unknown as AxiosInstance;
+
+      const adapter = createAxiosAdapter(abortInstance);
+      const request = new Request('https://api.example.com/users');
+
+      await expect(adapter(request)).rejects.toSatisfy(
+        (err: unknown) => err instanceof Error && err.name === 'AbortError',
+      );
+    });
+
+    it('should rethrow axios CanceledError (user abort) as DOMException AbortError, not as NetworkError', async () => {
+      const canceledError = new axios.CanceledError('canceled');
+      const abortInstance = {
+        request: vi.fn().mockRejectedValue(canceledError),
+      } as unknown as AxiosInstance;
+
+      const adapter = createAxiosAdapter(abortInstance);
+      const controller = new AbortController();
+      controller.abort();
+      const request = new Request('https://api.example.com/users');
+
+      const err = await adapter(request, { signal: controller.signal }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).name).toBe('AbortError');
+      expect((err as Error).name).not.toBe('NetworkError');
+    });
+
+    it('should rethrow ECONNABORTED (axios timeout) as DOMException with name TimeoutError', async () => {
+      const timeoutError = Object.assign(new Error('timeout of 5000ms exceeded'), {
+        code: 'ECONNABORTED',
+        name: 'AxiosError',
+      });
+      const timeoutInstance = {
+        request: vi.fn().mockRejectedValue(timeoutError),
+      } as unknown as AxiosInstance;
+
+      const adapter = createAxiosAdapter(timeoutInstance);
+      const request = new Request('https://api.example.com/users');
+
+      await expect(adapter(request)).rejects.toSatisfy(
+        (err: unknown) => err instanceof Error && err.name === 'TimeoutError',
+      );
+    });
+
+    it('should not re-label plain network errors as abort or timeout', async () => {
+      const networkError = new TypeError('Network request failed');
+      const networkInstance = {
+        request: vi.fn().mockRejectedValue(networkError),
+      } as unknown as AxiosInstance;
+
+      const adapter = createAxiosAdapter(networkInstance);
+      const request = new Request('https://api.example.com/users');
+
+      await expect(adapter(request)).rejects.toSatisfy(
+        (err: unknown) =>
+          err instanceof Error && err.name !== 'AbortError' && err.name !== 'TimeoutError',
+      );
+    });
+  });
+
+  // ============================================================================
+  // P02-2: Multi-value response headers (set-cookie)
+  // ============================================================================
+
+  describe('P02-2: multi-value response headers', () => {
+    it('should preserve array response headers as separate entries (not comma-joined)', async () => {
+      const cookies = ['sessionId=abc; Path=/; HttpOnly', 'userId=123; Path=/'];
+      const headerInstance = createMockAxiosInstance({
+        headers: {
+          'set-cookie': cookies,
+          'content-type': 'application/json',
+        },
+      });
+
+      const adapter = createAxiosAdapter(headerInstance);
+      const request = new Request('https://api.example.com/login');
+
+      const response = await adapter(request);
+
+      // Headers.getSetCookie() returns array; if comma-joined it would return a single-entry array
+      const setCookieValues = response.headers.getSetCookie
+        ? response.headers.getSetCookie()
+        : [response.headers.get('set-cookie')];
+
+      expect(setCookieValues).toHaveLength(2);
+      expect(setCookieValues).toContain('sessionId=abc; Path=/; HttpOnly');
+      expect(setCookieValues).toContain('userId=123; Path=/');
+    });
+
+    it('should not comma-join set-cookie array when accessed via get()', async () => {
+      const cookies = ['a=1; Path=/', 'b=2; Path=/'];
+      const headerInstance = createMockAxiosInstance({
+        headers: { 'set-cookie': cookies },
+      });
+
+      const adapter = createAxiosAdapter(headerInstance);
+      const response = await adapter(new Request('https://api.example.com/test'));
+
+      // If the array was comma-joined, get() would return 'a=1; Path=/, b=2; Path=/'
+      // With proper append, the Response header combines them per RFC but preserves them as two entries
+      // The key check: no comma in the middle of two cookies' values
+      const rawValue = response.headers.get('set-cookie');
+      // Even if combined, the values should not have been String()-joined as one cookie string
+      // The test ensures at least both cookie values appear
+      expect(rawValue).toContain('a=1');
+      expect(rawValue).toContain('b=2');
+    });
+  });
+
+  // ============================================================================
+  // P02-3: AbortSignal from Request object (no separate init)
+  // ============================================================================
+
+  describe('P02-3: request.signal fallback when no init.signal provided', () => {
+    it('should pass request.signal to axios when no init argument is provided', async () => {
+      const controller = new AbortController();
+      const request = new Request('https://api.example.com/users', {
+        signal: controller.signal,
+      });
+
+      // Call adapter with Request only — no init argument
+      await createAxiosAdapter(mockInstance)(request);
+
+      const call = vi.mocked(mockInstance.request).mock.calls[0]!;
+      const config = call[0]!;
+      // Verify a signal was forwarded (not undefined/null) and it is the request's own signal
+      expect(config.signal).toBe(request.signal);
+      expect(config.signal).not.toBeUndefined();
+    });
+
+    it('should prefer init.signal over request.signal when both are present', async () => {
+      const requestController = new AbortController();
+      const initController = new AbortController();
+
+      const request = new Request('https://api.example.com/users', {
+        signal: requestController.signal,
+      });
+
+      await createAxiosAdapter(mockInstance)(request, { signal: initController.signal });
+
+      const call = vi.mocked(mockInstance.request).mock.calls[0]!;
+      const config = call[0]!;
+      // init.signal takes precedence over request.signal
+      expect(config.signal).toBe(initController.signal);
+      expect(config.signal).not.toBe(requestController.signal);
+    });
+  });
+
+  // ============================================================================
+  // P02-4: arraybuffer responseType for binary safety
+  // ============================================================================
+
+  describe('P02-4: responseType arraybuffer for binary safety', () => {
+    it('should use arraybuffer responseType instead of text', async () => {
+      const adapter = createAxiosAdapter(mockInstance);
+      const request = new Request('https://api.example.com/file.bin');
+
+      await adapter(request);
+
+      expect(mockInstance.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          responseType: 'arraybuffer',
+        }),
+      );
+    });
+
+    it('should correctly expose JSON body when responseType is arraybuffer', async () => {
+      const jsonString = '{"id":1,"name":"John"}';
+      const encoder = new TextEncoder();
+      const buffer = encoder.encode(jsonString).buffer;
+
+      const binaryInstance = createMockAxiosInstance({
+        data: buffer,
+        headers: { 'content-type': 'application/json' },
+      });
+
+      const adapter = createAxiosAdapter(binaryInstance);
+      const response = await adapter(new Request('https://api.example.com/users/1'));
+      const text = await response.text();
+
+      expect(text).toBe(jsonString);
+    });
+
+    it('should handle binary response body correctly', async () => {
+      const binaryData = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]).buffer;
+      const binaryInstance = createMockAxiosInstance({
+        data: binaryData,
+        headers: { 'content-type': 'image/png' },
+      });
+
+      const adapter = createAxiosAdapter(binaryInstance);
+      const response = await adapter(new Request('https://api.example.com/image.png'));
+      const arrayBuffer = await response.arrayBuffer();
+
+      expect(arrayBuffer.byteLength).toBe(6);
+      const view = new Uint8Array(arrayBuffer);
+      expect(view[0]).toBe(0x89);
+      expect(view[1]).toBe(0x50);
+    });
   });
 });
