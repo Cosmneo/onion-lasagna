@@ -42,6 +42,7 @@
 ### Task 1: Scaffold Plugin Manifests And Marketplaces
 
 **Files:**
+
 - Create: `.claude-plugin/marketplace.json`
 - Create: `.agents/plugins/marketplace.json`
 - Create: `plugins/onion-lasagna-kit/.claude-plugin/plugin.json`
@@ -126,13 +127,7 @@ Write `plugins/onion-lasagna-kit/.claude-plugin/plugin.json`:
     "name": "Cosmneo"
   },
   "license": "MIT",
-  "keywords": [
-    "onion-lasagna",
-    "clean-architecture",
-    "bounded-contexts",
-    "typescript",
-    "skills"
-  ]
+  "keywords": ["onion-lasagna", "clean-architecture", "bounded-contexts", "typescript", "skills"]
 }
 ```
 
@@ -149,13 +144,7 @@ Write `plugins/onion-lasagna-kit/.codex-plugin/plugin.json`:
     "name": "Cosmneo"
   },
   "license": "MIT",
-  "keywords": [
-    "onion-lasagna",
-    "clean-architecture",
-    "bounded-contexts",
-    "typescript",
-    "skills"
-  ],
+  "keywords": ["onion-lasagna", "clean-architecture", "bounded-contexts", "typescript", "skills"],
   "skills": "./skills/",
   "interface": {
     "displayName": "Onion Lasagna Kit",
@@ -163,11 +152,7 @@ Write `plugins/onion-lasagna-kit/.codex-plugin/plugin.json`:
     "longDescription": "Use Onion Lasagna Kit to guide agents through opinionated Onion Lasagna project design, bounded contexts, domain models, use cases, outbound adapters, route handlers, and architecture reviews.",
     "developerName": "Cosmneo",
     "category": "Developer Tools",
-    "capabilities": [
-      "Interactive",
-      "Read",
-      "Write"
-    ],
+    "capabilities": ["Interactive", "Read", "Write"],
     "defaultPrompt": [
       "Design an Onion Lasagna bounded context",
       "Review this project's Onion Lasagna layering",
@@ -218,6 +203,7 @@ git commit -m "feat(plugin): scaffold onion lasagna kit"
 ### Task 2: Create Review Skill With Pressure Scenario
 
 **Files:**
+
 - Create: `plugins/onion-lasagna-kit/tests/pressure/review-prompt.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/review-expected.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/review-observed.md`
@@ -350,13 +336,13 @@ Load `references/layer-checklist.md` when the request is a review, audit, "by th
 
 ## Common Violations
 
-| Symptom | Problem | Fix |
-|---|---|---|
-| Domain imports Drizzle or HTTP code | Inner layer depends on outer layer | Move persistence mapping to infra |
-| Use case imports SDK client | App layer bypasses outbound port | Add port and adapter |
-| Handler queries repository | Presentation owns business flow | Call a use case through route mapping |
-| Repository leaks raw errors | Infra boundary is porous | Wrap with `BaseOutboundAdapter` or explicit `InfraError` |
-| Validation only happens in handler | Domain invariant can be bypassed | Validate external input at edge and invariants in domain factories |
+| Symptom                             | Problem                            | Fix                                                                |
+| ----------------------------------- | ---------------------------------- | ------------------------------------------------------------------ |
+| Domain imports Drizzle or HTTP code | Inner layer depends on outer layer | Move persistence mapping to infra                                  |
+| Use case imports SDK client         | App layer bypasses outbound port   | Add port and adapter                                               |
+| Handler queries repository          | Presentation owns business flow    | Call a use case through route mapping                              |
+| Repository leaks raw errors         | Infra boundary is porous           | Wrap with `BaseOutboundAdapter` or explicit `InfraError`           |
+| Validation only happens in handler  | Domain invariant can be bypassed   | Validate external input at edge and invariants in domain factories |
 
 ## Output Shape
 
@@ -403,6 +389,7 @@ git commit -m "feat(plugin): add onion lasagna review skill"
 ### Task 3: Create Adapter Skill With Pressure Scenario
 
 **Files:**
+
 - Create: `plugins/onion-lasagna-kit/tests/pressure/adapter-prompt.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/adapter-expected.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/adapter-observed.md`
@@ -527,10 +514,7 @@ export interface ProjectRepositoryPort {
   findById(id: ProjectId): Promise<Project | null>;
 }
 
-export class ProjectRepositoryAdapter
-  extends BaseOutboundAdapter
-  implements ProjectRepositoryPort
-{
+export class ProjectRepositoryAdapter extends BaseOutboundAdapter implements ProjectRepositoryPort {
   constructor(private readonly repository: DrizzleProjectRepository) {
     super();
   }
@@ -584,6 +568,7 @@ git commit -m "feat(plugin): add onion lasagna adapter skill"
 ### Task 4: Create Router Skill After Leaf Skills Exist
 
 **Files:**
+
 - Create: `plugins/onion-lasagna-kit/tests/pressure/router-prompt.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/router-expected.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/router-observed.md`
@@ -651,9 +636,9 @@ Before implementation or review, inspect actual files and exports. Prefer `rg`, 
 
 ## Route By Task
 
-| User request | Skill |
-|---|---|
-| Review, audit, by-the-book check, layering assessment | `onion-lasagna-review` |
+| User request                                                         | Skill                   |
+| -------------------------------------------------------------------- | ----------------------- |
+| Review, audit, by-the-book check, layering assessment                | `onion-lasagna-review`  |
 | Repository adapter, external API adapter, outbound port, persistence | `onion-lasagna-adapter` |
 
 Do not route to a skill that is not present in this plugin.
@@ -698,6 +683,7 @@ git commit -m "feat(plugin): add onion lasagna router skill"
 ### Task 5: Add Core Reference Files
 
 **Files:**
+
 - Create: `plugins/onion-lasagna-kit/references/package-entrypoints.md`
 - Create: `plugins/onion-lasagna-kit/references/omninode-patterns.md`
 
@@ -824,6 +810,7 @@ git commit -m "docs(plugin): add onion lasagna references"
 ### Task 6: Add Architect Skill
 
 **Files:**
+
 - Create: `plugins/onion-lasagna-kit/tests/pressure/architect-prompt.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/architect-expected.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/architect-observed.md`
@@ -931,6 +918,7 @@ git commit -m "feat(plugin): add onion lasagna architect skill"
 ### Task 7: Add Bounded Context Skill
 
 **Files:**
+
 - Create: `plugins/onion-lasagna-kit/tests/pressure/bounded-context-prompt.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/bounded-context-expected.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/bounded-context-observed.md`
@@ -1044,6 +1032,7 @@ git commit -m "feat(plugin): add onion lasagna bounded context skill"
 ### Task 8: Add Domain Skill
 
 **Files:**
+
 - Create: `plugins/onion-lasagna-kit/tests/pressure/domain-prompt.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/domain-expected.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/domain-observed.md`
@@ -1146,6 +1135,7 @@ git commit -m "feat(plugin): add onion lasagna domain skill"
 ### Task 9: Add Use Case Skill
 
 **Files:**
+
 - Create: `plugins/onion-lasagna-kit/tests/pressure/use-case-prompt.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/use-case-expected.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/use-case-observed.md`
@@ -1262,6 +1252,7 @@ git commit -m "feat(plugin): add onion lasagna use case skill"
 ### Task 10: Add Route Skill And Expand Router
 
 **Files:**
+
 - Create: `plugins/onion-lasagna-kit/tests/pressure/route-prompt.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/route-expected.md`
 - Create: `plugins/onion-lasagna-kit/tests/pressure/route-observed.md`
@@ -1442,6 +1433,7 @@ git commit -m "feat(plugin): add onion lasagna route skill"
 ### Task 11: Add Specialist Agents
 
 **Files:**
+
 - Create: `plugins/onion-lasagna-kit/agents/onion-investigator.md`
 - Create: `plugins/onion-lasagna-kit/agents/onion-architect.md`
 - Create: `plugins/onion-lasagna-kit/agents/onion-reviewer.md`
@@ -1499,6 +1491,7 @@ git commit -m "feat(plugin): add onion lasagna specialist agents"
 ### Task 12: Add Utility Scripts
 
 **Files:**
+
 - Create: `plugins/onion-lasagna-kit/scripts/check-boundaries.ts`
 - Create: `plugins/onion-lasagna-kit/scripts/inspect-onion-project.ts`
 
@@ -1514,13 +1507,27 @@ import { join, relative } from 'node:path';
 
 const root = process.argv[2] ?? process.cwd();
 const violations: string[] = [];
-const externalPathTokens = ['..' + '/packages', '..' + '/starters', '..' + '/CLAUDE.md', 'omninode' + '-workspace'];
+const externalPathTokens = [
+  '..' + '/packages',
+  '..' + '/starters',
+  '..' + '/CLAUDE.md',
+  'omninode' + '-workspace',
+];
 
 const bannedByLayer: Array<{ layer: string; pattern: RegExp; banned: RegExp[] }> = [
   {
     layer: 'domain',
     pattern: /\/domain\//,
-    banned: [/\/infra\//, /\/presentation\//, /drizzle/, /hono/, /express/, /fastify/, /nestjs/, /graphql/],
+    banned: [
+      /\/infra\//,
+      /\/presentation\//,
+      /drizzle/,
+      /hono/,
+      /express/,
+      /fastify/,
+      /nestjs/,
+      /graphql/,
+    ],
   },
   {
     layer: 'app',
@@ -1538,7 +1545,8 @@ function walk(dir: string): string[] {
   const entries = readdirSync(dir);
   const files: string[] = [];
   for (const entry of entries) {
-    if (entry === 'node_modules' || entry === '.git' || entry === 'dist' || entry === '.turbo') continue;
+    if (entry === 'node_modules' || entry === '.git' || entry === 'dist' || entry === '.turbo')
+      continue;
     const path = join(dir, entry);
     const stat = statSync(path);
     if (stat.isDirectory()) files.push(...walk(path));
@@ -1566,7 +1574,9 @@ for (const file of walk(root)) {
 
   if (normalized.startsWith('/plugins/onion-lasagna-kit/')) {
     if (externalPathTokens.some((token) => text.includes(token))) {
-      violations.push(`${normalized}: plugin runtime file references content outside the plugin root`);
+      violations.push(
+        `${normalized}: plugin runtime file references content outside the plugin root`,
+      );
     }
   }
 }
@@ -1594,7 +1604,8 @@ const root = process.argv[2] ?? process.cwd();
 function walkDirs(dir: string): string[] {
   const dirs: string[] = [];
   for (const entry of readdirSync(dir)) {
-    if (entry === 'node_modules' || entry === '.git' || entry === 'dist' || entry === '.turbo') continue;
+    if (entry === 'node_modules' || entry === '.git' || entry === 'dist' || entry === '.turbo')
+      continue;
     const path = join(dir, entry);
     if (!statSync(path).isDirectory()) continue;
     dirs.push(path);
@@ -1655,6 +1666,7 @@ git commit -m "feat(plugin): add onion lasagna utility scripts"
 ### Task 13: Validate Installability And Self-Containment
 
 **Files:**
+
 - Modify: pressure transcript files under `plugins/onion-lasagna-kit/tests/pressure/`
 
 - [ ] **Step 1: Validate plugin manifests**

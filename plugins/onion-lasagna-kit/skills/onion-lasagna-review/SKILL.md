@@ -39,13 +39,13 @@ rg -n "describe\\(|it\\(" --glob '*use-case*' --glob '*tests*' .
 
 ## Common Violations
 
-| Symptom | Problem | Fix |
-|---|---|---|
-| Domain imports Drizzle or HTTP code | Inner layer depends on outer layer | Move persistence mapping to infra |
-| Use case imports SDK client | App layer bypasses outbound port | Add port and adapter |
-| Handler queries repository | Presentation owns business flow | Call a use case through route mapping |
-| Repository leaks raw errors | Infra boundary is porous | Wrap with `BaseOutboundAdapter` or explicit `InfraError` |
-| Validation only happens in handler | Domain invariant can be bypassed | Validate external input at edge and invariants in domain factories |
+| Symptom                             | Problem                            | Fix                                                                |
+| ----------------------------------- | ---------------------------------- | ------------------------------------------------------------------ |
+| Domain imports Drizzle or HTTP code | Inner layer depends on outer layer | Move persistence mapping to infra                                  |
+| Use case imports SDK client         | App layer bypasses outbound port   | Add port and adapter                                               |
+| Handler queries repository          | Presentation owns business flow    | Call a use case through route mapping                              |
+| Repository leaks raw errors         | Infra boundary is porous           | Wrap with `BaseOutboundAdapter` or explicit `InfraError`           |
+| Validation only happens in handler  | Domain invariant can be bypassed   | Validate external input at edge and invariants in domain factories |
 
 ## Output Shape
 

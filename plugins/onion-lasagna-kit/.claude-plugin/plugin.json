@@ -6,11 +6,5 @@
     "name": "Cosmneo"
   },
   "license": "MIT",
-  "keywords": [
-    "onion-lasagna",
-    "clean-architecture",
-    "bounded-contexts",
-    "typescript",
-    "skills"
-  ]
+  "keywords": ["onion-lasagna", "clean-architecture", "bounded-contexts", "typescript", "skills"]
 }

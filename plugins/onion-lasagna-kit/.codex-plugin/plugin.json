@@ -6,13 +6,7 @@
     "name": "Cosmneo"
   },
   "license": "MIT",
-  "keywords": [
-    "onion-lasagna",
-    "clean-architecture",
-    "bounded-contexts",
-    "typescript",
-    "skills"
-  ],
+  "keywords": ["onion-lasagna", "clean-architecture", "bounded-contexts", "typescript", "skills"],
   "skills": "./skills/",
   "interface": {
     "displayName": "Onion Lasagna Kit",
@@ -20,11 +14,7 @@
     "longDescription": "Use Onion Lasagna Kit to guide agents through opinionated Onion Lasagna project design, bounded contexts, domain models, use cases, outbound adapters, route handlers, and architecture reviews.",
     "developerName": "Cosmneo",
     "category": "Developer Tools",
-    "capabilities": [
-      "Interactive",
-      "Read",
-      "Write"
-    ],
+    "capabilities": ["Interactive", "Read", "Write"],
     "defaultPrompt": [
       "Design an Onion Lasagna bounded context",
       "Review this project's Onion Lasagna layering",

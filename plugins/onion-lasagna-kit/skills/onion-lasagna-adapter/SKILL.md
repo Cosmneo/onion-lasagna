@@ -42,10 +42,7 @@ Infra adapter, under `infra/**`:
 ```typescript
 import { BaseOutboundAdapter, InfraError } from '@cosmneo/onion-lasagna';
 
-export class ProjectRepositoryAdapter
-  extends BaseOutboundAdapter
-  implements ProjectRepositoryPort
-{
+export class ProjectRepositoryAdapter extends BaseOutboundAdapter implements ProjectRepositoryPort {
   constructor(private readonly repository: DrizzleProjectRepository) {
     super();
   }

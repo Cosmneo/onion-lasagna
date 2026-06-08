@@ -80,7 +80,9 @@ for (const file of walk(root)) {
 
   if (isPluginRoot || normalized.startsWith('/plugins/onion-lasagna-kit/')) {
     if (externalPathTokens.some((token) => text.includes(token))) {
-      violations.push(`${normalized}: plugin runtime file references content outside the plugin root`);
+      violations.push(
+        `${normalized}: plugin runtime file references content outside the plugin root`,
+      );
     }
   }
 }

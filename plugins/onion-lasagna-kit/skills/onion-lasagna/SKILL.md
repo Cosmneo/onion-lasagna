@@ -17,15 +17,15 @@ When answering a routing request, state that actual files and exports must be in
 
 ## Route By Task
 
-| User request | Skill |
-|---|---|
-| System design, package choices, bounded context map | `onion-lasagna-architect` |
-| New module or bounded-context skeleton | `onion-lasagna-bounded-context` |
-| Aggregate, entity, value object, event, invariant | `onion-lasagna-domain` |
-| Command, query, `BaseInboundAdapter`, authorization, app port | `onion-lasagna-use-case` |
-| HTTP route, GraphQL field, schema adapter, handler mapper | `onion-lasagna-route` |
-| Review, audit, by-the-book check, layering assessment | `onion-lasagna-review` |
-| Repository adapter, external API adapter, outbound port, persistence | `onion-lasagna-adapter` |
+| User request                                                         | Skill                           |
+| -------------------------------------------------------------------- | ------------------------------- |
+| System design, package choices, bounded context map                  | `onion-lasagna-architect`       |
+| New module or bounded-context skeleton                               | `onion-lasagna-bounded-context` |
+| Aggregate, entity, value object, event, invariant                    | `onion-lasagna-domain`          |
+| Command, query, `BaseInboundAdapter`, authorization, app port        | `onion-lasagna-use-case`        |
+| HTTP route, GraphQL field, schema adapter, handler mapper            | `onion-lasagna-route`           |
+| Review, audit, by-the-book check, layering assessment                | `onion-lasagna-review`          |
+| Repository adapter, external API adapter, outbound port, persistence | `onion-lasagna-adapter`         |
 
 Do not route to a skill that is not present in this plugin.
 
