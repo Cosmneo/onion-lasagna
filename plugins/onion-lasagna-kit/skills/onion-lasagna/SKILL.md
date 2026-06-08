@@ -1,6 +1,6 @@
 ---
 name: onion-lasagna
-description: Use when routing Onion Lasagna review or outbound-adapter work to the current focused skills
+description: Use when choosing which Onion Lasagna architecture, bounded-context, domain, use-case, route, adapter, or review skill to load
 ---
 
 # Onion Lasagna
@@ -19,6 +19,11 @@ When answering a routing request, state that actual files and exports must be in
 
 | User request | Skill |
 |---|---|
+| System design, package choices, bounded context map | `onion-lasagna-architect` |
+| New module or bounded-context skeleton | `onion-lasagna-bounded-context` |
+| Aggregate, entity, value object, event, invariant | `onion-lasagna-domain` |
+| Command, query, `BaseInboundAdapter`, authorization, app port | `onion-lasagna-use-case` |
+| HTTP route, GraphQL field, schema adapter, handler mapper | `onion-lasagna-route` |
 | Review, audit, by-the-book check, layering assessment | `onion-lasagna-review` |
 | Repository adapter, external API adapter, outbound port, persistence | `onion-lasagna-adapter` |
 
@@ -31,11 +36,15 @@ a skill name.
 
 For new work, use:
 
-1. adapter when outbound infrastructure is needed;
-2. review when checking existing structure.
+1. architect or bounded-context;
+2. domain;
+3. use-case;
+4. adapter;
+5. route;
+6. review.
 
 For existing work, use:
 
 1. review;
-2. `onion-lasagna-adapter` only when the task is outbound adapter work;
+2. the focused implementation skill;
 3. review again.
