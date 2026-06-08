@@ -33,7 +33,9 @@
 - Create `plugins/onion-lasagna-kit/references/omninode-patterns.md`: distilled good implementation patterns.
 - Create `plugins/onion-lasagna-kit/scripts/check-boundaries.ts`: boundary and self-containment scanner.
 - Create `plugins/onion-lasagna-kit/scripts/inspect-onion-project.ts`: structure summary script.
-- Create `plugins/onion-lasagna-kit/tests/pressure/*.md`: pressure scenarios and observed transcript notes.
+- Create `plugins/onion-lasagna-kit/tests/pressure/*-prompt.md`: prompts shown to test agents.
+- Create `plugins/onion-lasagna-kit/tests/pressure/*-expected.md`: answer keys kept away from test agents.
+- Create `plugins/onion-lasagna-kit/tests/pressure/*-observed.md`: captured baseline and GREEN notes.
 
 ---
 
@@ -180,8 +182,17 @@ Write `plugins/onion-lasagna-kit/.codex-plugin/plugin.json`:
 Run:
 
 ```bash
-command claude plugin validate plugins/onion-lasagna-kit
-python3 /Users/bernardo/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/onion-lasagna-kit
+if command -v claude >/dev/null 2>&1; then
+  command claude plugin validate plugins/onion-lasagna-kit
+else
+  echo "SKIP: claude CLI not found"
+fi
+
+if [ -f /Users/bernardo/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py ]; then
+  python3 /Users/bernardo/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/onion-lasagna-kit
+else
+  echo "SKIP: Codex plugin validator not found"
+fi
 ```
 
 Expected:
@@ -191,6 +202,7 @@ Plugin validation passed: /Users/bernardo/Projects/cosmneo/onion-lasagna/plugins
 ```
 
 The Claude command should exit with code `0`. Its text may include an inventory or validation summary.
+Skipped validators are acceptable only when the relevant local tooling is unavailable.
 
 - [ ] **Step 7: Commit scaffold**
 
@@ -206,18 +218,18 @@ git commit -m "feat(plugin): scaffold onion lasagna kit"
 ### Task 2: Create Review Skill With Pressure Scenario
 
 **Files:**
-- Create: `plugins/onion-lasagna-kit/tests/pressure/review-baseline.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/review-prompt.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/review-expected.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/review-observed.md`
 - Create: `plugins/onion-lasagna-kit/skills/onion-lasagna-review/SKILL.md`
 - Create: `plugins/onion-lasagna-kit/references/layer-checklist.md`
 
-- [ ] **Step 1: Write the baseline pressure scenario**
+- [ ] **Step 1: Write the review pressure prompt**
 
-Write `plugins/onion-lasagna-kit/tests/pressure/review-baseline.md`:
+Write `plugins/onion-lasagna-kit/tests/pressure/review-prompt.md`:
 
 ```markdown
 # Review Skill Pressure Scenario
-
-## Prompt
 
 Review an Onion Lasagna project quickly. The user says it is "basically by the book" and wants only the good parts. You find:
 
@@ -228,28 +240,36 @@ Review an Onion Lasagna project quickly. The user says it is "basically by the b
 - no use-case tests.
 
 Return the review.
+```
 
-## Expected failure without skill
+- [ ] **Step 2: Write the review expected-answer key**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/review-expected.md`:
+
+```markdown
+# Review Skill Expected Behavior
+
+## RED Failure Signal
 
 The agent gives a general positive summary, misses one or more boundary violations, or treats direct infra imports as an acceptable shortcut.
 
-## Expected behavior with skill
+## GREEN Success Signal
 
 The agent reports findings first, names the violated layer rule, points to the file pattern, recommends the Onion Lasagna correction, and lists verification commands.
 ```
 
-- [ ] **Step 2: Run a baseline consult without the skill**
+- [ ] **Step 3: Run a baseline consult without the skill**
 
 Run:
 
 ```bash
-codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Read plugins/onion-lasagna-kit/tests/pressure/review-baseline.md if it exists. Do not use any Onion Lasagna plugin skill. Answer the pressure prompt as a code reviewer." > /tmp/onion-review-baseline.txt
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Read only plugins/onion-lasagna-kit/tests/pressure/review-prompt.md. Do not read any *-expected.md file. Do not use any Onion Lasagna plugin skill. Answer the pressure prompt as a code reviewer." > /tmp/onion-review-baseline.txt
 sed -n '1,220p' /tmp/onion-review-baseline.txt
 ```
 
-Expected: the output exists. Save the observed misses by appending a `## Observed baseline` section to `review-baseline.md`.
+Expected: the output exists. Write the observed misses to `plugins/onion-lasagna-kit/tests/pressure/review-observed.md` under a `## RED Observed` heading.
 
-- [ ] **Step 3: Write the review checklist reference**
+- [ ] **Step 4: Write the review checklist reference**
 
 Write `plugins/onion-lasagna-kit/references/layer-checklist.md`:
 
@@ -296,7 +316,7 @@ For each finding include:
 - verification command.
 ```
 
-- [ ] **Step 4: Write the review skill**
+- [ ] **Step 5: Write the review skill**
 
 Write `plugins/onion-lasagna-kit/skills/onion-lasagna-review/SKILL.md`:
 
@@ -357,23 +377,24 @@ Use this structure:
 ```
 ````
 
-- [ ] **Step 5: Run the pressure scenario with the skill**
+- [ ] **Step 6: Run the pressure scenario with the skill**
 
 Run:
 
 ```bash
-codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna-review skill from plugins/onion-lasagna-kit/skills/onion-lasagna-review/SKILL.md. Read plugins/onion-lasagna-kit/tests/pressure/review-baseline.md. Answer the pressure prompt as a code reviewer." > /tmp/onion-review-skill.txt
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna-review skill from plugins/onion-lasagna-kit/skills/onion-lasagna-review/SKILL.md. Read only plugins/onion-lasagna-kit/tests/pressure/review-prompt.md. Do not read any *-expected.md file. Answer the pressure prompt as a code reviewer." > /tmp/onion-review-skill.txt
 sed -n '1,260p' /tmp/onion-review-skill.txt
 ```
 
 Expected: output contains a `Findings` section and calls out all four boundary/wrapping violations from the pressure prompt.
+Append the GREEN result summary to `plugins/onion-lasagna-kit/tests/pressure/review-observed.md` under a `## GREEN Observed` heading.
 
-- [ ] **Step 6: Commit review skill**
+- [ ] **Step 7: Commit review skill**
 
 Run:
 
 ```bash
-git add plugins/onion-lasagna-kit/tests/pressure/review-baseline.md plugins/onion-lasagna-kit/skills/onion-lasagna-review/SKILL.md plugins/onion-lasagna-kit/references/layer-checklist.md
+git add plugins/onion-lasagna-kit/tests/pressure/review-prompt.md plugins/onion-lasagna-kit/tests/pressure/review-expected.md plugins/onion-lasagna-kit/tests/pressure/review-observed.md plugins/onion-lasagna-kit/skills/onion-lasagna-review/SKILL.md plugins/onion-lasagna-kit/references/layer-checklist.md
 git commit -m "feat(plugin): add onion lasagna review skill"
 ```
 
@@ -382,42 +403,50 @@ git commit -m "feat(plugin): add onion lasagna review skill"
 ### Task 3: Create Adapter Skill With Pressure Scenario
 
 **Files:**
-- Create: `plugins/onion-lasagna-kit/tests/pressure/adapter-baseline.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/adapter-prompt.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/adapter-expected.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/adapter-observed.md`
 - Create: `plugins/onion-lasagna-kit/skills/onion-lasagna-adapter/SKILL.md`
 - Create: `plugins/onion-lasagna-kit/references/architecture-rules.md`
 
-- [ ] **Step 1: Write the adapter pressure scenario**
+- [ ] **Step 1: Write the adapter pressure prompt**
 
-Write `plugins/onion-lasagna-kit/tests/pressure/adapter-baseline.md`:
+Write `plugins/onion-lasagna-kit/tests/pressure/adapter-prompt.md`:
 
 ```markdown
 # Adapter Skill Pressure Scenario
 
-## Prompt
-
 Create the persistence side for an Onion Lasagna use case named `CreateProjectCommand`. The domain has `Project`, `ProjectId`, and `ProjectName`. The app layer needs a `ProjectRepositoryPort` with `save(project)` and `findById(id)`. The concrete persistence is Drizzle.
+```
 
-## Expected failure without skill
+- [ ] **Step 2: Write the adapter expected-answer key**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/adapter-expected.md`:
+
+```markdown
+# Adapter Skill Expected Behavior
+
+## RED Failure Signal
 
 The agent imports Drizzle directly into the use case, returns raw rows to the app layer, skips an outbound port, or forgets error wrapping.
 
-## Expected behavior with skill
+## GREEN Success Signal
 
 The agent creates an outbound port in app, an infra repository adapter implementing the port, a Drizzle mapper/repository behind the adapter, and wraps infrastructure failures as `InfraError` or a specific subclass.
 ```
 
-- [ ] **Step 2: Run baseline without skill**
+- [ ] **Step 3: Run baseline without skill**
 
 Run:
 
 ```bash
-codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Read plugins/onion-lasagna-kit/tests/pressure/adapter-baseline.md if it exists. Do not use any Onion Lasagna plugin skill. Answer the prompt with the file structure and code approach." > /tmp/onion-adapter-baseline.txt
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Read only plugins/onion-lasagna-kit/tests/pressure/adapter-prompt.md. Do not read any *-expected.md file. Do not use any Onion Lasagna plugin skill. Answer the prompt with the file structure and code approach." > /tmp/onion-adapter-baseline.txt
 sed -n '1,240p' /tmp/onion-adapter-baseline.txt
 ```
 
-Expected: the output exists. Save observed boundary mistakes in `adapter-baseline.md`.
+Expected: the output exists. Save observed boundary mistakes in `plugins/onion-lasagna-kit/tests/pressure/adapter-observed.md` under a `## RED Observed` heading.
 
-- [ ] **Step 3: Write architecture rules reference**
+- [ ] **Step 4: Write architecture rules reference**
 
 Write `plugins/onion-lasagna-kit/references/architecture-rules.md`:
 
@@ -455,7 +484,7 @@ const handlers = createHandlers(useCases);
 ```
 ````
 
-- [ ] **Step 4: Write adapter skill**
+- [ ] **Step 5: Write adapter skill**
 
 Write `plugins/onion-lasagna-kit/skills/onion-lasagna-adapter/SKILL.md`:
 
@@ -529,23 +558,24 @@ export class ProjectRepositoryAdapter
 - Do not skip error wrapping at the infra boundary.
 ````
 
-- [ ] **Step 5: Run pressure scenario with skill**
+- [ ] **Step 6: Run pressure scenario with skill**
 
 Run:
 
 ```bash
-codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna-adapter skill from plugins/onion-lasagna-kit/skills/onion-lasagna-adapter/SKILL.md. Read plugins/onion-lasagna-kit/tests/pressure/adapter-baseline.md. Answer the prompt with the file structure and code approach." > /tmp/onion-adapter-skill.txt
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna-adapter skill from plugins/onion-lasagna-kit/skills/onion-lasagna-adapter/SKILL.md. Read only plugins/onion-lasagna-kit/tests/pressure/adapter-prompt.md. Do not read any *-expected.md file. Answer the prompt with the file structure and code approach." > /tmp/onion-adapter-skill.txt
 sed -n '1,260p' /tmp/onion-adapter-skill.txt
 ```
 
 Expected: output includes app outbound port, infra adapter, concrete repository, mapper, bootstrap wiring, and error wrapping.
+Append the GREEN result summary to `plugins/onion-lasagna-kit/tests/pressure/adapter-observed.md` under a `## GREEN Observed` heading.
 
-- [ ] **Step 6: Commit adapter skill**
+- [ ] **Step 7: Commit adapter skill**
 
 Run:
 
 ```bash
-git add plugins/onion-lasagna-kit/tests/pressure/adapter-baseline.md plugins/onion-lasagna-kit/skills/onion-lasagna-adapter/SKILL.md plugins/onion-lasagna-kit/references/architecture-rules.md
+git add plugins/onion-lasagna-kit/tests/pressure/adapter-prompt.md plugins/onion-lasagna-kit/tests/pressure/adapter-expected.md plugins/onion-lasagna-kit/tests/pressure/adapter-observed.md plugins/onion-lasagna-kit/skills/onion-lasagna-adapter/SKILL.md plugins/onion-lasagna-kit/references/architecture-rules.md
 git commit -m "feat(plugin): add onion lasagna adapter skill"
 ```
 
@@ -554,46 +584,52 @@ git commit -m "feat(plugin): add onion lasagna adapter skill"
 ### Task 4: Create Router Skill After Leaf Skills Exist
 
 **Files:**
-- Create: `plugins/onion-lasagna-kit/tests/pressure/router-baseline.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/router-prompt.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/router-expected.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/router-observed.md`
 - Create: `plugins/onion-lasagna-kit/skills/onion-lasagna/SKILL.md`
 
-- [ ] **Step 1: Write router pressure scenario**
+- [ ] **Step 1: Write router pressure prompt**
 
-Write `plugins/onion-lasagna-kit/tests/pressure/router-baseline.md`:
+Write `plugins/onion-lasagna-kit/tests/pressure/router-prompt.md`:
 
 ```markdown
 # Router Skill Pressure Scenario
-
-## Prompt
 
 Choose the correct Onion Lasagna skill for each request:
 
 1. "Review whether this project is by the book."
 2. "Create a Drizzle repository adapter for this use case."
-3. "Design a new customer billing bounded context."
-4. "Add a route that calls this use case."
+```
 
-## Expected failure without router
+- [ ] **Step 2: Write router expected-answer key**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/router-expected.md`:
+
+```markdown
+# Router Skill Expected Behavior
+
+## RED Failure Signal
 
 The agent either loads all skills, guesses a skill that does not exist, or skips the inspect-before-assume rule.
 
-## Expected behavior with router
+## GREEN Success Signal
 
-The agent routes to review for request 1, adapter for request 2, architect or bounded-context for request 3 depending on scope, and route for request 4. It also states that actual files and exports must be inspected before implementation.
+The agent routes to `onion-lasagna-review` for request 1 and `onion-lasagna-adapter` for request 2. It also states that actual files and exports must be inspected before implementation.
 ```
 
-- [ ] **Step 2: Run baseline without router**
+- [ ] **Step 3: Run baseline without router**
 
 Run:
 
 ```bash
-codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Read plugins/onion-lasagna-kit/tests/pressure/router-baseline.md if it exists. Do not use the onion-lasagna router skill. Answer the routing prompt." > /tmp/onion-router-baseline.txt
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Read only plugins/onion-lasagna-kit/tests/pressure/router-prompt.md. Do not read any *-expected.md file. Do not use the onion-lasagna router skill. Answer the routing prompt." > /tmp/onion-router-baseline.txt
 sed -n '1,220p' /tmp/onion-router-baseline.txt
 ```
 
-Expected: the output exists. Save observed routing mistakes in `router-baseline.md`.
+Expected: the output exists. Save observed routing mistakes in `plugins/onion-lasagna-kit/tests/pressure/router-observed.md` under a `## RED Observed` heading.
 
-- [ ] **Step 3: Write router skill**
+- [ ] **Step 4: Write router skill**
 
 Write `plugins/onion-lasagna-kit/skills/onion-lasagna/SKILL.md`:
 
@@ -619,11 +655,6 @@ Before implementation or review, inspect actual files and exports. Prefer `rg`, 
 |---|---|
 | Review, audit, by-the-book check, layering assessment | `onion-lasagna-review` |
 | Repository adapter, external API adapter, outbound port, persistence | `onion-lasagna-adapter` |
-| System design, package choices, bounded context map | `onion-lasagna-architect` |
-| New module or bounded-context skeleton | `onion-lasagna-bounded-context` |
-| Aggregate, entity, value object, event, invariant | `onion-lasagna-domain` |
-| Command, query, `BaseInboundAdapter`, authorization, app port | `onion-lasagna-use-case` |
-| HTTP route, GraphQL field, schema adapter, handler mapper | `onion-lasagna-route` |
 
 Do not route to a skill that is not present in this plugin.
 
@@ -631,12 +662,8 @@ Do not route to a skill that is not present in this plugin.
 
 For new work, use:
 
-1. architect or bounded-context;
-2. domain;
-3. use-case;
-4. adapter;
-5. route;
-6. review.
+1. adapter when outbound infrastructure is needed;
+2. review when checking existing structure.
 
 For existing work, use:
 
@@ -645,23 +672,24 @@ For existing work, use:
 3. review again.
 ```
 
-- [ ] **Step 4: Run router pressure scenario**
+- [ ] **Step 5: Run router pressure scenario**
 
 Run:
 
 ```bash
-codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna router skill from plugins/onion-lasagna-kit/skills/onion-lasagna/SKILL.md. Read plugins/onion-lasagna-kit/tests/pressure/router-baseline.md. Answer the routing prompt." > /tmp/onion-router-skill.txt
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna router skill from plugins/onion-lasagna-kit/skills/onion-lasagna/SKILL.md. Read only plugins/onion-lasagna-kit/tests/pressure/router-prompt.md. Do not read any *-expected.md file. Answer the routing prompt." > /tmp/onion-router-skill.txt
 sed -n '1,240p' /tmp/onion-router-skill.txt
 ```
 
-Expected: output maps all four prompts to existing skills and includes inspect-before-assume.
+Expected: output maps both prompts to existing skills and includes inspect-before-assume.
+Append the GREEN result summary to `plugins/onion-lasagna-kit/tests/pressure/router-observed.md` under a `## GREEN Observed` heading.
 
-- [ ] **Step 5: Commit router skill**
+- [ ] **Step 6: Commit router skill**
 
 Run:
 
 ```bash
-git add plugins/onion-lasagna-kit/tests/pressure/router-baseline.md plugins/onion-lasagna-kit/skills/onion-lasagna/SKILL.md
+git add plugins/onion-lasagna-kit/tests/pressure/router-prompt.md plugins/onion-lasagna-kit/tests/pressure/router-expected.md plugins/onion-lasagna-kit/tests/pressure/router-observed.md plugins/onion-lasagna-kit/skills/onion-lasagna/SKILL.md
 git commit -m "feat(plugin): add onion lasagna router skill"
 ```
 
@@ -695,6 +723,8 @@ Verify exports in the target codebase before importing. This file is a navigatio
 - `@cosmneo/onion-lasagna/http/route`
 - `@cosmneo/onion-lasagna/http/server`
 - `@cosmneo/onion-lasagna/http/schema`
+- `@cosmneo/onion-lasagna/http/schema/types`
+- `@cosmneo/onion-lasagna/http/shared`
 - `@cosmneo/onion-lasagna/http/openapi`
 
 ## GraphQL
@@ -702,6 +732,7 @@ Verify exports in the target codebase before importing. This file is a navigatio
 - `@cosmneo/onion-lasagna/graphql`
 - `@cosmneo/onion-lasagna/graphql/field`
 - `@cosmneo/onion-lasagna/graphql/server`
+- `@cosmneo/onion-lasagna/graphql/shared`
 - `@cosmneo/onion-lasagna/graphql/sdl`
 
 ## Events
@@ -709,6 +740,7 @@ Verify exports in the target codebase before importing. This file is a navigatio
 - `@cosmneo/onion-lasagna/events`
 - `@cosmneo/onion-lasagna/events/handler`
 - `@cosmneo/onion-lasagna/events/server`
+- `@cosmneo/onion-lasagna/events/shared`
 - `@cosmneo/onion-lasagna/events/asyncapi`
 
 ## Adapters
@@ -789,37 +821,52 @@ git commit -m "docs(plugin): add onion lasagna references"
 
 ---
 
-### Task 6: Add Remaining Leaf Skills
+### Task 6: Add Architect Skill
 
 **Files:**
+- Create: `plugins/onion-lasagna-kit/tests/pressure/architect-prompt.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/architect-expected.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/architect-observed.md`
 - Create: `plugins/onion-lasagna-kit/skills/onion-lasagna-architect/SKILL.md`
-- Create: `plugins/onion-lasagna-kit/skills/onion-lasagna-bounded-context/SKILL.md`
-- Create: `plugins/onion-lasagna-kit/skills/onion-lasagna-domain/SKILL.md`
-- Create: `plugins/onion-lasagna-kit/skills/onion-lasagna-use-case/SKILL.md`
-- Create: `plugins/onion-lasagna-kit/skills/onion-lasagna-route/SKILL.md`
-- Create: `plugins/onion-lasagna-kit/tests/pressure/leaf-skills.md`
 
-- [ ] **Step 1: Write shared leaf pressure scenario**
+- [ ] **Step 1: Write architect pressure prompt**
 
-Write `plugins/onion-lasagna-kit/tests/pressure/leaf-skills.md`:
+Write `plugins/onion-lasagna-kit/tests/pressure/architect-prompt.md`:
 
 ```markdown
-# Leaf Skills Pressure Scenario
+# Architect Skill Pressure Scenario
 
-## Prompts
-
-1. Design bounded contexts for a small support portal with users, organizations, tickets, and external service sync.
-2. Create a new bounded context named `project`.
-3. Model a `Project` aggregate with a name invariant and creation event.
-4. Create an `UpdateProjectCommand` that preloads the project in `authorize()`.
-5. Expose `projects.update` through a route handler that calls the use case.
-
-## Expected behavior
-
-Each answer uses the matching leaf skill, inspects or asks to inspect actual files, and keeps responsibilities inside the correct Onion Lasagna layer.
+Design bounded contexts for a small support portal with users, organizations, tickets, and external service sync. Choose Onion Lasagna packages and explain read/write/workflow boundaries.
 ```
 
-- [ ] **Step 2: Write architect skill**
+- [ ] **Step 2: Write architect expected-answer key**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/architect-expected.md`:
+
+```markdown
+# Architect Skill Expected Behavior
+
+## RED Failure Signal
+
+The agent jumps straight to files or routes without naming bounded contexts, package choices, read/write split, workflow boundaries, or verification.
+
+## GREEN Success Signal
+
+The agent proposes bounded contexts, package choices, data flow, error flow, read/write split, saga candidates, and implementation order.
+```
+
+- [ ] **Step 3: Run baseline without architect skill**
+
+Run:
+
+```bash
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Read only plugins/onion-lasagna-kit/tests/pressure/architect-prompt.md. Do not read any *-expected.md file. Do not use any Onion Lasagna plugin skill. Answer the prompt." > /tmp/onion-architect-baseline.txt
+sed -n '1,260p' /tmp/onion-architect-baseline.txt
+```
+
+Expected: output exists. Save observed misses in `plugins/onion-lasagna-kit/tests/pressure/architect-observed.md` under a `## RED Observed` heading.
+
+- [ ] **Step 4: Write architect skill**
 
 Write `plugins/onion-lasagna-kit/skills/onion-lasagna-architect/SKILL.md`:
 
@@ -859,7 +906,74 @@ Return:
 Use `references/omninode-patterns.md` for the preferred structure.
 ```
 
-- [ ] **Step 3: Write bounded-context skill**
+- [ ] **Step 5: Run architect pressure scenario with skill**
+
+Run:
+
+```bash
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna-architect skill from plugins/onion-lasagna-kit/skills/onion-lasagna-architect/SKILL.md. Read only plugins/onion-lasagna-kit/tests/pressure/architect-prompt.md. Do not read any *-expected.md file. Answer the prompt." > /tmp/onion-architect-skill.txt
+sed -n '1,320p' /tmp/onion-architect-skill.txt
+```
+
+Expected: output includes bounded context map, package choices, data flow, error flow, read/write/workflow boundaries, and implementation order. Append the GREEN summary to `architect-observed.md`.
+
+- [ ] **Step 6: Commit architect skill**
+
+Run:
+
+```bash
+git add plugins/onion-lasagna-kit/tests/pressure/architect-prompt.md plugins/onion-lasagna-kit/tests/pressure/architect-expected.md plugins/onion-lasagna-kit/tests/pressure/architect-observed.md plugins/onion-lasagna-kit/skills/onion-lasagna-architect/SKILL.md
+git commit -m "feat(plugin): add onion lasagna architect skill"
+```
+
+---
+
+### Task 7: Add Bounded Context Skill
+
+**Files:**
+- Create: `plugins/onion-lasagna-kit/tests/pressure/bounded-context-prompt.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/bounded-context-expected.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/bounded-context-observed.md`
+- Create: `plugins/onion-lasagna-kit/skills/onion-lasagna-bounded-context/SKILL.md`
+
+- [ ] **Step 1: Write bounded-context pressure prompt**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/bounded-context-prompt.md`:
+
+```markdown
+# Bounded Context Skill Pressure Scenario
+
+Create a new Onion Lasagna bounded context named `project` in an existing backend package. Include the folders, public exports, and bootstrap flow.
+```
+
+- [ ] **Step 2: Write bounded-context expected-answer key**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/bounded-context-expected.md`:
+
+```markdown
+# Bounded Context Skill Expected Behavior
+
+## RED Failure Signal
+
+The agent creates arbitrary folders, skips bootstrap, exposes concrete infra directly, or creates empty unused folders.
+
+## GREEN Success Signal
+
+The agent uses domain/app/infra/bootstrap/index structure, names bootstrap phases, keeps exports layered, and says to inspect existing patterns first.
+```
+
+- [ ] **Step 3: Run baseline without bounded-context skill**
+
+Run:
+
+```bash
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Read only plugins/onion-lasagna-kit/tests/pressure/bounded-context-prompt.md. Do not read any *-expected.md file. Do not use any Onion Lasagna plugin skill. Answer the prompt." > /tmp/onion-bounded-context-baseline.txt
+sed -n '1,260p' /tmp/onion-bounded-context-baseline.txt
+```
+
+Expected: output exists. Save observed misses in `plugins/onion-lasagna-kit/tests/pressure/bounded-context-observed.md` under a `## RED Observed` heading.
+
+- [ ] **Step 4: Write bounded-context skill**
 
 Write `plugins/onion-lasagna-kit/skills/onion-lasagna-bounded-context/SKILL.md`:
 
@@ -905,6 +1019,73 @@ export function bootstrap<Name>() {
 - Do not create empty folders that the next task will not use.
 ````
 
+- [ ] **Step 5: Run bounded-context pressure scenario with skill**
+
+Run:
+
+```bash
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna-bounded-context skill from plugins/onion-lasagna-kit/skills/onion-lasagna-bounded-context/SKILL.md. Read only plugins/onion-lasagna-kit/tests/pressure/bounded-context-prompt.md. Do not read any *-expected.md file. Answer the prompt." > /tmp/onion-bounded-context-skill.txt
+sed -n '1,320p' /tmp/onion-bounded-context-skill.txt
+```
+
+Expected: output includes the bounded context folder shape, bootstrap phases, layered exports, and inspect-first guidance. Append the GREEN summary to `bounded-context-observed.md`.
+
+- [ ] **Step 6: Commit bounded-context skill**
+
+Run:
+
+```bash
+git add plugins/onion-lasagna-kit/tests/pressure/bounded-context-prompt.md plugins/onion-lasagna-kit/tests/pressure/bounded-context-expected.md plugins/onion-lasagna-kit/tests/pressure/bounded-context-observed.md plugins/onion-lasagna-kit/skills/onion-lasagna-bounded-context/SKILL.md
+git commit -m "feat(plugin): add onion lasagna bounded context skill"
+```
+
+---
+
+### Task 8: Add Domain Skill
+
+**Files:**
+- Create: `plugins/onion-lasagna-kit/tests/pressure/domain-prompt.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/domain-expected.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/domain-observed.md`
+- Create: `plugins/onion-lasagna-kit/skills/onion-lasagna-domain/SKILL.md`
+
+- [ ] **Step 1: Write domain pressure prompt**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/domain-prompt.md`:
+
+```markdown
+# Domain Skill Pressure Scenario
+
+Model a `Project` aggregate with a name invariant and a creation event. Include value-object guidance and tests.
+```
+
+- [ ] **Step 2: Write domain expected-answer key**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/domain-expected.md`:
+
+```markdown
+# Domain Skill Expected Behavior
+
+## RED Failure Signal
+
+The agent includes persistence or request DTOs in domain, skips factories, or omits invariant/event tests.
+
+## GREEN Success Signal
+
+The agent keeps domain pure, uses factory/reconstitution patterns, validates invariants in value objects or aggregate factories, emits events, and names tests.
+```
+
+- [ ] **Step 3: Run baseline without domain skill**
+
+Run:
+
+```bash
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Read only plugins/onion-lasagna-kit/tests/pressure/domain-prompt.md. Do not read any *-expected.md file. Do not use any Onion Lasagna plugin skill. Answer the prompt." > /tmp/onion-domain-baseline.txt
+sed -n '1,260p' /tmp/onion-domain-baseline.txt
+```
+
+Expected: output exists. Save observed misses in `plugins/onion-lasagna-kit/tests/pressure/domain-observed.md` under a `## RED Observed` heading.
+
 - [ ] **Step 4: Write domain skill**
 
 Write `plugins/onion-lasagna-kit/skills/onion-lasagna-domain/SKILL.md`:
@@ -940,7 +1121,74 @@ Domain code owns business identity, invariants, state transitions, and domain ev
 Test factories, invariants, state transitions, event emission, and reconstitution without emitted events.
 ```
 
-- [ ] **Step 5: Write use-case skill**
+- [ ] **Step 5: Run domain pressure scenario with skill**
+
+Run:
+
+```bash
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna-domain skill from plugins/onion-lasagna-kit/skills/onion-lasagna-domain/SKILL.md. Read only plugins/onion-lasagna-kit/tests/pressure/domain-prompt.md. Do not read any *-expected.md file. Answer the prompt." > /tmp/onion-domain-skill.txt
+sed -n '1,320p' /tmp/onion-domain-skill.txt
+```
+
+Expected: output keeps domain pure and includes factories, reconstitution, invariant validation, event emission, and test focus. Append the GREEN summary to `domain-observed.md`.
+
+- [ ] **Step 6: Commit domain skill**
+
+Run:
+
+```bash
+git add plugins/onion-lasagna-kit/tests/pressure/domain-prompt.md plugins/onion-lasagna-kit/tests/pressure/domain-expected.md plugins/onion-lasagna-kit/tests/pressure/domain-observed.md plugins/onion-lasagna-kit/skills/onion-lasagna-domain/SKILL.md
+git commit -m "feat(plugin): add onion lasagna domain skill"
+```
+
+---
+
+### Task 9: Add Use Case Skill
+
+**Files:**
+- Create: `plugins/onion-lasagna-kit/tests/pressure/use-case-prompt.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/use-case-expected.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/use-case-observed.md`
+- Create: `plugins/onion-lasagna-kit/skills/onion-lasagna-use-case/SKILL.md`
+
+- [ ] **Step 1: Write use-case pressure prompt**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/use-case-prompt.md`:
+
+```markdown
+# Use Case Skill Pressure Scenario
+
+Create an `UpdateProjectCommand` that preloads the project in `authorize()`, checks permissions, renames it, and saves through an outbound port.
+```
+
+- [ ] **Step 2: Write use-case expected-answer key**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/use-case-expected.md`:
+
+```markdown
+# Use Case Skill Expected Behavior
+
+## RED Failure Signal
+
+The agent puts permission checks in the handler, imports concrete infra, duplicates repository lookups, or skips use-case tests.
+
+## GREEN Success Signal
+
+The agent uses `BaseInboundAdapter`, `authorize()` for checks and preload, `handle()` for state change, outbound ports, and focused tests.
+```
+
+- [ ] **Step 3: Run baseline without use-case skill**
+
+Run:
+
+```bash
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Read only plugins/onion-lasagna-kit/tests/pressure/use-case-prompt.md. Do not read any *-expected.md file. Do not use any Onion Lasagna plugin skill. Answer the prompt." > /tmp/onion-use-case-baseline.txt
+sed -n '1,260p' /tmp/onion-use-case-baseline.txt
+```
+
+Expected: output exists. Save observed misses in `plugins/onion-lasagna-kit/tests/pressure/use-case-observed.md` under a `## RED Observed` heading.
+
+- [ ] **Step 4: Write use-case skill**
 
 Write `plugins/onion-lasagna-kit/skills/onion-lasagna-use-case/SKILL.md`:
 
@@ -989,7 +1237,78 @@ export class UpdateProjectCommand extends BaseInboundAdapter<
 - Do not parse HTTP requests in use cases.
 ````
 
-- [ ] **Step 6: Write route skill**
+- [ ] **Step 5: Run use-case pressure scenario with skill**
+
+Run:
+
+```bash
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna-use-case skill from plugins/onion-lasagna-kit/skills/onion-lasagna-use-case/SKILL.md. Read only plugins/onion-lasagna-kit/tests/pressure/use-case-prompt.md. Do not read any *-expected.md file. Answer the prompt." > /tmp/onion-use-case-skill.txt
+sed -n '1,320p' /tmp/onion-use-case-skill.txt
+```
+
+Expected: output includes `BaseInboundAdapter`, typed auth context, `authorize()` preload, `handle()` state change, outbound port dependency, and tests. Append the GREEN summary to `use-case-observed.md`.
+
+- [ ] **Step 6: Commit use-case skill**
+
+Run:
+
+```bash
+git add plugins/onion-lasagna-kit/tests/pressure/use-case-prompt.md plugins/onion-lasagna-kit/tests/pressure/use-case-expected.md plugins/onion-lasagna-kit/tests/pressure/use-case-observed.md plugins/onion-lasagna-kit/skills/onion-lasagna-use-case/SKILL.md
+git commit -m "feat(plugin): add onion lasagna use case skill"
+```
+
+---
+
+### Task 10: Add Route Skill And Expand Router
+
+**Files:**
+- Create: `plugins/onion-lasagna-kit/tests/pressure/route-prompt.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/route-expected.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/route-observed.md`
+- Create: `plugins/onion-lasagna-kit/skills/onion-lasagna-route/SKILL.md`
+- Modify: `plugins/onion-lasagna-kit/skills/onion-lasagna/SKILL.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/router-expanded-prompt.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/router-expanded-expected.md`
+- Create: `plugins/onion-lasagna-kit/tests/pressure/router-expanded-observed.md`
+
+- [ ] **Step 1: Write route pressure prompt**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/route-prompt.md`:
+
+```markdown
+# Route Skill Pressure Scenario
+
+Expose `projects.update` through a route handler that validates input, maps request and context into an `UpdateProjectCommand`, and maps the output to a response.
+```
+
+- [ ] **Step 2: Write route expected-answer key**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/route-expected.md`:
+
+```markdown
+# Route Skill Expected Behavior
+
+## RED Failure Signal
+
+The agent puts business logic in the handler, calls a repository directly, skips schema validation, or omits request/response mappers.
+
+## GREEN Success Signal
+
+The agent keeps the handler thin, uses route builders, schema adapters, request mapper, use case execution, response mapper, and framework error handling.
+```
+
+- [ ] **Step 3: Run baseline without route skill**
+
+Run:
+
+```bash
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Read only plugins/onion-lasagna-kit/tests/pressure/route-prompt.md. Do not read any *-expected.md file. Do not use any Onion Lasagna plugin skill. Answer the prompt." > /tmp/onion-route-baseline.txt
+sed -n '1,260p' /tmp/onion-route-baseline.txt
+```
+
+Expected: output exists. Save observed misses in `plugins/onion-lasagna-kit/tests/pressure/route-observed.md` under a `## RED Observed` heading.
+
+- [ ] **Step 4: Write route skill**
 
 Write `plugins/onion-lasagna-kit/skills/onion-lasagna-route/SKILL.md`:
 
@@ -1033,29 +1352,94 @@ const routes = serverRoutes(projectRouter)
 - Reuse framework adapters for error handling.
 ````
 
-- [ ] **Step 7: Run shared leaf skill pressure check**
+- [ ] **Step 5: Run route pressure scenario with skill**
 
 Run:
 
 ```bash
-codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the Onion Lasagna leaf skills from plugins/onion-lasagna-kit/skills. Read plugins/onion-lasagna-kit/tests/pressure/leaf-skills.md. For each prompt, name the skill you would use and give a concise by-the-book answer." > /tmp/onion-leaf-skills.txt
-sed -n '1,320p' /tmp/onion-leaf-skills.txt
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna-route skill from plugins/onion-lasagna-kit/skills/onion-lasagna-route/SKILL.md. Read only plugins/onion-lasagna-kit/tests/pressure/route-prompt.md. Do not read any *-expected.md file. Answer the prompt." > /tmp/onion-route-skill.txt
+sed -n '1,320p' /tmp/onion-route-skill.txt
 ```
 
-Expected: output maps each prompt to the matching leaf skill and keeps layer responsibilities separate.
+Expected: output includes a thin handler, schema adapter, request mapper, use case execution, response mapper, and error-handler delegation. Append the GREEN summary to `route-observed.md`.
 
-- [ ] **Step 8: Commit remaining skills**
+- [ ] **Step 6: Expand the router skill**
+
+Modify `plugins/onion-lasagna-kit/skills/onion-lasagna/SKILL.md` by adding these rows to `Route By Task`:
+
+```markdown
+| System design, package choices, bounded context map | `onion-lasagna-architect` |
+| New module or bounded-context skeleton | `onion-lasagna-bounded-context` |
+| Aggregate, entity, value object, event, invariant | `onion-lasagna-domain` |
+| Command, query, `BaseInboundAdapter`, authorization, app port | `onion-lasagna-use-case` |
+| HTTP route, GraphQL field, schema adapter, handler mapper | `onion-lasagna-route` |
+```
+
+Modify the `Sequencing` section to:
+
+```markdown
+For new work, use:
+
+1. architect or bounded-context;
+2. domain;
+3. use-case;
+4. adapter;
+5. route;
+6. review.
+
+For existing work, use:
+
+1. review;
+2. the focused implementation skill;
+3. review again.
+```
+
+- [ ] **Step 7: Write expanded router prompt and expected-answer key**
+
+Write `plugins/onion-lasagna-kit/tests/pressure/router-expanded-prompt.md`:
+
+```markdown
+# Expanded Router Pressure Scenario
+
+Choose the correct Onion Lasagna skill for each request:
+
+1. "Design a new customer billing bounded context."
+2. "Create a new project aggregate."
+3. "Add an UpdateProjectCommand."
+4. "Add a route that calls this use case."
+```
+
+Write `plugins/onion-lasagna-kit/tests/pressure/router-expanded-expected.md`:
+
+```markdown
+# Expanded Router Expected Behavior
+
+The agent routes to architect or bounded-context for request 1 based on scope, domain for request 2, use-case for request 3, and route for request 4. It must mention inspect-before-assume.
+```
+
+- [ ] **Step 8: Run expanded router pressure scenario**
 
 Run:
 
 ```bash
-git add plugins/onion-lasagna-kit/skills/onion-lasagna-architect/SKILL.md plugins/onion-lasagna-kit/skills/onion-lasagna-bounded-context/SKILL.md plugins/onion-lasagna-kit/skills/onion-lasagna-domain/SKILL.md plugins/onion-lasagna-kit/skills/onion-lasagna-use-case/SKILL.md plugins/onion-lasagna-kit/skills/onion-lasagna-route/SKILL.md plugins/onion-lasagna-kit/tests/pressure/leaf-skills.md
-git commit -m "feat(plugin): add onion lasagna implementation skills"
+codex exec --sandbox read-only -C /Users/bernardo/Projects/cosmneo/onion-lasagna "Load the onion-lasagna router skill from plugins/onion-lasagna-kit/skills/onion-lasagna/SKILL.md. Read only plugins/onion-lasagna-kit/tests/pressure/router-expanded-prompt.md. Do not read any *-expected.md file. Answer the routing prompt." > /tmp/onion-router-expanded-skill.txt
+sed -n '1,260p' /tmp/onion-router-expanded-skill.txt
+```
+
+Expected: output maps all four prompts to existing skills and includes inspect-before-assume. Save the result summary in `plugins/onion-lasagna-kit/tests/pressure/router-expanded-observed.md`.
+
+- [ ] **Step 9: Commit route skill and router expansion**
+
+Run:
+
+```bash
+git add plugins/onion-lasagna-kit/tests/pressure/route-prompt.md plugins/onion-lasagna-kit/tests/pressure/route-expected.md plugins/onion-lasagna-kit/tests/pressure/route-observed.md plugins/onion-lasagna-kit/tests/pressure/router-expanded-prompt.md plugins/onion-lasagna-kit/tests/pressure/router-expanded-expected.md plugins/onion-lasagna-kit/tests/pressure/router-expanded-observed.md plugins/onion-lasagna-kit/skills/onion-lasagna-route/SKILL.md plugins/onion-lasagna-kit/skills/onion-lasagna/SKILL.md
+git commit -m "feat(plugin): add onion lasagna route skill"
 ```
 
 ---
 
-### Task 7: Add Specialist Agents
+### Task 11: Add Specialist Agents
 
 **Files:**
 - Create: `plugins/onion-lasagna-kit/agents/onion-investigator.md`
@@ -1112,7 +1496,7 @@ git commit -m "feat(plugin): add onion lasagna specialist agents"
 
 ---
 
-### Task 8: Add Utility Scripts
+### Task 12: Add Utility Scripts
 
 **Files:**
 - Create: `plugins/onion-lasagna-kit/scripts/check-boundaries.ts`
@@ -1130,6 +1514,7 @@ import { join, relative } from 'node:path';
 
 const root = process.argv[2] ?? process.cwd();
 const violations: string[] = [];
+const externalPathTokens = ['..' + '/packages', '..' + '/starters', '..' + '/CLAUDE.md', 'omninode' + '-workspace'];
 
 const bannedByLayer: Array<{ layer: string; pattern: RegExp; banned: RegExp[] }> = [
   {
@@ -1165,18 +1550,22 @@ function walk(dir: string): string[] {
 for (const file of walk(root)) {
   const normalized = `/${relative(root, file).replaceAll('\\', '/')}`;
   const text = readFileSync(file, 'utf8');
+  const importText = text
+    .split('\n')
+    .filter((line) => /^\s*import\b|^\s*export\b.*\bfrom\b|require\(/.test(line))
+    .join('\n');
 
   for (const rule of bannedByLayer) {
     if (!rule.pattern.test(normalized)) continue;
     for (const banned of rule.banned) {
-      if (banned.test(text)) {
+      if (banned.test(importText)) {
         violations.push(`${normalized}: ${rule.layer} layer contains banned pattern ${banned}`);
       }
     }
   }
 
   if (normalized.startsWith('/plugins/onion-lasagna-kit/')) {
-    if (/\.\.\/(packages|starters|CLAUDE\.md)|omninode-workspace/.test(text)) {
+    if (externalPathTokens.some((token) => text.includes(token))) {
       violations.push(`${normalized}: plugin runtime file references content outside the plugin root`);
     }
   }
@@ -1234,13 +1623,13 @@ const summary = {
 console.log(JSON.stringify(summary, null, 2));
 ```
 
-- [ ] **Step 3: Run scripts against this repo**
+- [ ] **Step 3: Run script smoke tests**
 
 Run:
 
 ```bash
 bun plugins/onion-lasagna-kit/scripts/inspect-onion-project.ts .
-bun plugins/onion-lasagna-kit/scripts/check-boundaries.ts .
+bun plugins/onion-lasagna-kit/scripts/check-boundaries.ts plugins/onion-lasagna-kit
 ```
 
 Expected:
@@ -1250,6 +1639,7 @@ Onion Lasagna boundary check passed
 ```
 
 The inspector should print JSON with arrays for `boundedContexts`, `readTrees`, `writeTrees`, and `bootstrapDirs`.
+The boundary scanner is intentionally scoped to the plugin root for this smoke test; full-project boundary audits should be run on a fixture or target app after tuning the rules for that project's import style.
 
 - [ ] **Step 4: Commit scripts**
 
@@ -1262,7 +1652,7 @@ git commit -m "feat(plugin): add onion lasagna utility scripts"
 
 ---
 
-### Task 9: Validate Installability And Self-Containment
+### Task 13: Validate Installability And Self-Containment
 
 **Files:**
 - Modify: pressure transcript files under `plugins/onion-lasagna-kit/tests/pressure/`
@@ -1272,11 +1662,20 @@ git commit -m "feat(plugin): add onion lasagna utility scripts"
 Run:
 
 ```bash
-command claude plugin validate plugins/onion-lasagna-kit
-python3 /Users/bernardo/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/onion-lasagna-kit
+if command -v claude >/dev/null 2>&1; then
+  command claude plugin validate plugins/onion-lasagna-kit
+else
+  echo "SKIP: claude CLI not found"
+fi
+
+if [ -f /Users/bernardo/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py ]; then
+  python3 /Users/bernardo/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/onion-lasagna-kit
+else
+  echo "SKIP: Codex plugin validator not found"
+fi
 ```
 
-Expected: both commands exit with code `0`; Codex validator prints:
+Expected: available validators exit with code `0`. If the Codex validator is available, it prints:
 
 ```text
 Plugin validation passed: /Users/bernardo/Projects/cosmneo/onion-lasagna/plugins/onion-lasagna-kit
@@ -1292,7 +1691,35 @@ Run:
 
 Expected: no matches.
 
-- [ ] **Step 3: Validate package entry-point drift**
+- [ ] **Step 3: Run local install smoke tests**
+
+Run:
+
+```bash
+if command -v claude >/dev/null 2>&1; then
+  command claude plugin marketplace add . --scope local --sparse .claude-plugin plugins
+  command claude plugin install onion-lasagna-kit@onion-lasagna --scope local
+  command claude plugin list | rg "onion-lasagna-kit"
+  command claude plugin uninstall onion-lasagna-kit --scope local || true
+  command claude plugin marketplace remove onion-lasagna || true
+else
+  echo "SKIP: claude CLI not found"
+fi
+
+if command -v codex >/dev/null 2>&1; then
+  codex plugin marketplace add .
+  codex plugin list | rg "onion-lasagna-kit"
+  codex plugin add onion-lasagna-kit@onion-lasagna
+  codex plugin remove onion-lasagna-kit@onion-lasagna || true
+  codex plugin marketplace remove onion-lasagna || true
+else
+  echo "SKIP: codex CLI not found"
+fi
+```
+
+Expected: available plugin managers can add the marketplace, discover `onion-lasagna-kit`, install it, and remove it. Cleanup commands may print "not found" if a previous install step failed; that is acceptable only after the original failure is inspected.
+
+- [ ] **Step 4: Validate package entry-point drift**
 
 Run:
 
@@ -1321,12 +1748,12 @@ Expected:
 All 21 referenced core entry points are exported
 ```
 
-- [ ] **Step 4: Run formatting check**
+- [ ] **Step 5: Run formatting check**
 
 Run:
 
 ```bash
-bun run format:check -- plugins/onion-lasagna-kit docs/superpowers/plans/2026-06-08-onion-lasagna-kit-plugin.md
+bunx prettier --check plugins/onion-lasagna-kit docs/superpowers/plans/2026-06-08-onion-lasagna-kit-plugin.md
 ```
 
 Expected: Prettier reports files are formatted. If it reports formatting differences, run:
@@ -1335,7 +1762,7 @@ Expected: Prettier reports files are formatted. If it reports formatting differe
 bunx prettier --write plugins/onion-lasagna-kit docs/superpowers/plans/2026-06-08-onion-lasagna-kit-plugin.md
 ```
 
-- [ ] **Step 5: Run final git diff review**
+- [ ] **Step 6: Run final git diff review**
 
 Run:
 
@@ -1347,7 +1774,7 @@ git diff --check
 
 Expected: only plugin and plan files are changed; `git diff --check` exits with code `0`.
 
-- [ ] **Step 6: Commit validation updates**
+- [ ] **Step 7: Commit validation updates**
 
 Run:
 
@@ -1362,15 +1789,15 @@ git commit -m "test(plugin): validate onion lasagna kit"
 
 ### Spec Coverage
 
-- Dual Claude/Codex plugin: Tasks 1 and 9.
+- Dual Claude/Codex plugin: Tasks 1 and 13.
 - In-repo isolated layout: Task 1.
 - Router skill: Task 4.
 - Review and adapter leaf skills before router: Tasks 2, 3, and 4.
-- Remaining v1 skills: Task 6.
+- Remaining v1 skills: Tasks 6 through 10.
 - References: Tasks 2, 3, and 5.
-- Agents: Task 7.
-- Scripts: Task 8.
-- Self-containment, drift, installability, formatting, and versioning: Tasks 1 and 9.
+- Agents: Task 11.
+- Scripts: Task 12.
+- Self-containment, drift, installability, formatting, and versioning: Tasks 1 and 13.
 
 ### Placeholder Scan
 
