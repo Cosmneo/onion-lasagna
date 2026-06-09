@@ -1,0 +1,13 @@
+{
+  "name": "onion-lasagna",
+  "owner": {
+    "name": "Cosmneo"
+  },
+  "plugins": [
+    {
+      "name": "onion-lasagna-kit",
+      "source": "./plugins/onion-lasagna-kit",
+      "description": "Opinionated Onion Lasagna architecture and implementation skills"
+    }
+  ]
+}

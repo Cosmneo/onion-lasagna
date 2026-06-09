@@ -1,0 +1,24 @@
+{
+  "name": "onion-lasagna-kit",
+  "version": "0.1.0",
+  "description": "Opinionated Onion Lasagna architecture and implementation skills.",
+  "author": {
+    "name": "Cosmneo"
+  },
+  "license": "MIT",
+  "keywords": ["onion-lasagna", "clean-architecture", "bounded-contexts", "typescript", "skills"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Onion Lasagna Kit",
+    "shortDescription": "Build and review Onion Lasagna projects.",
+    "longDescription": "Use Onion Lasagna Kit to guide agents through opinionated Onion Lasagna project design, bounded contexts, domain models, use cases, outbound adapters, route handlers, and architecture reviews.",
+    "developerName": "Cosmneo",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Design an Onion Lasagna bounded context",
+      "Review this project's Onion Lasagna layering",
+      "Add an Onion Lasagna use case and route"
+    ]
+  }
+}

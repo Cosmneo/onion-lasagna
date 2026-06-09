@@ -1,0 +1,10 @@
+{
+  "name": "onion-lasagna-kit",
+  "version": "0.1.0",
+  "description": "Opinionated Onion Lasagna architecture and implementation skills.",
+  "author": {
+    "name": "Cosmneo"
+  },
+  "license": "MIT",
+  "keywords": ["onion-lasagna", "clean-architecture", "bounded-contexts", "typescript", "skills"]
+}
