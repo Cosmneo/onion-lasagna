@@ -9,7 +9,9 @@ bounded-contexts/<context>/
 |-- domain/
 |-- app/
 |-- infra/
-|-- bootstrap/
+|-- presentation/
+|   |-- bootstrap/
+|   `-- http/
 `-- index.ts
 ```
 
@@ -42,5 +44,6 @@ Use saga workflows when a user operation coordinates multiple bounded contexts a
 - Domain has no infrastructure imports.
 - App use cases depend on ports, not concrete clients.
 - Infra owns mapping and transactions.
-- Bootstrap owns concrete object construction.
+- Presentation owns transport handlers.
+- Bootstrap owns concrete object construction under the presentation layer.
 - Tests exist near domain, use cases, handlers, and projections.

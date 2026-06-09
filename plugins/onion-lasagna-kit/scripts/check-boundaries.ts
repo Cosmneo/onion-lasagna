@@ -19,6 +19,7 @@ const bannedByLayer: Array<{ layer: string; pattern: RegExp; banned: RegExp[] }>
     layer: 'domain',
     pattern: /\/domain\//,
     banned: [
+      /\/app\//,
       /\/infra\//,
       /\/presentation\//,
       /drizzle/,
@@ -32,7 +33,19 @@ const bannedByLayer: Array<{ layer: string; pattern: RegExp; banned: RegExp[] }>
   {
     layer: 'app',
     pattern: /\/app\//,
-    banned: [/\/infra\//, /drizzle/, /axios/, /fetch\(/, /hono/, /express/, /fastify/, /nestjs/],
+    banned: [
+      /\/infra\//,
+      /\/presentation\//,
+      /\/http\//,
+      /\/graphql\//,
+      /drizzle/,
+      /axios/,
+      /fetch\(/,
+      /hono/,
+      /express/,
+      /fastify/,
+      /nestjs/,
+    ],
   },
   {
     layer: 'presentation',
