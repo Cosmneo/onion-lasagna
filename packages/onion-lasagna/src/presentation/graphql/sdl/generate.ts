@@ -518,6 +518,13 @@ function registerUnionType(
 ): string {
   if (namedTypes.has(typeName)) return typeName;
 
+  // Zero-variant union — e.g. zod's `z.tuple([])` ("always-empty array")
+  // emits `{ type: 'array', items: { anyOf: [] } }`. GraphQL has no
+  // representation for a memberless union, and emitting `union X = `
+  // produces unparseable SDL that breaks the whole schema. Fall back to
+  // the JSON scalar like the other unrepresentable shapes.
+  if (variants.length === 0) return 'JSON';
+
   // Reserve.
   namedTypes.set(typeName, '');
 

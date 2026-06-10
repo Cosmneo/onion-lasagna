@@ -355,6 +355,42 @@ describe('generateGraphQLSDL', () => {
 
       expect(sdl).toContain('get: JSON');
     });
+
+    it('falls back to JSON for a zero-element tuple property instead of emitting a memberless union', () => {
+      // Zod v4 emits `{ type: 'array', items: { anyOf: [] } }` for
+      // `z.tuple([])` (the "always-empty array" modelling idiom). A
+      // memberless union (`union X = `) is unparseable SDL and used to
+      // break the ENTIRE generated schema at parse time, surfacing as a
+      // syntax error on whatever definition happened to follow it.
+      const get = defineQuery({
+        input: zodSchema(z.object({ workspaceId: z.string() })),
+        output: zodSchema(
+          z.object({
+            greetingName: z.string(),
+            todaySlots: z.tuple([]),
+          }),
+        ),
+      });
+
+      const schema = defineGraphQLSchema({ dashboard: { get } });
+      const sdl = generateGraphQLSDL(schema);
+
+      expect(sdl).toContain('todaySlots: [JSON]');
+      // No dangling `union X = ` with an empty right-hand side anywhere.
+      expect(sdl).not.toMatch(/union \w+ =\s*$/m);
+    });
+
+    it('falls back to [JSON] for a zero-element tuple at the output root', () => {
+      const get = defineQuery({
+        output: zodSchema(z.tuple([])),
+      });
+
+      const schema = defineGraphQLSchema({ get });
+      const sdl = generateGraphQLSDL(schema);
+
+      expect(sdl).toMatch(/get: \[JSON\]/);
+      expect(sdl).not.toMatch(/union \w+ =\s*$/m);
+    });
   });
 
   // -------------------------------------------------------------------------
