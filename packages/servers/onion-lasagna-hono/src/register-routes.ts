@@ -161,6 +161,21 @@ function sendResponse(c: Context, response: HandlerResponse): Response {
     return c.body(response.body, response.status as ContentfulStatusCode);
   }
 
+  // Binary / stream bodies: write raw bytes without JSON serialization so
+  // handlers can stream files, images, and other binary payloads. Must precede
+  // the explicit-content-type branch below (which JSON-serializes), since binary
+  // responses typically set a non-JSON Content-Type.
+  if (
+    ArrayBuffer.isView(response.body) ||
+    response.body instanceof ArrayBuffer ||
+    response.body instanceof ReadableStream
+  ) {
+    return c.body(
+      response.body as ArrayBuffer | ReadableStream,
+      response.status as ContentfulStatusCode,
+    );
+  }
+
   if (explicitContentType && !explicitContentType.includes('application/json')) {
     // Non-JSON explicit content-type: serialize and use c.body()
     return c.body(JSON.stringify(response.body), response.status as ContentfulStatusCode);
