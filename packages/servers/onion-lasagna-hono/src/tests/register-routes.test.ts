@@ -330,4 +330,50 @@ describe('Hono register-routes', () => {
       expect(body).toBe('Hello world');
     });
   });
+
+  describe('binary response bodies', () => {
+    // PNG magic number bytes — a representative raw binary payload.
+    const pngBytes = [137, 80, 78, 71, 13, 10, 26, 10];
+
+    const routes: UnifiedRouteInput[] = [
+      {
+        method: 'GET',
+        path: '/image',
+        handler: async () => ({
+          status: 200,
+          body: new Uint8Array(pngBytes),
+          headers: { 'Content-Type': 'image/png' },
+        }),
+        metadata: { operationId: 'getImage' },
+      },
+      {
+        method: 'GET',
+        path: '/image-text',
+        handler: async () => ({
+          status: 200,
+          body: new Uint8Array(pngBytes),
+          headers: { 'Content-Type': 'image/png' },
+        }),
+        metadata: { operationId: 'getImageText' },
+      },
+    ];
+
+    const app = new Hono();
+    app.onError(onionErrorHandler());
+    registerHonoRoutes(app, routes);
+
+    it('streams raw bytes and preserves the handler Content-Type', async () => {
+      const res = await app.request('/image');
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Content-Type')).toBe('image/png');
+      expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array(pngBytes));
+    });
+
+    it('does not JSON-serialize the Uint8Array body', async () => {
+      // Separate route/request so we don't consume the body twice.
+      const res = await app.request('/image-text');
+      const text = await res.text();
+      expect(text).not.toContain('"0":137');
+    });
+  });
 });
