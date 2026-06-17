@@ -170,6 +170,36 @@
       "require": "./dist/events/asyncapi/index.cjs",
       "default": "./dist/events/asyncapi/index.js"
     },
+    "./schedule": {
+      "types": "./dist/schedule/index.d.ts",
+      "import": "./dist/schedule/index.js",
+      "require": "./dist/schedule/index.cjs",
+      "default": "./dist/schedule/index.js"
+    },
+    "./schedule/task": {
+      "types": "./dist/schedule/task/index.d.ts",
+      "import": "./dist/schedule/task/index.js",
+      "require": "./dist/schedule/task/index.cjs",
+      "default": "./dist/schedule/task/index.js"
+    },
+    "./schedule/server": {
+      "types": "./dist/schedule/server/index.d.ts",
+      "import": "./dist/schedule/server/index.js",
+      "require": "./dist/schedule/server/index.cjs",
+      "default": "./dist/schedule/server/index.js"
+    },
+    "./schedule/shared": {
+      "types": "./dist/schedule/shared/index.d.ts",
+      "import": "./dist/schedule/shared/index.js",
+      "require": "./dist/schedule/shared/index.cjs",
+      "default": "./dist/schedule/shared/index.js"
+    },
+    "./schedule/catalog": {
+      "types": "./dist/schedule/catalog/index.d.ts",
+      "import": "./dist/schedule/catalog/index.js",
+      "require": "./dist/schedule/catalog/index.cjs",
+      "default": "./dist/schedule/catalog/index.js"
+    },
     "./graphql": {
       "types": "./dist/graphql/index.d.ts",
       "import": "./dist/graphql/index.js",
