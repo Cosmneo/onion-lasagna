@@ -29,6 +29,7 @@
   },
   "changesets": [
     "easy-islands-cry",
+    "hono-binary-response-bodies",
     "large-wolves-rush",
     "sdl-empty-tuple-union",
     "v1-audit-remediation"

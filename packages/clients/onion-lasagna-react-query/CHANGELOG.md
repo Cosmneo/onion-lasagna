@@ -1,5 +1,12 @@
 # @cosmneo/onion-lasagna-react-query
 
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- @cosmneo/onion-lasagna@1.0.0-beta.2
+- @cosmneo/onion-lasagna-client@1.0.0-beta.2
+
 ## 1.0.0-beta.1
 
 ### Patch Changes
