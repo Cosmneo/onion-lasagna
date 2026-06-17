@@ -74,7 +74,9 @@ export function defineScheduleRouter<T extends ScheduleRouterConfig>(
   const defaults = options?.defaults;
 
   const processedTasks =
-    defaults?.context || defaults?.tags ? (applyScheduleRouterDefaults(tasks, defaults) as T) : tasks;
+    defaults?.context || defaults?.tags
+      ? (applyScheduleRouterDefaults(tasks, defaults) as T)
+      : tasks;
 
   const definition: ScheduleRouterDefinition<T> = {
     tasks: processedTasks,
@@ -207,7 +209,10 @@ function deepMergeConfigs(a: ScheduleRouterConfig, b: ScheduleRouterConfig): Sch
 }
 
 // Overloads for 2–8 routers
-export function mergeScheduleRouters<T1 extends ScheduleRouterConfig, T2 extends ScheduleRouterConfig>(
+export function mergeScheduleRouters<
+  T1 extends ScheduleRouterConfig,
+  T2 extends ScheduleRouterConfig,
+>(
   r1: ScheduleRouterInput<T1>,
   r2: ScheduleRouterInput<T2>,
 ): ScheduleRouterDefinition<DeepMergeTwo<T1, T2>>;

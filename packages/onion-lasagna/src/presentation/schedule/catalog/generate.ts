@@ -62,20 +62,20 @@ export function generateScheduleCatalog(
     };
   });
 
-  const triggerCatalog: ScheduleTriggerCatalogEntry[] = Object.entries(
-    triggers,
-  ).map(([triggerId, trigger]) => {
-    if (!seenTypes.has(trigger.type)) {
-      throw new Error(
-        `Schedule trigger "${triggerId}" references unknown task type "${trigger.type}": ` +
-          `no task with that type is registered in the router.`,
-      );
-    }
-    const timezone = trigger.timezone ? { timezone: trigger.timezone } : {};
-    return isCronScheduleTrigger(trigger)
-      ? { triggerId, type: trigger.type, cron: trigger.cron, ...timezone }
-      : { triggerId, type: trigger.type, rate: trigger.rate, ...timezone };
-  });
+  const triggerCatalog: ScheduleTriggerCatalogEntry[] = Object.entries(triggers).map(
+    ([triggerId, trigger]) => {
+      if (!seenTypes.has(trigger.type)) {
+        throw new Error(
+          `Schedule trigger "${triggerId}" references unknown task type "${trigger.type}": ` +
+            `no task with that type is registered in the router.`,
+        );
+      }
+      const timezone = trigger.timezone ? { timezone: trigger.timezone } : {};
+      return isCronScheduleTrigger(trigger)
+        ? { triggerId, type: trigger.type, cron: trigger.cron, ...timezone }
+        : { triggerId, type: trigger.type, rate: trigger.rate, ...timezone };
+    },
+  );
 
   return { tasks, triggers: triggerCatalog };
 }

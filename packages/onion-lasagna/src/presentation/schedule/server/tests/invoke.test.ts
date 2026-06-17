@@ -28,7 +28,9 @@ describe('indexScheduleRoutes', () => {
   });
 
   it('throws on a duplicate type (one task per type — no fan-out)', () => {
-    expect(() => indexScheduleRoutes([route('a'), route('a')])).toThrow(/Duplicate scheduled task type/);
+    expect(() => indexScheduleRoutes([route('a'), route('a')])).toThrow(
+      /Duplicate scheduled task type/,
+    );
   });
 });
 

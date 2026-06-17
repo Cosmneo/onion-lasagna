@@ -129,7 +129,10 @@ describe('scheduleRoutes builder', () => {
   });
 
   it('buildPartial allows wiring only some tasks', () => {
-    const router = defineScheduleRouter({ reconcile, digest: defineScheduledTask({ type: 'billing.digest' }) });
+    const router = defineScheduleRouter({
+      reconcile,
+      digest: defineScheduledTask({ type: 'billing.digest' }),
+    });
     const routes = scheduleRoutes(router)
       .handle('reconcile', async () => ({ outcome: 'completed' as const }))
       .buildPartial();

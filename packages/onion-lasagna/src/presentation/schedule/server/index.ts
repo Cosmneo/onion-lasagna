@@ -1,8 +1,5 @@
 export { scheduleRoutes } from './schedule-routes-builder';
-export type {
-  ScheduleRoutesBuilder,
-  MissingTasksError,
-} from './schedule-routes-builder';
+export type { ScheduleRoutesBuilder, MissingTasksError } from './schedule-routes-builder';
 
 export {
   indexScheduleRoutes,

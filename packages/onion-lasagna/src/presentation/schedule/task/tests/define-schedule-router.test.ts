@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { defineScheduledTask } from '../define-scheduled-task';
-import {
-  defineScheduleRouter,
-  mergeScheduleRouters,
-} from '../define-schedule-router';
+import { defineScheduleRouter, mergeScheduleRouters } from '../define-schedule-router';
 import { collectScheduledTasks } from '../types';
 import { zodSchema } from '../../../http/__test-utils__/zod-schema';
 

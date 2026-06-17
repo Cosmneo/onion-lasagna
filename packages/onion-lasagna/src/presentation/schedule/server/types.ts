@@ -110,10 +110,7 @@ export interface BuilderScheduledTaskConfig<
    * Maps the validated run payload to use case input.
    * Both `schedule` and `ctx` are fully typed based on task schemas.
    */
-  readonly payloadMapper: (
-    schedule: ValidatedSchedule<T>,
-    ctx: TypedScheduleContext<T>,
-  ) => TInput;
+  readonly payloadMapper: (schedule: ValidatedSchedule<T>, ctx: TypedScheduleContext<T>) => TInput;
 
   /** The use case to execute. */
   readonly useCase: { execute(input?: TInput): Promise<TOutput> };
@@ -206,9 +203,7 @@ export interface CreateScheduleRoutesOptions {
    * decisions (handler / resultMapper / middleware). Error mapping only ever
    * yields `failed` (permanent) or `retry` (transient).
    */
-  readonly errorMapper?: (
-    error: unknown,
-  ) => Exclude<ScheduleResult, { outcome: 'skipped' }>;
+  readonly errorMapper?: (error: unknown) => Exclude<ScheduleResult, { outcome: 'skipped' }>;
 
   /**
    * Allow partial task configuration (not all tasks need to be wired).

@@ -22,10 +22,7 @@ describe('generateScheduleCatalog', () => {
     });
     const catalog = generateScheduleCatalog(router, triggers);
 
-    expect(catalog.tasks.map((t) => t.type).sort()).toEqual([
-      'billing.reconcile',
-      'outbox.sweep',
-    ]);
+    expect(catalog.tasks.map((t) => t.type).sort()).toEqual(['billing.reconcile', 'outbox.sweep']);
     const recon = catalog.tasks.find((t) => t.type === 'billing.reconcile')!;
     expect(recon.key).toBe('billing.reconcile');
     expect(recon.hasPayload).toBe(true);

@@ -6,7 +6,11 @@ transport tier alongside `http`, `graphql`, and `events`. Define a **task**
 invoke the matching task for a fired run.
 
 ```ts
-import { defineScheduledTask, defineScheduleRouter, defineScheduleTriggers } from '@cosmneo/onion-lasagna/schedule/task';
+import {
+  defineScheduledTask,
+  defineScheduleRouter,
+  defineScheduleTriggers,
+} from '@cosmneo/onion-lasagna/schedule/task';
 import { scheduleRoutes, invokeScheduledTask } from '@cosmneo/onion-lasagna/schedule/server';
 
 // 1. Task — WHAT runs (no schedule here; timing is bound separately).

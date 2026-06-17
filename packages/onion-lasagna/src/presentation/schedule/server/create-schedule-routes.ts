@@ -174,9 +174,7 @@ function createScheduledTask(
         // for explicit pipeline decisions (handler / resultMapper / middleware).
         // Defensively coerce a stray `skipped` from an untyped (JS) custom mapper.
         const mapped: ScheduleResult = errorMapper(error);
-        return mapped.outcome === 'skipped'
-          ? { outcome: 'failed', reason: mapped.reason }
-          : mapped;
+        return mapped.outcome === 'skipped' ? { outcome: 'failed', reason: mapped.reason } : mapped;
       }
     },
   };
