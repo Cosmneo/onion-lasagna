@@ -22,6 +22,12 @@ export default defineConfig({
     'events/server/index': 'src/presentation/events/server/index.ts',
     'events/shared/index': 'src/presentation/events/shared/index.ts',
     'events/asyncapi/index': 'src/presentation/events/asyncapi/index.ts',
+    // Schedule System
+    'schedule/index': 'src/presentation/schedule/index.ts',
+    'schedule/task/index': 'src/presentation/schedule/task/index.ts',
+    'schedule/server/index': 'src/presentation/schedule/server/index.ts',
+    'schedule/shared/index': 'src/presentation/schedule/shared/index.ts',
+    'schedule/catalog/index': 'src/presentation/schedule/catalog/index.ts',
     // GraphQL Presentation Layer
     'graphql/index': 'src/presentation/graphql/index.ts',
     'graphql/field/index': 'src/presentation/graphql/field/index.ts',
