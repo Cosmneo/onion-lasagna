@@ -1,5 +1,11 @@
 # @cosmneo/onion-lasagna-zod-v3
 
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- @cosmneo/onion-lasagna@1.0.0-beta.2
+
 ## 1.0.0-beta.1
 
 ### Patch Changes
