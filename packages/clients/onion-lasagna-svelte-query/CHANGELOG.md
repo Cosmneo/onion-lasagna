@@ -1,5 +1,13 @@
 # @cosmneo/onion-lasagna-svelte-query
 
+## 1.0.0-beta.3
+
+### Patch Changes
+
+- Updated dependencies [4f6bb6b]
+  - @cosmneo/onion-lasagna@1.0.0-beta.3
+  - @cosmneo/onion-lasagna-client@1.0.0-beta.3
+
 ## 1.0.0-beta.2
 
 ### Patch Changes
